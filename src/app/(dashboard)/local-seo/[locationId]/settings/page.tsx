@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { LocationSettings } from '@/components/local-seo/location-settings'
+import { GbpConnectionCard } from '@/components/local-seo/gbp-connection-card'
 import { TrackingSettings } from '@/components/local-seo/tracking-settings'
 import { gridPointCount } from '@/lib/local-seo/grid'
 import { can } from '@/lib/rbac/server'
@@ -11,7 +12,7 @@ export const dynamic = 'force-dynamic'
 export default async function LocationSettingsPage({ params }: { params: Promise<{ locationId: string }> }) {
   const { locationId } = await params
   const supabase = await createClient()
-  const [{ data: location }, { data: keywords }, { data: profiles }, { data: schedules }, { data: rules }, canManage] = await Promise.all([
+  const [{ data: location }, { data: keywords }, { data: profiles }, { data: schedules }, { data: rules }, canManage, canAdmin, canApprove, { data: connections }, { data: replySettings }, { data: gbpLink }] = await Promise.all([
     supabase
       .from('local_seo_locations')
       .select(
@@ -36,7 +37,19 @@ export default async function LocationSettingsPage({ params }: { params: Promise
       .or(`location_id.eq.${locationId},location_id.is.null`)
       .order('created_at', { ascending: true }),
     can('local_seo.manage'),
+    can('local_seo.admin'),
+    can('local_seo.approve'),
+    supabase.from('gbp_connections').select('id, google_email, status, connection_error').order('created_at', { ascending: true }),
+    supabase.from('gbp_reply_settings').select('*').maybeSingle(),
+    supabase
+      .from('local_seo_locations')
+      .select('gbp_connection_id, gbp_location_name, gbp_reviews_synced_at, gbp_sync_error')
+      .eq('id', locationId)
+      .maybeSingle(),
   ])
+  const { data: lastSnapshot } = gbpLink?.gbp_location_name
+    ? await supabase.from('gbp_profile_snapshots').select('data').eq('location_id', locationId).order('taken_at', { ascending: false }).limit(1).maybeSingle()
+    : { data: null }
   if (!location) notFound()
   const activeKeywords = (keywords ?? []).filter((k) => k.is_active).length
 
@@ -60,6 +73,33 @@ export default async function LocationSettingsPage({ params }: { params: Promise
         keywords={(keywords ?? []).map((k) => ({ id: k.id, keyword: k.keyword }))}
         reviewProfiles={(profiles ?? []).map((p) => ({ id: p.id, label: p.business_name ?? p.place_id }))}
       />
+      <div className="mt-4">
+        <GbpConnectionCard
+          locationId={location.id}
+          connections={(connections ?? []).map((c) => ({ id: c.id, email: c.google_email, status: c.status, error: c.connection_error }))}
+          linked={
+            gbpLink?.gbp_connection_id && gbpLink.gbp_location_name
+              ? {
+                  connectionId: gbpLink.gbp_connection_id,
+                  locationName: gbpLink.gbp_location_name,
+                  title: ((lastSnapshot?.data ?? null) as { title?: string } | null)?.title ?? null,
+                }
+              : null
+          }
+          syncError={gbpLink?.gbp_sync_error ?? null}
+          lastSyncedAt={gbpLink?.gbp_reviews_synced_at ?? null}
+          canAdmin={canAdmin}
+          canManage={canManage}
+          canApprove={canApprove}
+          replySettings={{
+            tone: replySettings?.tone ?? 'warm and professional',
+            signature: replySettings?.signature ?? null,
+            instructions: replySettings?.instructions ?? null,
+            autoReplyPositive: replySettings?.auto_reply_positive ?? false,
+            autoReplyMinRating: replySettings?.auto_reply_min_rating ?? 5,
+          }}
+        />
+      </div>
       <div className="mt-4">
         <TrackingSettings
           locationId={location.id}

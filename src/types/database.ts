@@ -9031,6 +9031,11 @@ export interface Database {
           google_business_profile_id: string | null
           gbp_location_name: string | null
           gbp_connection_id: string | null
+          gbp_account_name: string | null
+          gbp_reviews_synced_at: string | null
+          gbp_profile_synced_at: string | null
+          gbp_perf_synced_at: string | null
+          gbp_sync_error: string | null
           is_active: boolean
           created_by: string | null
           created_at: string
@@ -9062,6 +9067,11 @@ export interface Database {
           google_business_profile_id?: string | null
           gbp_location_name?: string | null
           gbp_connection_id?: string | null
+          gbp_account_name?: string | null
+          gbp_reviews_synced_at?: string | null
+          gbp_profile_synced_at?: string | null
+          gbp_perf_synced_at?: string | null
+          gbp_sync_error?: string | null
           is_active?: boolean
           created_by?: string | null
           created_at?: string
@@ -9093,6 +9103,11 @@ export interface Database {
           google_business_profile_id?: string | null
           gbp_location_name?: string | null
           gbp_connection_id?: string | null
+          gbp_account_name?: string | null
+          gbp_reviews_synced_at?: string | null
+          gbp_profile_synced_at?: string | null
+          gbp_perf_synced_at?: string | null
+          gbp_sync_error?: string | null
           is_active?: boolean
           created_by?: string | null
           created_at?: string
@@ -9696,6 +9711,480 @@ export interface Database {
           note?: string | null
           ref_id?: string | null
           created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      gbp_connections: {
+        Row: {
+          id: string
+          org_id: string
+          google_email: string | null
+          encrypted_tokens: string
+          scopes: string[]
+          status: 'active' | 'error' | 'revoked'
+          connection_error: string | null
+          token_expires_at: string | null
+          last_verified_at: string | null
+          connected_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          google_email?: string | null
+          encrypted_tokens: string
+          scopes?: string[]
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          token_expires_at?: string | null
+          last_verified_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          google_email?: string | null
+          encrypted_tokens?: string
+          scopes?: string[]
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          token_expires_at?: string | null
+          last_verified_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reply_settings: {
+        Row: {
+          org_id: string
+          tone: string
+          signature: string | null
+          instructions: string | null
+          auto_reply_positive: boolean
+          auto_reply_min_rating: number
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          tone?: string
+          signature?: string | null
+          instructions?: string | null
+          auto_reply_positive?: boolean
+          auto_reply_min_rating?: number
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          tone?: string
+          signature?: string | null
+          instructions?: string | null
+          auto_reply_positive?: boolean
+          auto_reply_min_rating?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reviews: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          review_name: string
+          reviewer_name: string | null
+          reviewer_photo_url: string | null
+          rating: number | null
+          comment: string | null
+          create_time: string | null
+          update_time: string | null
+          reply_comment: string | null
+          reply_update_time: string | null
+          reply_state: 'none' | 'pending' | 'replied'
+          raw: Json
+          first_seen_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          review_name: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          rating?: number | null
+          comment?: string | null
+          create_time?: string | null
+          update_time?: string | null
+          reply_comment?: string | null
+          reply_update_time?: string | null
+          reply_state?: 'none' | 'pending' | 'replied'
+          raw?: Json
+          first_seen_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          review_name?: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          rating?: number | null
+          comment?: string | null
+          create_time?: string | null
+          update_time?: string | null
+          reply_comment?: string | null
+          reply_update_time?: string | null
+          reply_state?: 'none' | 'pending' | 'replied'
+          raw?: Json
+          first_seen_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reply_drafts: {
+        Row: {
+          id: string
+          org_id: string
+          review_id: string
+          draft: string
+          model: string | null
+          source: 'ai' | 'human'
+          status: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id: string | null
+          error: string | null
+          created_by: string | null
+          approved_by: string | null
+          approved_at: string | null
+          sent_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          review_id: string
+          draft: string
+          model?: string | null
+          source?: 'ai' | 'human'
+          status?: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id?: string | null
+          error?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          review_id?: string
+          draft?: string
+          model?: string | null
+          source?: 'ai' | 'human'
+          status?: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id?: string | null
+          error?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_posts: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          post_name: string | null
+          topic_type: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary: string
+          media_url: string | null
+          cta_type: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url: string | null
+          event: Json | null
+          offer: Json | null
+          recurrence: 'none' | 'weekly' | 'monthly'
+          status: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for: string | null
+          published_at: string | null
+          search_url: string | null
+          error: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          post_name?: string | null
+          topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary: string
+          media_url?: string | null
+          cta_type?: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url?: string | null
+          event?: Json | null
+          offer?: Json | null
+          recurrence?: 'none' | 'weekly' | 'monthly'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for?: string | null
+          published_at?: string | null
+          search_url?: string | null
+          error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          post_name?: string | null
+          topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary?: string
+          media_url?: string | null
+          cta_type?: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url?: string | null
+          event?: Json | null
+          offer?: Json | null
+          recurrence?: 'none' | 'weekly' | 'monthly'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for?: string | null
+          published_at?: string | null
+          search_url?: string | null
+          error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_performance_daily: {
+        Row: {
+          org_id: string
+          location_id: string
+          date: string
+          metric: string
+          value: number
+        }
+        Insert: {
+          org_id: string
+          location_id: string
+          date: string
+          metric: string
+          value?: number
+        }
+        Update: {
+          org_id?: string
+          location_id?: string
+          date?: string
+          metric?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      gbp_search_keywords_monthly: {
+        Row: {
+          org_id: string
+          location_id: string
+          month: string
+          keyword: string
+          impressions: number | null
+          threshold: number | null
+        }
+        Insert: {
+          org_id: string
+          location_id: string
+          month: string
+          keyword: string
+          impressions?: number | null
+          threshold?: number | null
+        }
+        Update: {
+          org_id?: string
+          location_id?: string
+          month?: string
+          keyword?: string
+          impressions?: number | null
+          threshold?: number | null
+        }
+        Relationships: []
+      }
+      gbp_profile_snapshots: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          taken_at: string
+          data: Json
+          data_hash: string
+          google_updated: Json | null
+          diff: Json
+          acknowledged_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          taken_at?: string
+          data: Json
+          data_hash: string
+          google_updated?: Json | null
+          diff?: Json
+          acknowledged_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          taken_at?: string
+          data?: Json
+          data_hash?: string
+          google_updated?: Json | null
+          diff?: Json
+          acknowledged_at?: string | null
+        }
+        Relationships: []
+      }
+      gbp_change_requests: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref: string | null
+          payload: Json
+          before_state: Json | null
+          intended_state: Json | null
+          diff: Json
+          risk_level: number
+          status: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id: string | null
+          actor_label: string | null
+          idempotency_key: string
+          approval_required: boolean
+          approved_by: string | null
+          approved_at: string | null
+          attempt_count: number
+          provider_result: Json | null
+          error_message: string | null
+          verification: Json | null
+          rollback_of: string | null
+          executed_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref?: string | null
+          payload: Json
+          before_state?: Json | null
+          intended_state?: Json | null
+          diff?: Json
+          risk_level: number
+          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          idempotency_key: string
+          approval_required?: boolean
+          approved_by?: string | null
+          approved_at?: string | null
+          attempt_count?: number
+          provider_result?: Json | null
+          error_message?: string | null
+          verification?: Json | null
+          rollback_of?: string | null
+          executed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          command_type?: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref?: string | null
+          payload?: Json
+          before_state?: Json | null
+          intended_state?: Json | null
+          diff?: Json
+          risk_level?: number
+          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          idempotency_key?: string
+          approval_required?: boolean
+          approved_by?: string | null
+          approved_at?: string | null
+          attempt_count?: number
+          provider_result?: Json | null
+          error_message?: string | null
+          verification?: Json | null
+          rollback_of?: string | null
+          executed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_change_events: {
+        Row: {
+          id: string
+          org_id: string
+          change_request_id: string
+          event_type: string
+          from_status: string | null
+          to_status: string | null
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id: string | null
+          actor_label: string | null
+          detail: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          change_request_id: string
+          event_type: string
+          from_status?: string | null
+          to_status?: string | null
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          detail?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          change_request_id?: string
+          event_type?: string
+          from_status?: string | null
+          to_status?: string | null
+          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          detail?: Json
           created_at?: string
         }
         Relationships: []

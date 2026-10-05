@@ -4,38 +4,17 @@ import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
 import { z } from 'zod'
 
-import { requireFeature } from '@/lib/billing/guards'
+import { localSeoContext, type Fail } from '@/lib/local-seo/action-context'
 import { businessSearchKey } from '@/lib/local-seo/credentials'
 import { cidFromDataId } from '@/lib/local-seo/providers/serpapi'
 import { estimateScan, createScan, type ScanEstimate } from '@/lib/local-seo/scans'
 import { nextRunAt } from '@/lib/local-seo/schedules'
 import { GRID_SIZES } from '@/lib/local-seo/types'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
-import { requirePermission } from '@/lib/rbac/server'
 import { SerpApiClient, isSerpApiError } from '@/lib/serpapi/client'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { createClient, getUser } from '@/lib/supabase/server'
 
-type Fail = { error: string }
-
-type Ctx = {
-  user: { id: string }
-  supabase: Awaited<ReturnType<typeof createClient>>
-  orgId: string
-}
-
-async function context(permission: 'local_seo.view' | 'local_seo.manage'): Promise<Ctx | Fail> {
-  const user = await getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  const perm = await requirePermission(permission)
-  if (!perm.ok) return { error: perm.error ?? 'You do not have permission to do this.' }
-  const feature = await requireFeature('local_seo')
-  if (!feature.ok) return { error: feature.error }
-  const supabase = await createClient()
-  const { data: orgId } = await supabase.rpc('get_current_org_id')
-  if (!orgId) return { error: 'No active organization.' }
-  return { user, supabase, orgId: orgId as string }
-}
+const context = (permission: 'local_seo.view' | 'local_seo.manage') => localSeoContext(permission)
 
 // ---------------------------------------------------------------------------
 // Locations

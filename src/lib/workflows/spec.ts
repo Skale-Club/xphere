@@ -324,6 +324,26 @@ export const TRIGGERS: TriggerSpec[] = [
     variables: ['scan.*', 'previous.*', 'change.*', 'location.*', 'url', 'trigger.fired_at'],
   },
 
+  {
+    type: 'event:gbp.review_received',
+    description:
+      'A new Google review arrived on a location connected to Google Business Profile. review.* has id, ' +
+      'rating (1-5), comment and reviewer_name; location.* the business. Use gbp_draft_review_reply to draft an answer.',
+    variables: ['review.*', 'location.*', 'url', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:gbp.review_negative',
+    description: 'A new Google review with 1 to 3 stars (fires in addition to gbp.review_received). Same variables.',
+    variables: ['review.*', 'location.*', 'url', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:gbp.google_update_detected',
+    description:
+      'The Business Profile changed outside Xphere — Google applied its own edit (by_google = true) or someone ' +
+      'edited it elsewhere. fields lists what changed.',
+    variables: ['location.*', 'fields', 'by_google', 'url', 'trigger.fired_at'],
+  },
+
   // ─── Analytics events (Analytics module). Tenant-scoped only — emitted by the
   // ingest pipeline when a visitor or session event matches a conversion or
   // behavioral condition. NOT available in Superadmin Analytics scope.
@@ -904,6 +924,55 @@ export const NODES: NodeSpec[] = [
     },
   },
   {
+    type: 'gbp_draft_review_reply',
+    kind: 'action',
+    description:
+      'Draft an AI reply to a Google review (org tone and signature). Nothing is published; with ' +
+      'submit_for_approval:true the draft is queued for a person with local_seo.approve. Returns draft_id and text.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        review_id: { type: 'string', description: 'gbp_reviews id, e.g. {{review.id}}.' },
+        submit_for_approval: { type: 'boolean', description: 'Queue the draft for approval in Local SEO → Reviews.' },
+      },
+      required: ['review_id'],
+    },
+  },
+  {
+    type: 'gbp_propose_post',
+    kind: 'action',
+    description:
+      'Propose a Google Business Profile post. It waits for approval in Local SEO → Posts; nothing goes live by itself.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        location_id: { type: 'string', description: 'local_seo_locations id.' },
+        summary: { type: 'string', description: 'Post text, up to 1,500 characters.' },
+        media_url: { type: 'string', description: 'Optional public image URL.' },
+        cta_type: { type: 'string', enum: ['BOOK', 'ORDER', 'SHOP', 'LEARN_MORE', 'SIGN_UP', 'CALL'] },
+        cta_url: { type: 'string' },
+      },
+      required: ['location_id', 'summary'],
+    },
+  },
+  {
+    type: 'gbp_propose_profile_change',
+    kind: 'action',
+    description:
+      'Propose a Business Profile edit (description, website or phone). It waits for approval in Local SEO → Profile, ' +
+      'where it is checked for drift, published and read back. Already-equal values return {skipped:true}.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        location_id: { type: 'string' },
+        description: { type: 'string' },
+        website: { type: 'string' },
+        phone: { type: 'string' },
+      },
+      required: ['location_id'],
+    },
+  },
+  {
     type: 'contact_create',
     kind: 'action',
     description:
@@ -1417,6 +1486,9 @@ export const VARIABLE_NAMESPACES = {
     'Per-metric movement on event:local_seo.rank_changed: change.solv / arp / atrp / found_pct, ' +
     'each {from, to, delta, worse}.',
   location: 'Tracked Local SEO business: id, name, business_name, address, place_id.',
+  review: 'Google review on event:gbp.review_*: id, rating (1-5), comment, reviewer_name.',
+  fields: 'Profile fields that changed on event:gbp.google_update_detected (array of names).',
+  by_google: 'true when Google itself applied the profile change (event:gbp.google_update_detected).',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

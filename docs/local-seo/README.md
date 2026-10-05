@@ -86,6 +86,55 @@ ends `partial`. Scans are only compared when their `comparable_key` matches
   (`local_seo_competitors`) get a SoLV-over-time line next to the business.
   "View as" on the Rankings map recolours the grid by a competitor's rank.
 
+## Google Business Profile (Phases 3 and 4)
+
+**Before it can work** (human steps, see SPEC section 1):
+1. Request Business Profile API access for the Google Cloud project behind
+   `GOOGLE_CLIENT_ID`. Until Google approves, every call returns quota 0 and
+   the location picker says so.
+2. Enable these APIs on the project: My Business Account Management, My
+   Business Business Information, Business Profile Performance, and the
+   Google My Business API (v4, reviews and posts).
+3. Add the redirect URI `https://xphere.app/api/local-seo/gbp/callback` to the
+   OAuth client, and the `business.manage` scope to the consent screen.
+   Verify the app: in Testing mode refresh tokens die after 7 days.
+4. Add the cron below to skale-cron.
+
+```
+*/15 * * * *  gbp-sync-tick  GET https://origin.xphere.app/api/cron/gbp-sync-tick  expected 900s
+```
+
+**Flow:** Settings → Connect a Google account (needs `local_seo.admin`) → Pick
+location. The tick then syncs reviews every 15 min (oldest first) and, once a
+day per location, the profile snapshot and performance (90 days back the
+first time, then the last 10 days; search keywords for the last 3 months).
+
+**Every write goes through `gbp_change_requests`** (`src/lib/gbp/commands.ts`):
+propose → (approve) → execute → read back. A person with `local_seo.approve`
+approves by submitting; members, workflows and AI always wait for approval.
+The only automatic writes are the org's opt-in auto-reply for 4–5★ reviews
+and posts scheduled by an approver. Profile edits check for drift (the field
+changed after the preview) and use `validateOnly` before writing; a published
+edit can be rolled back. Successful profile edits and posts become annotations
+on the Trends chart.
+
+**Detection:** a daily snapshot is compared with the previous one; a change
+not made through Xphere, or Google's `hasGoogleUpdated` flag, raises an alert
+(in-app), an annotation and `event:gbp.google_update_detected`.
+
+**Widget:** once a reviews profile's business is connected and synced, the
+public widget (`/api/reviews/[token]`) serves the official reviews with the
+same output contract; otherwise it keeps the SerpAPI scrape.
+
+**Workflows:** triggers `event:gbp.review_received`, `event:gbp.review_negative`
+(≤ 3★), `event:gbp.google_update_detected`; actions `gbp_draft_review_reply`,
+`gbp_propose_post`, `gbp_propose_profile_change` (propose only). **MCP:**
+`gbp_list_reviews`, `gbp_create_reply_draft`, `gbp_propose_change`.
+
+| Setting | Purpose |
+|---|---|
+| `GBP_REPLY_MODEL` | OpenRouter model for reply drafts (default `anthropic/claude-haiku-4.5`) |
+
 ## Data retention
 
 `local_seo_serp_results` (top 20 per point) is pruned after 60 days. Each point

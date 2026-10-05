@@ -15,14 +15,20 @@ import { runFlowSync } from '@/lib/workflows/run-flow-sync'
 
 type Admin = SupabaseClient<Database>
 
-export type LocalSeoEvent = 'local_seo.scan_completed' | 'local_seo.rank_changed'
+export type LocalSeoEvent =
+  | 'local_seo.scan_completed'
+  | 'local_seo.rank_changed'
+  | 'gbp.review_received'
+  | 'gbp.review_negative'
+  | 'gbp.google_update_detected'
 
 export async function dispatchLocalSeoWorkflowEvent(
   admin: Admin,
   orgId: string,
   event: LocalSeoEvent,
-  scanId: string,
+  sourceId: string,
   payload: Record<string, unknown>,
+  sourceTable = 'local_seo_scans',
 ): Promise<{ dispatched: number }> {
   try {
     const { data: matched } = await admin
@@ -38,10 +44,10 @@ export async function dispatchLocalSeoWorkflowEvent(
     await admin.from('event_dispatches').insert({
       org_id: orgId,
       event_type: event,
-      source_table: 'local_seo_scans',
-      source_id: scanId,
+      source_table: sourceTable,
+      source_id: sourceId,
       workflow_ids: workflows.map((w) => w.id),
-      payload: { event, scan_id: scanId } as Json,
+      payload: { event, source_id: sourceId } as Json,
     })
     if (!workflows.length) return { dispatched: 0 }
 

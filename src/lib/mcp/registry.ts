@@ -36,6 +36,7 @@ import { prospectSendMessageTools } from './tools/prospect-send-message'
 import { emailVerificationTools } from './tools/email-verification'
 import { metaAudienceTools } from './tools/meta-audiences'
 import { localSeoTools } from './tools/local-seo'
+import { gbpTools } from './tools/gbp'
 
 export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...projectsTools,
@@ -66,6 +67,7 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...adsGoogleCustomerMatchTools,
   ...adsGoogleBiddingReadTools,
   ...localSeoTools,
+  ...gbpTools,
   ...organizationsTools,
   ...prospectsTools,
   ...prospectSendMessageTools,

@@ -9,6 +9,9 @@ const TABS = [
   { label: 'Rankings', segment: '' },
   { label: 'Trends', segment: 'trends' },
   { label: 'Competitors', segment: 'competitors' },
+  { label: 'Reviews', segment: 'reviews' },
+  { label: 'Posts', segment: 'posts' },
+  { label: 'Profile', segment: 'profile' },
   { label: 'Settings', segment: 'settings' },
 ]
 
