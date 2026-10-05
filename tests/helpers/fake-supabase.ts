@@ -124,6 +124,15 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   contains() {
     return this
   }
+  like(c: string, pattern: string) {
+    const re = new RegExp(`^${pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`)
+    this.filters.push((r) => typeof r[c] === 'string' && re.test(r[c] as string))
+    return this
+  }
+  /** PostgREST `or` strings are not parsed: no filtering (callers' other filters still apply). */
+  or() {
+    return this
+  }
   order(col: string, opts: { ascending?: boolean } = {}) {
     this.orders.push({ col, asc: opts.ascending !== false })
     return this

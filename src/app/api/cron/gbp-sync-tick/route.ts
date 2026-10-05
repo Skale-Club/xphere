@@ -2,10 +2,11 @@
 //
 // Google Business Profile tick (every 15 minutes from skale-cron, against
 // origin.xphere.app):
-//   1. retry ledger changes left queued by a transient error
-//   2. publish scheduled posts that are due
-//   3. sync reviews of the least recently synced connected locations
-//   4. daily profile snapshot (Google-update detection) and performance pull
+//   1. publish scheduled posts that are due
+//   2. sync reviews of the least recently synced connected locations
+//   3. daily profile snapshot (Google-update detection) and performance pull
+// Retrying writes left queued by a transient error is ads-changes-tick's job:
+// every Business Profile write is a change in the Ads Command Engine ledger.
 // Each location is isolated: one failing location records gbp_sync_error and
 // the tick moves on. See src/lib/gbp/sync.ts.
 //
@@ -19,7 +20,6 @@ import { createClient } from '@supabase/supabase-js'
 
 import type { Database } from '@/types/database'
 import { captureApiError } from '@/lib/api-error'
-import { runQueuedChanges } from '@/lib/gbp/commands'
 import { publishDuePosts, syncPerformance, syncProfile, syncReviews } from '@/lib/gbp/sync'
 
 const CRON_SECRET = process.env.CRON_SECRET
@@ -43,10 +43,9 @@ export async function GET(request: Request): Promise<Response> {
 
   const started = Date.now()
   const admin = createClient<Database>(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
-  const summary = { retried: 0, posts: 0, reviews: 0, newReviews: 0, profiles: 0, performance: 0, errors: 0 }
+  const summary = { posts: 0, reviews: 0, newReviews: 0, profiles: 0, performance: 0, errors: 0 }
 
   try {
-    summary.retried = await runQueuedChanges(admin)
     summary.posts = await publishDuePosts(admin)
 
     const { data: locations } = await admin

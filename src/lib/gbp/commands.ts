@@ -1,35 +1,41 @@
 import 'server-only'
 
-// Business Profile change ledger — the ONLY path that writes to Google.
-// Same shape as the Ads Command Engine (docs/ads/control-plane.md):
+// Business Profile writes from Local SEO.
 //
-//   propose  snapshot the current state, compute the diff, decide whether a
-//            human must approve, record the request
-//   approve  a person with local_seo.approve releases it
-//   execute  write to Google; profile edits first check for drift (the field
-//            changed since the snapshot) and validate with validateOnly
-//   verify   read back from Google and compare with what was intended
-//   rollback a profile edit is undone by a NEW request carrying the old values
+// There is one ledger for every Business Profile write: the Ads Command Engine
+// (src/lib/ads/commands/engine.ts, docs/ads/control-plane.md) — preview,
+// policy, Google validateOnly, approval, write, read-back, rollback. This
+// module only turns Local SEO's intents (reply to this review, publish this
+// post, edit these profile fields) into engine commands, applies Local SEO's
+// approval rules, and links its own rows (reply drafts, posts) to the change.
+// What happens to those rows when a change settles lives in ledger-effects.ts.
 //
 // Approval rules:
 //   * a user who holds local_seo.approve approves by submitting
-//   * the auto-reply for 4-5 star reviews (org setting) runs without approval
-//   * everything else — AI drafts, workflows, anyone without approve, every
-//     reply to a <= 3 star review that did not come from such a user — waits
-
-import { createHash, randomUUID } from 'node:crypto'
+//   * the opt-in auto-reply to 4-5★ reviews and a post scheduled by an
+//     approver run without a further approval (engine actor type 'system')
+//   * everything else — AI drafts, workflows, anyone without approve — waits
+//     for approval in Local SEO or Ads → Changes
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import type { Database, Json } from '@/types/database'
-import { createLogger } from '@/lib/obs/logger'
+import type { AdsCommand } from '@/lib/ads/commands/catalog'
+import {
+  approveChange as engineApprove,
+  cancelChange as engineCancel,
+  previewChange as enginePreview,
+  rollbackChange as engineRollback,
+  type ChangeView,
+  type EngineFailure,
+} from '@/lib/ads/commands/engine'
+import type { AdsActor, ChangeStatus } from '@/lib/ads/commands/types'
+import type { Database } from '@/types/database'
 
-import { GbpApiError, GbpClient, type GbpLocalPost } from './client'
-import { buildLocationPatch, diffProfiles, EDITABLE_FIELDS, flattenProfile, type FieldDiff, type ProfilePatch } from './profile'
+import { locationTarget, upsertEngineTarget } from './engine-targets'
+import { DAYS, EDITABLE_FIELDS, type HoursRow, type ProfilePatch } from './profile'
 
 type Admin = SupabaseClient<Database>
-type ChangeRow = Database['public']['Tables']['gbp_change_requests']['Row']
-type ChangeStatus = ChangeRow['status']
+type PostRow = Database['public']['Tables']['gbp_posts']['Row']
 
 export type GbpCommand =
   | { type: 'review.reply'; reviewId: string; comment: string; draftId?: string | null }
@@ -42,437 +48,326 @@ export type GbpActor = {
   type: 'user' | 'ai' | 'workflow' | 'system'
   id?: string | null
   label: string
-  /** The actor holds local_seo.approve (users only). */
+  /** The actor holds local_seo.approve (users), or an approver set it up (system). */
   canApprove?: boolean
   /** Org auto-reply policy allows this write without a human (positive reviews only). */
   autoApproved?: boolean
 }
 
+/** The slice of an engine change Local SEO callers read. */
+export type LedgerChange = Pick<ChangeView, 'id' | 'status' | 'error_message' | 'command_type'>
+
 export type ProposeResult =
-  | { ok: true; change: ChangeRow; executed: boolean }
-  | { ok: false; code: 'not_connected' | 'not_found' | 'invalid' | 'no_op' | 'provider_error'; message: string }
+  | { ok: true; change: LedgerChange; executed: boolean }
+  | { ok: false; code: 'not_connected' | 'not_found' | 'invalid' | 'no_op' | 'provider_error' | 'forbidden'; message: string }
 
-const MAX_ATTEMPTS = 3
-const log = createLogger({ module: 'gbp/commands' })
+type Fail = Extract<ProposeResult, { ok: false }>
 
-async function recordEvent(
-  admin: Admin,
-  change: Pick<ChangeRow, 'id' | 'org_id'>,
-  eventType: string,
-  from: ChangeStatus | null,
-  to: ChangeStatus | null,
-  actor: Pick<GbpActor, 'type' | 'id' | 'label'>,
-  detail: Record<string, unknown> = {},
-) {
-  await admin.from('gbp_change_events').insert({
-    org_id: change.org_id,
-    change_request_id: change.id,
-    event_type: eventType,
-    from_status: from,
-    to_status: to,
-    actor_type: actor.type,
-    actor_id: actor.id ?? null,
-    actor_label: actor.label,
-    detail: detail as Json,
-  })
+const fail = (code: Fail['code'], message: string): Fail => ({ ok: false, code, message })
+
+function slim(change: ChangeView): LedgerChange {
+  return { id: change.id, status: change.status, error_message: change.error_message, command_type: change.command_type }
 }
 
-/** Conditional status move; returns the row only if this caller won the race. */
-async function transition(
-  admin: Admin,
-  change: ChangeRow,
-  from: ChangeStatus[],
-  to: ChangeStatus,
-  extra: Partial<ChangeRow> = {},
-): Promise<ChangeRow | null> {
-  const { data } = await admin
-    .from('gbp_change_requests')
-    .update({ status: to, ...extra } as never)
-    .eq('id', change.id)
-    .in('status', from)
-    .select('*')
-  return (data?.[0] as ChangeRow | undefined) ?? null
+function engineFailure(res: EngineFailure): Fail {
+  switch (res.code) {
+    case 'no_op':
+      return fail('no_op', res.message)
+    case 'resource_not_found':
+    case 'not_found':
+      return fail('not_found', res.message)
+    case 'no_connection':
+    case 'connection_error':
+      return fail('not_connected', res.message)
+    case 'forbidden':
+    case 'policy_blocked':
+    case 'approval_requires_human':
+      return fail('forbidden', res.message)
+    case 'provider_unavailable':
+    case 'provider_rejected':
+      return fail('provider_error', res.message)
+    default:
+      return fail('invalid', res.message)
+  }
 }
 
-function hashKey(parts: unknown[]): string {
-  return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 40)
+// ---------------------------------------------------------------------------
+// Actors
+// ---------------------------------------------------------------------------
+
+/**
+ * Local SEO actor → engine actor. `delegated` marks a write that runs on an
+ * approver's authority without a person clicking now (auto-reply, schedule).
+ */
+export function toAdsActor(actor: GbpActor, delegated = false): AdsActor {
+  const label = actor.label.includes(':') ? actor.label : `local-seo:${actor.label}`
+  if (actor.type === 'user') {
+    // Reaching here already required local_seo.manage.
+    return { type: 'user', id: actor.id ?? null, label: `user:${actor.label}`, canManage: true, canApprove: actor.canApprove === true }
+  }
+  if (delegated) return { type: 'system', id: actor.id ?? null, label, canManage: true, canApprove: true }
+  return { type: actor.type === 'system' ? 'workflow' : actor.type, id: actor.id ?? null, label, canManage: false, canApprove: false }
+}
+
+// ---------------------------------------------------------------------------
+// Local SEO intent → engine commands
+// ---------------------------------------------------------------------------
+
+/** Next day for an overnight period ("22:00-02:00"). */
+function closeDay(row: HoursRow): HoursRow['day'] {
+  const overnight = row.close !== '24:00' && row.close <= row.open
+  return overnight ? DAYS[(DAYS.indexOf(row.day) + 1) % 7] : row.day
+}
+
+/** ProfilePatch → update_info and/or set_regular_hours. Pure. */
+export function profileCommands(target: string, patch: ProfilePatch): AdsCommand[] | Fail {
+  const base = { platform: 'google_business' as const, ad_account_id: target }
+  const fields = Object.keys(patch).filter((k) => (EDITABLE_FIELDS as readonly string[]).includes(k))
+  if (!fields.length) return fail('invalid', 'Nothing to change.')
+  const out: AdsCommand[] = []
+  const info: Record<string, unknown> = {}
+  if ('description' in patch) info.description = patch.description?.trim() || null
+  if ('websiteUri' in patch) info.website_url = patch.websiteUri?.trim() || null
+  if ('primaryPhone' in patch) {
+    if (!patch.primaryPhone?.trim()) return fail('invalid', 'Google requires a primary phone; it can be changed but not removed.')
+    info.primary_phone = patch.primaryPhone.trim()
+  }
+  if (Object.keys(info).length) out.push({ ...base, type: 'google_business.location.update_info', ...info } as AdsCommand)
+  if ('hours' in patch) {
+    const rows = patch.hours ?? []
+    if (!rows.length) return fail('invalid', 'Add at least one opening period, or mark the business closed instead.')
+    out.push({
+      ...base,
+      type: 'google_business.location.set_regular_hours',
+      periods: rows.map((r) => ({ open_day: r.day, open_time: r.open, close_day: closeDay(r), close_time: r.close })),
+    } as AdsCommand)
+  }
+  return out
+}
+
+type GooglePostEvent = { title?: string; schedule?: Record<string, { year?: number; month?: number; day?: number; hours?: number; minutes?: number }> }
+
+function isoFromParts(date?: { year?: number; month?: number; day?: number }, time?: { hours?: number; minutes?: number }): string | null {
+  if (!date?.year || !date.month || !date.day) return null
+  return new Date(Date.UTC(date.year, date.month - 1, date.day, time?.hours ?? 0, time?.minutes ?? 0)).toISOString()
+}
+
+/** A Local SEO post row → local_post.create. Pure. */
+export function postCreateCommand(target: string, post: PostRow, language: string): AdsCommand {
+  const event = post.event as GooglePostEvent | null
+  const start = isoFromParts(event?.schedule?.startDate, event?.schedule?.startTime)
+  const end = isoFromParts(event?.schedule?.endDate, event?.schedule?.endTime)
+  const offer = post.offer as { couponCode?: string; redeemOnlineUrl?: string; termsConditions?: string } | null
+  return {
+    platform: 'google_business',
+    ad_account_id: target,
+    type: 'google_business.local_post.create',
+    summary: post.summary,
+    language_code: language,
+    topic_type: post.topic_type,
+    ...(post.media_url ? { photo_url: post.media_url } : {}),
+    ...(post.cta_type ? { cta_type: post.cta_type } : {}),
+    ...(post.cta_type && post.cta_type !== 'CALL' && post.cta_url ? { cta_url: post.cta_url } : {}),
+    ...(event?.title && start && end ? { event: { title: event.title, start, end } } : {}),
+    ...(post.topic_type === 'OFFER' && offer
+      ? {
+          offer: {
+            ...(offer.couponCode ? { coupon_code: offer.couponCode } : {}),
+            ...(offer.redeemOnlineUrl ? { redeem_online_url: offer.redeemOnlineUrl } : {}),
+            ...(offer.termsConditions ? { terms: offer.termsConditions } : {}),
+          },
+        }
+      : {}),
+  } as AdsCommand
+}
+
+type Resolved = {
+  target: string
+  commands: AdsCommand[]
+  /** Review rating, for the auto-reply rule. */
+  rating: number | null
+  link?: { table: 'gbp_reply_drafts' | 'gbp_posts'; id: string }
+  reviewId?: string
+}
+
+async function resolve(admin: Admin, orgId: string, locationId: string, command: GbpCommand): Promise<Resolved | Fail> {
+  const { data: location } = await admin
+    .from('local_seo_locations')
+    .select('id, org_id, business_name, language, gbp_connection_id, gbp_account_name, gbp_location_name')
+    .eq('id', locationId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  if (!location) return fail('not_found', 'Location not found.')
+  const target = locationTarget(location)
+  if (!target || !location.gbp_connection_id) return fail('not_connected', 'Connect this location to Google Business Profile first.')
+
+  // A location linked before the engine target existed gets it now.
+  const { data: engineTarget } = await admin
+    .from('ads_connections')
+    .select('id')
+    .eq('org_id', orgId)
+    .eq('platform', 'google_business')
+    .eq('ad_account_id', target)
+    .maybeSingle()
+  if (!engineTarget) {
+    const created = await upsertEngineTarget(admin, {
+      orgId,
+      connectionId: location.gbp_connection_id,
+      accountName: location.gbp_account_name!,
+      locationName: location.gbp_location_name!,
+      title: location.business_name,
+    })
+    if (created.error) return fail('invalid', created.error)
+  }
+
+  const base = { platform: 'google_business' as const, ad_account_id: target }
+  switch (command.type) {
+    case 'review.reply':
+    case 'review.delete_reply': {
+      const { data: review } = await admin
+        .from('gbp_reviews')
+        .select('id, review_name, rating, reply_comment')
+        .eq('id', command.reviewId)
+        .eq('org_id', orgId)
+        .maybeSingle()
+      if (!review) return fail('not_found', 'Review not found.')
+      if (command.type === 'review.reply') {
+        const comment = command.comment.trim()
+        if (!comment || comment.length > 4000) return fail('invalid', 'A reply needs 1 to 4,000 characters.')
+        if (comment === review.reply_comment) return fail('no_op', 'That reply is already published.')
+        return {
+          target,
+          rating: review.rating,
+          reviewId: review.id,
+          link: command.draftId ? { table: 'gbp_reply_drafts', id: command.draftId } : undefined,
+          commands: [{ ...base, type: 'google_business.review.reply', review_id: review.review_name, comment } as AdsCommand],
+        }
+      }
+      if (!review.reply_comment) return fail('no_op', 'This review has no reply.')
+      return {
+        target,
+        rating: review.rating,
+        commands: [{ ...base, type: 'google_business.review.delete_reply', review_id: review.review_name } as AdsCommand],
+      }
+    }
+    case 'profile.update': {
+      const commands = profileCommands(target, command.patch)
+      if (!Array.isArray(commands)) return commands
+      return { target, rating: null, commands }
+    }
+    case 'post.create':
+    case 'post.delete': {
+      const { data: post } = await admin.from('gbp_posts').select('*').eq('id', command.postId).eq('org_id', orgId).maybeSingle()
+      if (!post) return fail('not_found', 'Post not found.')
+      if (command.type === 'post.create') {
+        if (post.status === 'live') return fail('no_op', 'This post is already live.')
+        return {
+          target,
+          rating: null,
+          link: { table: 'gbp_posts', id: post.id },
+          commands: [postCreateCommand(target, post, location.language || 'en')],
+        }
+      }
+      if (!post.post_name) return fail('no_op', 'This post was never published.')
+      return { target, rating: null, commands: [{ ...base, type: 'google_business.local_post.delete', post_id: post.post_name } as AdsCommand] }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Propose
 // ---------------------------------------------------------------------------
 
+const SEVERITY: Partial<Record<ChangeStatus, number>> = { failed: 5, drifted: 4, expired: 4, cancelled: 3, awaiting_approval: 2, queued: 1 }
+
 export async function proposeChange(
   admin: Admin,
   input: { orgId: string; locationId: string; command: GbpCommand; actor: GbpActor; idempotencyKey?: string; rollbackOf?: string | null },
 ): Promise<ProposeResult> {
-  const { orgId, locationId, command, actor } = input
-  const { data: location } = await admin
-    .from('local_seo_locations')
-    .select('id, org_id, gbp_location_name, gbp_connection_id')
-    .eq('id', locationId)
-    .eq('org_id', orgId)
-    .maybeSingle()
-  if (!location) return { ok: false, code: 'not_found', message: 'Location not found.' }
-  if (!location.gbp_location_name || !location.gbp_connection_id) {
-    return { ok: false, code: 'not_connected', message: 'Connect this location to Google Business Profile first.' }
-  }
+  const { orgId, command, actor } = input
+  const resolved = await resolve(admin, orgId, input.locationId, command)
+  if ('ok' in resolved) return resolved
 
-  let before: unknown = null
-  let intended: unknown = null
-  let diff: FieldDiff[] = []
-  let risk = 2
-  let targetRef: string | null = null
-  let reviewRating: number | null = null
+  const autoPositive = actor.autoApproved === true && command.type === 'review.reply' && (resolved.rating ?? 0) >= 4
+  const delegated = actor.type === 'system' ? actor.canApprove === true : autoPositive
+  const engineActor = toAdsActor(actor, delegated)
+  // Approvers (and their automations) publish now; everyone else proposes.
+  const publishNow = engineActor.canApprove
 
-  if (command.type === 'review.reply' || command.type === 'review.delete_reply') {
-    const { data: review } = await admin.from('gbp_reviews').select('*').eq('id', command.reviewId).eq('org_id', orgId).maybeSingle()
-    if (!review) return { ok: false, code: 'not_found', message: 'Review not found.' }
-    targetRef = review.review_name
-    reviewRating = review.rating
-    before = { reply: review.reply_comment }
-    if (command.type === 'review.reply') {
-      const comment = command.comment.trim()
-      if (!comment || comment.length > 4000) return { ok: false, code: 'invalid', message: 'A reply needs 1 to 4,000 characters.' }
-      if (comment === review.reply_comment) return { ok: false, code: 'no_op', message: 'That reply is already published.' }
-      intended = { reply: comment }
-      diff = [{ field: 'reply', before: review.reply_comment, after: comment }]
-      risk = (review.rating ?? 5) <= 3 ? 3 : 2
-    } else {
-      if (!review.reply_comment) return { ok: false, code: 'no_op', message: 'This review has no reply.' }
-      intended = { reply: null }
-      diff = [{ field: 'reply', before: review.reply_comment, after: null }]
-      risk = 3
-    }
-  } else if (command.type === 'profile.update') {
-    const fields = Object.keys(command.patch).filter((k) => (EDITABLE_FIELDS as readonly string[]).includes(k))
-    if (!fields.length) return { ok: false, code: 'invalid', message: 'Nothing to change.' }
-    const conn = await GbpClient.forLocation(admin, locationId)
-    if (!conn) return { ok: false, code: 'not_connected', message: 'Connect this location to Google Business Profile first.' }
-    try {
-      const current = flattenProfile(await conn.client.getLocation(conn.locationName))
-      before = Object.fromEntries(fields.map((f) => [f, current[f as keyof typeof current]]))
-    } catch (err) {
-      return { ok: false, code: 'provider_error', message: err instanceof Error ? err.message : 'Could not read the profile.' }
-    }
-    intended = Object.fromEntries(fields.map((f) => [f, command.patch[f as keyof ProfilePatch] ?? null]))
-    diff = diffProfiles(before as Record<string, unknown>, intended as Record<string, unknown>, fields)
-    if (!diff.length) return { ok: false, code: 'no_op', message: 'The profile already has these values.' }
-    risk = fields.some((f) => f === 'primaryPhone' || f === 'hours') ? 3 : 2
-    targetRef = fields.join(',')
-  } else {
-    const { data: post } = await admin.from('gbp_posts').select('*').eq('id', command.postId).eq('org_id', orgId).maybeSingle()
-    if (!post) return { ok: false, code: 'not_found', message: 'Post not found.' }
-    targetRef = post.id
-    if (command.type === 'post.create') {
-      if (post.status === 'live') return { ok: false, code: 'no_op', message: 'This post is already live.' }
-      intended = { summary: post.summary, topic_type: post.topic_type, cta_type: post.cta_type, cta_url: post.cta_url, media_url: post.media_url }
-      diff = [{ field: 'post', before: null, after: post.summary }]
-      risk = 2
-    } else {
-      if (!post.post_name) return { ok: false, code: 'no_op', message: 'This post was never published.' }
-      before = { post_name: post.post_name, summary: post.summary }
-      diff = [{ field: 'post', before: post.summary, after: null }]
-      risk = 3
-    }
-  }
-
-  // A person with approve rights (or a schedule one of them set) approves by submitting.
-  const approverSubmits = (actor.type === 'user' || actor.type === 'system') && actor.canApprove === true
-  const autoPositive = actor.autoApproved === true && command.type === 'review.reply' && (reviewRating ?? 0) >= 4
-  const approvalRequired = !(approverSubmits || autoPositive)
-
-  const idempotencyKey = input.idempotencyKey ?? hashKey([command, intended, approverSubmits ? actor.id : randomUUID()])
-  const { data: existing } = await admin
-    .from('gbp_change_requests')
-    .select('*')
-    .eq('org_id', orgId)
-    .eq('idempotency_key', idempotencyKey)
-    .maybeSingle()
-  if (existing) return { ok: true, change: existing, executed: false }
-
-  const { data: change, error } = await admin
-    .from('gbp_change_requests')
-    .insert({
-      org_id: orgId,
-      location_id: locationId,
-      command_type: command.type,
-      target_ref: targetRef,
-      payload: command as unknown as Json,
-      before_state: before as Json,
-      intended_state: intended as Json,
-      diff: diff as unknown as Json,
-      risk_level: risk,
-      status: approvalRequired ? 'awaiting_approval' : 'queued',
-      actor_type: actor.type,
-      actor_id: actor.id ?? null,
-      actor_label: actor.label,
-      idempotency_key: idempotencyKey,
-      approval_required: approvalRequired,
-      approved_by: approvalRequired ? null : (actor.id ?? null),
-      approved_at: approvalRequired ? null : new Date().toISOString(),
-      rollback_of: input.rollbackOf ?? null,
+  const results: LedgerChange[] = []
+  for (const [i, adsCommand] of resolved.commands.entries()) {
+    const preview = await enginePreview({
+      orgId,
+      actor: engineActor,
+      command: adsCommand,
+      idempotencyKey: input.idempotencyKey && (resolved.commands.length > 1 ? `${input.idempotencyKey}:${i}` : input.idempotencyKey),
+      rollbackOf: input.rollbackOf ?? undefined,
     })
-    .select('*')
-    .single()
-  if (error || !change) return { ok: false, code: 'invalid', message: error?.message ?? 'Could not record the change.' }
-  await recordEvent(admin, change, 'proposed', null, change.status, actor, { diff })
-
-  if (command.type === 'review.reply') {
-    if (command.draftId) {
-      await admin
-        .from('gbp_reply_drafts')
-        .update({ change_request_id: change.id, status: approvalRequired ? 'draft' : 'approved' })
-        .eq('id', command.draftId)
+    if (!preview.ok) {
+      if (!results.length) return engineFailure(preview)
+      results.push({ id: preview.change?.id ?? '', status: 'failed', error_message: preview.message, command_type: adsCommand.type })
+      break
     }
-    await admin.from('gbp_reviews').update({ reply_state: 'pending' }).eq('id', command.reviewId).eq('reply_state', 'none')
+    let change = slim(preview.change)
+
+    // Link Local SEO rows before anything executes: the settle hook finds
+    // them by change id.
+    if (resolved.link) {
+      await admin
+        .from(resolved.link.table)
+        .update({ change_request_id: change.id, ...(resolved.link.table === 'gbp_posts' && publishNow ? { status: 'publishing' as const } : {}) })
+        .eq('id', resolved.link.id)
+        .eq('org_id', orgId)
+    }
+    if (resolved.reviewId) {
+      await admin.from('gbp_reviews').update({ reply_state: 'pending' }).eq('id', resolved.reviewId).eq('reply_state', 'none')
+    }
+
+    if (publishNow && change.status === 'awaiting_approval') {
+      const done = await engineApprove({ orgId, changeId: change.id, actor: engineActor })
+      if (done.ok) change = slim(done.change)
+      else if (done.change) change = slim(done.change)
+      else change = { ...change, error_message: done.message }
+    }
+    results.push(change)
   }
 
-  if (approvalRequired) return { ok: true, change, executed: false }
-  const executed = await executeChange(admin, change.id)
-  return { ok: true, change: executed ?? change, executed: true }
+  const worst = [...results].sort((a, b) => (SEVERITY[b.status] ?? 0) - (SEVERITY[a.status] ?? 0))[0]
+  return { ok: true, change: worst, executed: publishNow }
 }
 
 // ---------------------------------------------------------------------------
-// Approve / reject / cancel
+// Approve / reject / rollback — only ever on Business Profile changes
 // ---------------------------------------------------------------------------
 
-export async function approveChange(admin: Admin, orgId: string, changeId: string, approver: GbpActor): Promise<{ ok: true; change: ChangeRow } | { ok: false; message: string }> {
-  const { data: change } = await admin.from('gbp_change_requests').select('*').eq('id', changeId).eq('org_id', orgId).maybeSingle()
-  if (!change) return { ok: false, message: 'Change not found.' }
-  const moved = await transition(admin, change, ['awaiting_approval'], 'queued', {
-    approved_by: approver.id ?? null,
-    approved_at: new Date().toISOString(),
-  })
-  if (!moved) return { ok: false, message: `This change is ${change.status.replace('_', ' ')}.` }
-  await recordEvent(admin, moved, 'approved', 'awaiting_approval', 'queued', approver)
-  const done = await executeChange(admin, moved.id)
-  return { ok: true, change: done ?? moved }
+async function businessProfileChange(admin: Admin, orgId: string, changeId: string) {
+  const { data } = await admin.from('ads_change_requests').select('id, platform, status').eq('id', changeId).eq('org_id', orgId).maybeSingle()
+  return data?.platform === 'google_business' ? data : null
+}
+
+export async function approveChange(admin: Admin, orgId: string, changeId: string, approver: GbpActor): Promise<{ ok: true; change: LedgerChange } | { ok: false; message: string }> {
+  if (!(await businessProfileChange(admin, orgId, changeId))) return { ok: false, message: 'Change not found.' }
+  const res = await engineApprove({ orgId, changeId, actor: toAdsActor(approver) })
+  if (res.ok) return { ok: true, change: slim(res.change) }
+  return { ok: false, message: res.message }
 }
 
 export async function rejectChange(admin: Admin, orgId: string, changeId: string, actor: GbpActor): Promise<{ ok: boolean; message?: string }> {
-  const { data: change } = await admin.from('gbp_change_requests').select('*').eq('id', changeId).eq('org_id', orgId).maybeSingle()
-  if (!change) return { ok: false, message: 'Change not found.' }
-  const moved = await transition(admin, change, ['awaiting_approval', 'queued'], 'rejected', { completed_at: new Date().toISOString() })
-  if (!moved) return { ok: false, message: `This change is ${change.status.replace('_', ' ')}.` }
-  await recordEvent(admin, moved, 'rejected', change.status, 'rejected', actor)
-  if (change.command_type === 'review.reply') {
-    const payload = change.payload as { reviewId?: string; draftId?: string }
-    if (payload.draftId) await admin.from('gbp_reply_drafts').update({ status: 'rejected' }).eq('id', payload.draftId)
-    if (payload.reviewId) await admin.from('gbp_reviews').update({ reply_state: 'none' }).eq('id', payload.reviewId).eq('reply_state', 'pending')
-  }
-  return { ok: true }
+  if (!(await businessProfileChange(admin, orgId, changeId))) return { ok: false, message: 'Change not found.' }
+  const res = await engineCancel({ orgId, changeId, actor: toAdsActor(actor), reason: 'Rejected in Local SEO' })
+  return res.ok ? { ok: true } : { ok: false, message: res.message }
 }
 
-// ---------------------------------------------------------------------------
-// Execute + verify
-// ---------------------------------------------------------------------------
-
-const SYSTEM: GbpActor = { type: 'system', label: 'ledger' }
-
-export async function executeChange(admin: Admin, changeId: string): Promise<ChangeRow | null> {
-  const { data: change } = await admin.from('gbp_change_requests').select('*').eq('id', changeId).maybeSingle()
-  if (!change) return null
-  const running = await transition(admin, change, ['queued'], 'executing', {
-    attempt_count: change.attempt_count + 1,
-    executed_at: new Date().toISOString(),
-  })
-  if (!running) return change
-  await recordEvent(admin, running, 'executing', 'queued', 'executing', SYSTEM, { attempt: running.attempt_count })
-
-  const conn = await GbpClient.forLocation(admin, running.location_id)
-  if (!conn) return finish(admin, running, 'failed', { error_message: 'The location is no longer connected to Google.' })
-
-  const command = running.payload as unknown as GbpCommand
-  try {
-    switch (command.type) {
-      case 'review.reply':
-        return await execReply(admin, running, conn, command)
-      case 'review.delete_reply':
-        return await execDeleteReply(admin, running, conn, command)
-      case 'profile.update':
-        return await execProfile(admin, running, conn, command)
-      case 'post.create':
-        return await execPostCreate(admin, running, conn, command)
-      case 'post.delete':
-        return await execPostDelete(admin, running, conn, command)
-    }
-  } catch (err) {
-    const e = err instanceof GbpApiError ? err : new GbpApiError('transient', 0, err instanceof Error ? err.message : String(err))
-    log.warn('gbp_change_failed', { changeId, kind: e.kind, message: e.message })
-    if ((e.kind === 'transient' || e.kind === 'quota') && running.attempt_count < MAX_ATTEMPTS) {
-      const back = await transition(admin, running, ['executing'], 'queued', { error_message: e.message.slice(0, 1000) })
-      if (back) await recordEvent(admin, back, 'retry_scheduled', 'executing', 'queued', SYSTEM, { error: e.message })
-      return back
-    }
-    return finish(admin, running, 'failed', { error_message: e.message.slice(0, 1000) })
-  }
-}
-
-async function finish(admin: Admin, change: ChangeRow, status: 'succeeded' | 'failed' | 'drifted', extra: Partial<ChangeRow> = {}): Promise<ChangeRow | null> {
-  const done = await transition(admin, change, ['executing'], status, { completed_at: new Date().toISOString(), ...extra })
-  if (done) await recordEvent(admin, done, status, 'executing', status, SYSTEM, { error: extra.error_message ?? null, verification: extra.verification ?? null })
-  if (status !== 'succeeded' && change.command_type === 'review.reply') {
-    const payload = change.payload as { reviewId?: string; draftId?: string }
-    if (payload.draftId) await admin.from('gbp_reply_drafts').update({ status: 'failed', error: extra.error_message ?? null }).eq('id', payload.draftId)
-    if (payload.reviewId) await admin.from('gbp_reviews').update({ reply_state: 'none' }).eq('id', payload.reviewId).eq('reply_state', 'pending')
-  }
-  return done
-}
-
-type Conn = NonNullable<Awaited<ReturnType<typeof GbpClient.forLocation>>>
-
-async function execReply(admin: Admin, change: ChangeRow, conn: Conn, cmd: Extract<GbpCommand, { type: 'review.reply' }>) {
-  const reviewName = change.target_ref!
-  const result = await conn.client.updateReply(reviewName, cmd.comment.trim())
-  const check = await conn.client.getReview(reviewName)
-  const ok = (check.reviewReply?.comment ?? '').trim() === cmd.comment.trim()
-  const now = new Date().toISOString()
-  if (ok) {
-    await admin
-      .from('gbp_reviews')
-      .update({ reply_comment: check.reviewReply?.comment ?? cmd.comment, reply_update_time: check.reviewReply?.updateTime ?? now, reply_state: 'replied', updated_at: now })
-      .eq('id', cmd.reviewId)
-    if (cmd.draftId) await admin.from('gbp_reply_drafts').update({ status: 'sent', sent_at: now }).eq('id', cmd.draftId)
-  }
-  return finish(admin, change, ok ? 'succeeded' : 'failed', {
-    provider_result: result as Json,
-    verification: { matched: ok, read_back: check.reviewReply?.comment ?? null } as Json,
-    error_message: ok ? null : 'Google did not return the reply after writing it.',
-  })
-}
-
-async function execDeleteReply(admin: Admin, change: ChangeRow, conn: Conn, cmd: Extract<GbpCommand, { type: 'review.delete_reply' }>) {
-  const reviewName = change.target_ref!
-  await conn.client.deleteReply(reviewName)
-  const check = await conn.client.getReview(reviewName)
-  const ok = !check.reviewReply?.comment
-  if (ok) await admin.from('gbp_reviews').update({ reply_comment: null, reply_update_time: null, reply_state: 'none' }).eq('id', cmd.reviewId)
-  return finish(admin, change, ok ? 'succeeded' : 'failed', { verification: { matched: ok } as Json })
-}
-
-async function execProfile(admin: Admin, change: ChangeRow, conn: Conn, cmd: Extract<GbpCommand, { type: 'profile.update' }>) {
-  const fields = Object.keys(cmd.patch)
-  const current = flattenProfile(await conn.client.getLocation(conn.locationName))
-  const before = (change.before_state ?? {}) as Record<string, unknown>
-  // Drift: someone (or Google) changed a field after the preview was shown.
-  const drift = diffProfiles(before, Object.fromEntries(fields.map((f) => [f, current[f as keyof typeof current]])), fields)
-  if (drift.length) {
-    return finish(admin, change, 'drifted', {
-      verification: { drift } as unknown as Json,
-      error_message: 'The profile changed since this edit was proposed. Review the current values and propose again.',
-    })
-  }
-  const { updateMask, body } = buildLocationPatch(cmd.patch)
-  await conn.client.patchLocation(conn.locationName, updateMask, body, true) // validateOnly
-  const result = await conn.client.patchLocation(conn.locationName, updateMask, body)
-  const after = flattenProfile(await conn.client.getLocation(conn.locationName))
-  const mismatch = diffProfiles(change.intended_state as Record<string, unknown>, Object.fromEntries(fields.map((f) => [f, after[f as keyof typeof after]])), fields)
-  const done = await finish(admin, change, mismatch.length ? 'failed' : 'succeeded', {
-    provider_result: { name: result.name } as Json,
-    verification: { mismatch, pendingEdits: false } as unknown as Json,
-    error_message: mismatch.length ? 'Google accepted the edit but returned different values (it may be under review).' : null,
-  })
-  if (!mismatch.length) {
-    await admin.from('local_seo_annotations').insert({
-      org_id: change.org_id,
-      location_id: change.location_id,
-      occurred_at: new Date().toISOString(),
-      kind: 'profile_change',
-      title: `Profile: ${fields.join(', ')} updated`,
-      ref_id: change.id,
-    })
-  }
-  return done
-}
-
-function toLocalPost(post: Database['public']['Tables']['gbp_posts']['Row'], language: string): GbpLocalPost {
-  return {
-    languageCode: language,
-    summary: post.summary,
-    topicType: post.topic_type,
-    ...(post.cta_type ? { callToAction: { actionType: post.cta_type, ...(post.cta_type !== 'CALL' && post.cta_url ? { url: post.cta_url } : {}) } } : {}),
-    ...(post.media_url ? { media: [{ mediaFormat: 'PHOTO' as const, sourceUrl: post.media_url }] } : {}),
-    ...(post.event ? { event: post.event } : {}),
-    ...(post.offer ? { offer: post.offer } : {}),
-  }
-}
-
-async function execPostCreate(admin: Admin, change: ChangeRow, conn: Conn, cmd: Extract<GbpCommand, { type: 'post.create' }>) {
-  const { data: post } = await admin.from('gbp_posts').select('*').eq('id', cmd.postId).maybeSingle()
-  if (!post) return finish(admin, change, 'failed', { error_message: 'The post was deleted before publishing.' })
-  const { data: loc } = await admin.from('local_seo_locations').select('language').eq('id', change.location_id).maybeSingle()
-  await admin.from('gbp_posts').update({ status: 'publishing', error: null }).eq('id', post.id)
-  const created = await conn.client.createLocalPost(conn.accountName, conn.locationName, toLocalPost(post, loc?.language ?? 'en'))
-  const now = new Date().toISOString()
-  await admin
-    .from('gbp_posts')
-    .update({ status: 'live', post_name: created.name ?? null, search_url: created.searchUrl ?? null, published_at: now })
-    .eq('id', post.id)
-  await admin.from('local_seo_annotations').insert({
-    org_id: change.org_id,
-    location_id: change.location_id,
-    occurred_at: now,
-    kind: 'post',
-    title: `Post: ${post.summary.slice(0, 80)}`,
-    ref_id: post.id,
-  })
-  const ok = !!created.name
-  return finish(admin, change, ok ? 'succeeded' : 'failed', {
-    provider_result: { name: created.name ?? null, state: created.state ?? null } as Json,
-    verification: { created: ok } as Json,
-  })
-}
-
-async function execPostDelete(admin: Admin, change: ChangeRow, conn: Conn, cmd: Extract<GbpCommand, { type: 'post.delete' }>) {
-  const { data: post } = await admin.from('gbp_posts').select('post_name').eq('id', cmd.postId).maybeSingle()
-  if (post?.post_name) {
-    try {
-      await conn.client.deleteLocalPost(post.post_name)
-    } catch (err) {
-      if (!(err instanceof GbpApiError && err.kind === 'not_found')) throw err
-    }
-  }
-  await admin.from('gbp_posts').update({ status: 'deleted' }).eq('id', cmd.postId)
-  return finish(admin, change, 'succeeded', { verification: { deleted: true } as Json })
-}
-
-// ---------------------------------------------------------------------------
-// Rollback + retry queue
-// ---------------------------------------------------------------------------
-
-/** Undo a succeeded profile edit with a new request carrying the old values. */
+/** Undo an applied change with a new change carrying the old values. */
 export async function rollbackChange(admin: Admin, orgId: string, changeId: string, actor: GbpActor): Promise<ProposeResult> {
-  const { data: change } = await admin.from('gbp_change_requests').select('*').eq('id', changeId).eq('org_id', orgId).maybeSingle()
-  if (!change) return { ok: false, code: 'not_found', message: 'Change not found.' }
-  if (change.command_type !== 'profile.update' || change.status !== 'succeeded') {
-    return { ok: false, code: 'invalid', message: 'Only a published profile edit can be rolled back.' }
+  if (!(await businessProfileChange(admin, orgId, changeId))) return fail('not_found', 'Change not found.')
+  const engineActor = toAdsActor(actor)
+  const preview = await engineRollback({ orgId, changeId, actor: engineActor })
+  if (!preview.ok) return engineFailure(preview)
+  if (!engineActor.canApprove || preview.change.status !== 'awaiting_approval') {
+    return { ok: true, change: slim(preview.change), executed: false }
   }
-  return proposeChange(admin, {
-    orgId,
-    locationId: change.location_id,
-    command: { type: 'profile.update', patch: (change.before_state ?? {}) as ProfilePatch },
-    actor,
-    rollbackOf: change.id,
-    idempotencyKey: `rollback:${change.id}`,
-  })
+  const done = await engineApprove({ orgId, changeId: preview.change.id, actor: engineActor })
+  if (!done.ok) return done.change ? { ok: true, change: slim(done.change), executed: true } : engineFailure(done)
+  return { ok: true, change: slim(done.change), executed: true }
 }
-
-/** Retries changes left queued by a transient error. Called by the GBP tick. */
-export async function runQueuedChanges(admin: Admin, limit = 20): Promise<number> {
-  const { data } = await admin
-    .from('gbp_change_requests')
-    .select('id, updated_at')
-    .eq('status', 'queued')
-    .order('created_at', { ascending: true })
-    .limit(limit)
-  let ran = 0
-  for (const c of data ?? []) {
-    // Give a just-queued change (being executed inline) a minute first.
-    if (Date.now() - new Date(c.updated_at).getTime() < 60_000) continue
-    await executeChange(admin, c.id)
-    ran++
-  }
-  return ran
-}
-

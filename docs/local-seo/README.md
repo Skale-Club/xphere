@@ -121,14 +121,27 @@ location. The tick then syncs reviews every 15 min (oldest first) and, once a
 day per location, the profile snapshot and performance (90 days back the
 first time, then the last 10 days; search keywords for the last 3 months).
 
-**Every write goes through `gbp_change_requests`** (`src/lib/gbp/commands.ts`):
-propose → (approve) → execute → read back. A person with `local_seo.approve`
-approves by submitting; members, workflows and AI always wait for approval.
-The only automatic writes are the org's opt-in auto-reply for 4–5★ reviews
-and posts scheduled by an approver. Profile edits check for drift (the field
-changed after the preview) and use `validateOnly` before writing; a published
-edit can be rolled back. Successful profile edits and posts become annotations
-on the Trends chart.
+**One login, one ledger.** This Settings flow is the only Business Profile
+login in Xphere. Linking a location to a profile also makes it a target of the
+Ads Command Engine (`ads_connections`, platform `google_business`, id
+`accounts/{a}/locations/{l}`, credential = a reference to the
+`gbp_connections` row); unlinking removes it. **Every write is an engine
+command** in `ads_change_requests` (`src/lib/gbp/commands.ts` translates Local
+SEO's intents; `docs/ads/control-plane.md` has the lifecycle): preview → policy
+→ Google `validateOnly` → (approve) → write → read back. The same ledger holds
+Business Profile changes proposed through MCP (`ads_preview_change`), the
+Copilot or a workflow, and Ads → Changes lists them all.
+
+A person with `local_seo.approve` approves by submitting; members, workflows
+and AI always wait for approval (in Local SEO or Ads → Changes). The only
+automatic writes are the org's opt-in auto-reply for 4–5★ reviews and posts
+scheduled by an approver (engine actor type `system`: an approver's delegated
+authority). A change that would overwrite something edited after the preview
+fails as a state conflict; applied edits, replies and reply deletions can be
+rolled back. When a change settles, `src/lib/gbp/ledger-effects.ts` updates the
+review reply state, reply drafts, post status and the Trends annotations —
+whichever surface proposed it. Retries of transient Google errors run in
+`ads-changes-tick`.
 
 **Detection:** a daily snapshot is compared with the previous one; a change
 not made through Xphere, or Google's `hasGoogleUpdated` flag, raises an alert

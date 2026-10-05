@@ -54,6 +54,17 @@ export type AdsActor = {
 }
 
 /**
+ * `user` is a person; `system` is an automation a person with approval rights
+ * set up (a Local SEO scheduled post, the opt-in auto-reply to 4-5★ reviews),
+ * acting with that delegated authority and the permissions it was given.
+ * `ai` and `workflow` are machines: their changes always wait for a human or
+ * an explicit confirmation of the previewed diff.
+ */
+export function actsWithHumanAuthority(actor: Pick<AdsActor, 'type'>): boolean {
+  return actor.type === 'user' || actor.type === 'system'
+}
+
+/**
  * 1 reversible (name, status, budget, dates)
  * 2 targeting (keywords, negatives, audience, geo, placements)
  * 3 strategy (bids, bidding strategy, conversion goals)

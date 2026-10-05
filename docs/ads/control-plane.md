@@ -265,13 +265,18 @@ reviews without write access; profile optimization requires Google's
    not offer a sandbox: <https://developers.google.com/my-business/content/basic-setup>.
 2. Enable Account Management, Business Information, My Business v4, and the
    other Business Profile APIs used by the approved project.
-3. Add `https://xphere.app/api/google-business/callback` as an OAuth redirect.
-4. Configure `GOOGLE_BUSINESS_CLIENT_ID` and
-   `GOOGLE_BUSINESS_CLIENT_SECRET`. When omitted, Xphere falls back to the
-   Google Ads OAuth client, provided that same Cloud project has GBP access.
-5. Apply migration `1322_google_business_control_plane.sql`, deploy, then use
-   Integrations → Google Business Profile → Connect. Select which locations
-   are active for agents and MCP.
+3. There is one Business Profile login: **Local SEO → Settings → Connect
+   Google** (`/api/local-seo/gbp/oauth` → `/api/local-seo/gbp/callback`, the
+   existing `GOOGLE_CLIENT_ID` OAuth client). Register
+   `https://xphere.app/api/local-seo/gbp/callback` as a redirect URI.
+4. Link each Local SEO location to its Business Profile. Linking creates the
+   engine target (`ads_connections`, platform `google_business`, id
+   `accounts/{a}/locations/{l}`) whose credential is only a reference to the
+   `gbp_connections` row; unlinking removes it. Those targets are what MCP,
+   the Copilot, workflows and Ads → Changes operate.
+5. Every Business Profile write — the Local SEO screens included — is a
+   command of this engine, so it shares the ledger, policy, approval and
+   read-back.
 
 The complete Windsor parity surface is: create/update a local post, reply to a
 review, upload a photo, update description/website/phone, replace services,

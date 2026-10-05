@@ -8694,6 +8694,7 @@ export interface Database {
           connection_error: string | null
           created_at: string
           encrypted_access_token: string
+          gbp_connection_id: string | null
           health: 'ok' | 'error'
           id: string
           last_error_at: string | null
@@ -8713,6 +8714,7 @@ export interface Database {
           connection_error?: string | null
           created_at?: string
           encrypted_access_token: string
+          gbp_connection_id?: string | null
           health?: 'ok' | 'error'
           id?: string
           last_error_at?: string | null
@@ -8732,6 +8734,7 @@ export interface Database {
           connection_error?: string | null
           created_at?: string
           encrypted_access_token?: string
+          gbp_connection_id?: string | null
           health?: 'ok' | 'error'
           id?: string
           last_error_at?: string | null
@@ -10322,6 +10325,7 @@ export interface Database {
           org_id: string
           location_id: string
           post_name: string | null
+          change_request_id: string | null
           topic_type: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
           summary: string
           media_url: string | null
@@ -10344,6 +10348,7 @@ export interface Database {
           org_id: string
           location_id: string
           post_name?: string | null
+          change_request_id?: string | null
           topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
           summary: string
           media_url?: string | null
@@ -10366,6 +10371,7 @@ export interface Database {
           org_id?: string
           location_id?: string
           post_name?: string | null
+          change_request_id?: string | null
           topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
           summary?: string
           media_url?: string | null
@@ -10469,138 +10475,6 @@ export interface Database {
           google_updated?: Json | null
           diff?: Json
           acknowledged_at?: string | null
-        }
-        Relationships: []
-      }
-      gbp_change_requests: {
-        Row: {
-          id: string
-          org_id: string
-          location_id: string
-          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
-          target_ref: string | null
-          payload: Json
-          before_state: Json | null
-          intended_state: Json | null
-          diff: Json
-          risk_level: number
-          status: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
-          actor_type: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id: string | null
-          actor_label: string | null
-          idempotency_key: string
-          approval_required: boolean
-          approved_by: string | null
-          approved_at: string | null
-          attempt_count: number
-          provider_result: Json | null
-          error_message: string | null
-          verification: Json | null
-          rollback_of: string | null
-          executed_at: string | null
-          completed_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          location_id: string
-          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
-          target_ref?: string | null
-          payload: Json
-          before_state?: Json | null
-          intended_state?: Json | null
-          diff?: Json
-          risk_level: number
-          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
-          actor_type: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id?: string | null
-          actor_label?: string | null
-          idempotency_key: string
-          approval_required?: boolean
-          approved_by?: string | null
-          approved_at?: string | null
-          attempt_count?: number
-          provider_result?: Json | null
-          error_message?: string | null
-          verification?: Json | null
-          rollback_of?: string | null
-          executed_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          location_id?: string
-          command_type?: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
-          target_ref?: string | null
-          payload?: Json
-          before_state?: Json | null
-          intended_state?: Json | null
-          diff?: Json
-          risk_level?: number
-          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
-          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id?: string | null
-          actor_label?: string | null
-          idempotency_key?: string
-          approval_required?: boolean
-          approved_by?: string | null
-          approved_at?: string | null
-          attempt_count?: number
-          provider_result?: Json | null
-          error_message?: string | null
-          verification?: Json | null
-          rollback_of?: string | null
-          executed_at?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      gbp_change_events: {
-        Row: {
-          id: string
-          org_id: string
-          change_request_id: string
-          event_type: string
-          from_status: string | null
-          to_status: string | null
-          actor_type: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id: string | null
-          actor_label: string | null
-          detail: Json
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          org_id: string
-          change_request_id: string
-          event_type: string
-          from_status?: string | null
-          to_status?: string | null
-          actor_type: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id?: string | null
-          actor_label?: string | null
-          detail?: Json
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          org_id?: string
-          change_request_id?: string
-          event_type?: string
-          from_status?: string | null
-          to_status?: string | null
-          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
-          actor_id?: string | null
-          actor_label?: string | null
-          detail?: Json
-          created_at?: string
         }
         Relationships: []
       }

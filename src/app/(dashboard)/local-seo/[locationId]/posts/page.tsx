@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 import { GbpChangeList } from '@/components/local-seo/gbp-changes'
 import { PostsBoard, type PostView } from '@/components/local-seo/posts-board'
-import { CHANGE_FIELDS, toChangeView } from '@/lib/gbp/views'
+import { CHANGE_FIELDS, gbpTarget, POST_COMMANDS, toChangeView } from '@/lib/gbp/views'
 import { can } from '@/lib/rbac/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -12,7 +12,7 @@ export default async function LocationPostsPage({ params }: { params: Promise<{ 
   const { locationId } = await params
   const supabase = await createClient()
   const [{ data: location }, canManage, canApprove] = await Promise.all([
-    supabase.from('local_seo_locations').select('id, gbp_location_name').eq('id', locationId).maybeSingle(),
+    supabase.from('local_seo_locations').select('id, gbp_account_name, gbp_location_name').eq('id', locationId).maybeSingle(),
     can('local_seo.manage'),
     can('local_seo.approve'),
   ])
@@ -33,10 +33,11 @@ export default async function LocationPostsPage({ params }: { params: Promise<{ 
   const [{ data: posts }, { data: pending }] = await Promise.all([
     supabase.from('gbp_posts').select('*').eq('location_id', locationId).neq('status', 'deleted').order('created_at', { ascending: false }).limit(100),
     supabase
-      .from('gbp_change_requests')
+      .from('ads_change_requests')
       .select(CHANGE_FIELDS)
-      .eq('location_id', locationId)
-      .in('command_type', ['post.create', 'post.delete'])
+      .eq('platform', 'google_business')
+      .eq('ad_account_id', gbpTarget(location) ?? '')
+      .in('command_type', POST_COMMANDS)
       .eq('status', 'awaiting_approval')
       .order('created_at', { ascending: false }),
   ])

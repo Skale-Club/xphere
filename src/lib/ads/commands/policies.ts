@@ -13,7 +13,7 @@
 // can raise the ceiling above it.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import type { AdsActor, AdsPlatform, PolicyFacts, RiskLevel } from './types'
+import { actsWithHumanAuthority, type AdsActor, type AdsPlatform, type PolicyFacts, type RiskLevel } from './types'
 
 export type AiMode = 'read_only' | 'propose' | 'execute_with_confirmation'
 
@@ -135,7 +135,7 @@ export function evaluatePolicy(input: {
   const { policy, actor, risk, campaignId, facts } = input
   const blocked: PolicyViolation[] = []
   const approval: PolicyViolation[] = []
-  const machine = actor.type !== 'user'
+  const machine = !actsWithHumanAuthority(actor)
 
   if (machine && policy.aiMode === 'read_only') {
     blocked.push({ code: 'ai_read_only', message: 'This account only allows the AI to read, not to propose changes.' })
@@ -186,7 +186,7 @@ export function evaluatePolicy(input: {
   }
 
   if (machine) {
-    // No autonomous mode exists: every machine-originated change waits for a
+    // No autonomous AI mode exists: every AI or workflow change waits for a
     // human (dashboard) or an explicit confirmation of the previewed diff.
     approval.push({ code: 'machine_actor', message: 'Changes proposed by the AI or a workflow need confirmation.' })
   } else if (risk >= policy.requireApprovalMinRisk) {

@@ -23,8 +23,16 @@ same guarded mutation path as Ads without coupling it to paid-media reporting.
 
 ## Boundaries
 
-- OAuth uses `business.manage`; credentials remain AES-256-GCM encrypted and
-  org-scoped in `ads_connections` under platform `google_business`.
+- One login: the Local SEO connect flow (`business.manage`, tokens AES-256-GCM
+  encrypted in `gbp_connections`). Linking a Local SEO location creates the
+  engine target in `ads_connections` (platform `google_business`), whose
+  credential is only a reference to that `gbp_connections` row
+  (`gbp_connection_id`, cascade on disconnect). Round 5's own OAuth routes
+  were removed before shipping (migration 1322).
+- One ledger: Local SEO's replies, posts and profile edits are engine commands
+  too (two more commands for that: `google_business.review.delete_reply`,
+  `google_business.local_post.delete`; EVENT/OFFER posts on
+  `local_post.create`). Local SEO's 1318 ledger tables were dropped.
 - The connection key is the full `accounts/{account}/locations/{location}` so
   both Business Information v1 and the v4 Posts/Reviews/Media endpoints have
   the ids they require.

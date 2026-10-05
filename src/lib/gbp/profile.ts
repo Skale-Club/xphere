@@ -1,5 +1,6 @@
-// Flat, comparable view of a Business Profile location, plus the editable
-// subset and its PATCH mapping. Pure — shared by sync, the ledger and the UI.
+// Flat, comparable view of a Business Profile location and the subset Local
+// SEO edits. Pure — shared by sync and the UI. Writes are engine commands
+// (see profileCommands in ./commands.ts).
 
 import type { GbpLocation, TimePeriod } from './client'
 
@@ -36,23 +37,6 @@ export function periodsToRows(periods: TimePeriod[] | undefined): HoursRow[] {
     .sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.open.localeCompare(b.open))
 }
 
-export function rowsToPeriods(rows: HoursRow[]): TimePeriod[] {
-  const parse = (s: string) => {
-    const [h, m] = s.split(':').map(Number)
-    return { hours: h, minutes: m }
-  }
-  return rows.map((r) => {
-    const overnight = r.close !== '24:00' && r.close <= r.open
-    const closeDay = overnight ? DAYS[(DAYS.indexOf(r.day) + 1) % 7] : r.day
-    return {
-      openDay: r.day,
-      openTime: parse(r.open),
-      closeDay,
-      closeTime: r.close === '24:00' ? { hours: 24, minutes: 0 } : parse(r.close),
-    }
-  })
-}
-
 export function formatAddress(a: GbpLocation['storefrontAddress']): string | null {
   if (!a) return null
   const parts = [...(a.addressLines ?? []), a.locality, a.administrativeArea, a.postalCode].filter(Boolean)
@@ -86,29 +70,6 @@ export function diffProfiles(before: Partial<FlatProfile>, after: Partial<FlatPr
   return out
 }
 
-/** PATCH body + updateMask for an editable patch. */
-export function buildLocationPatch(patch: ProfilePatch): { updateMask: string[]; body: Partial<GbpLocation> } {
-  const updateMask: string[] = []
-  const body: Partial<GbpLocation> = {}
-  if ('description' in patch) {
-    updateMask.push('profile.description')
-    body.profile = { description: patch.description ?? '' }
-  }
-  if ('websiteUri' in patch) {
-    updateMask.push('websiteUri')
-    body.websiteUri = patch.websiteUri ?? ''
-  }
-  if ('primaryPhone' in patch) {
-    updateMask.push('phoneNumbers.primaryPhone')
-    body.phoneNumbers = { primaryPhone: patch.primaryPhone ?? '' }
-  }
-  if ('hours' in patch) {
-    updateMask.push('regularHours')
-    body.regularHours = { periods: rowsToPeriods(patch.hours ?? []) }
-  }
-  return { updateMask, body }
-}
-
 export const FIELD_LABEL: Record<string, string> = {
   title: 'Name',
   description: 'Description',
@@ -121,11 +82,3 @@ export const FIELD_LABEL: Record<string, string> = {
   openStatus: 'Open status',
 }
 
-export function describeValue(field: string, v: unknown): string {
-  if (v === null || v === undefined || v === '') return '—'
-  if (field === 'hours' && Array.isArray(v)) {
-    return (v as HoursRow[]).map((r) => `${r.day.slice(0, 3)} ${r.open}–${r.close}`).join(', ') || 'Closed'
-  }
-  if (Array.isArray(v)) return v.join(', ')
-  return String(v)
-}

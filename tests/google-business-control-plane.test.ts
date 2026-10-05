@@ -25,16 +25,16 @@ import type { AdapterContext } from '@/lib/ads/providers/types'
 const ctx: AdapterContext = {
   orgId: 'org-1',
   adAccountId: 'accounts/123/locations/456',
-  credential: JSON.stringify({ access_token: 'access', refresh_token: 'refresh', expires_in: 3600 }),
+  credential: 'gbp_connection:conn-1',
 }
 
 beforeEach(() => vi.clearAllMocks())
 
 describe('Google Business Profile command catalog', () => {
-  it('exposes all 13 Windsor write actions through the guarded catalog', () => {
+  it('exposes the 13 Windsor write actions plus the two deletes Local SEO needs', () => {
     const types = Object.entries(COMMAND_CATALOG).filter(([, entry]) => entry.platform === 'google_business').map(([type]) => type)
-    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(96)
-    expect(types).toHaveLength(13)
+    expect(Object.keys(COMMAND_CATALOG)).toHaveLength(98)
+    expect(types).toHaveLength(15)
     expect(types).toContain('google_business.review.reply')
     expect(types).toContain('google_business.location.update_attributes')
     expect(types).toContain('google_business.location.set_open_status')
@@ -166,11 +166,24 @@ describe('Google Business Profile adapter', () => {
       campaignId: null,
       currency: 'USD',
       fields: {
-        description: null,
-        primary_phone: '+55 11 1111-1111',
+        description: 'Descrição antiga',
+        primary_phone: null,
         website_url: 'https://example.com',
       },
     })
+    // Google requires a phone: an empty one cannot be restored.
     expect(unsafeRollback).toBeNull()
+
+    // An empty description or website can: the rollback clears it again.
+    const clearing = googleBusinessAdapter.buildRollback(command, {
+      resourceType: 'location',
+      resourceId: ctx.adAccountId,
+      resourceName: 'Loja Centro',
+      campaignId: null,
+      currency: 'USD',
+      fields: { description: null, primary_phone: '+55 11 1111-1111', website_url: 'https://example.com' },
+    })
+    expect(clearing).toMatchObject({ description: null })
+    expect(clearing && parseCommand(clearing)).toMatchObject({ ok: true })
   })
 })

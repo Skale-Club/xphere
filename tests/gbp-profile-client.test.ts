@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { buildLocationPatch, diffProfiles, flattenProfile, periodsToRows, rowsToPeriods } from '@/lib/gbp/profile'
+import { diffProfiles, flattenProfile, periodsToRows } from '@/lib/gbp/profile'
 import { buildReplyPrompt } from '@/lib/gbp/replies'
 import type { Database } from '@/types/database'
 
@@ -20,14 +20,11 @@ afterEach(() => {
 })
 
 describe('profile helpers', () => {
-  it('round-trips opening hours, including overnight and 24h closes', () => {
-    const rows = [
-      { day: 'FRIDAY' as const, open: '18:00', close: '02:00' },
-      { day: 'MONDAY' as const, open: '09:00', close: '24:00' },
+  it('reads Google opening hours, including overnight and 24h closes', () => {
+    const periods = [
+      { openDay: 'FRIDAY', openTime: { hours: 18 }, closeDay: 'SATURDAY', closeTime: { hours: 2 } },
+      { openDay: 'MONDAY', openTime: { hours: 9 }, closeDay: 'MONDAY', closeTime: { hours: 24 } },
     ]
-    const periods = rowsToPeriods(rows)
-    expect(periods[0]).toMatchObject({ openDay: 'FRIDAY', closeDay: 'SATURDAY', closeTime: { hours: 2, minutes: 0 } })
-    expect(periods[1]).toMatchObject({ openDay: 'MONDAY', closeDay: 'MONDAY', closeTime: { hours: 24, minutes: 0 } })
     expect(periodsToRows(periods)).toEqual([
       { day: 'MONDAY', open: '09:00', close: '24:00' },
       { day: 'FRIDAY', open: '18:00', close: '02:00' },
@@ -44,13 +41,6 @@ describe('profile helpers', () => {
     })
     expect(flat).toMatchObject({ title: 'Bigode', description: 'd', primaryCategory: 'Barber shop', additionalCategories: ['Hair salon'], address: 'Rua A, 12, São Paulo' })
     expect(diffProfiles(flat, { ...flat, description: 'e' })).toEqual([{ field: 'description', before: 'd', after: 'e' }])
-  })
-
-  it('builds the PATCH mask from the edited fields only', () => {
-    expect(buildLocationPatch({ description: 'x', primaryPhone: '1' })).toEqual({
-      updateMask: ['profile.description', 'phoneNumbers.primaryPhone'],
-      body: { profile: { description: 'x' }, phoneNumbers: { primaryPhone: '1' } },
-    })
   })
 })
 

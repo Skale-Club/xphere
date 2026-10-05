@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { GbpChangeList } from '@/components/local-seo/gbp-changes'
 import { ProfileEditor } from '@/components/local-seo/profile-editor'
 import type { FlatProfile } from '@/lib/gbp/profile'
-import { CHANGE_FIELDS, toChangeView } from '@/lib/gbp/views'
+import { CHANGE_FIELDS, gbpTarget, PROFILE_COMMANDS, toChangeView } from '@/lib/gbp/views'
 import { can } from '@/lib/rbac/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -13,7 +13,7 @@ export default async function LocationProfilePage({ params }: { params: Promise<
   const { locationId } = await params
   const supabase = await createClient()
   const [{ data: location }, canManage, canApprove] = await Promise.all([
-    supabase.from('local_seo_locations').select('id, gbp_location_name, gbp_profile_synced_at').eq('id', locationId).maybeSingle(),
+    supabase.from('local_seo_locations').select('id, gbp_account_name, gbp_location_name, gbp_profile_synced_at').eq('id', locationId).maybeSingle(),
     can('local_seo.manage'),
     can('local_seo.approve'),
   ])
@@ -32,6 +32,7 @@ export default async function LocationProfilePage({ params }: { params: Promise<
     )
   }
 
+  const target = gbpTarget(location) ?? ''
   const [{ data: snapshots }, { data: pending }, { data: history }] = await Promise.all([
     supabase
       .from('gbp_profile_snapshots')
@@ -40,18 +41,20 @@ export default async function LocationProfilePage({ params }: { params: Promise<
       .order('taken_at', { ascending: false })
       .limit(10),
     supabase
-      .from('gbp_change_requests')
+      .from('ads_change_requests')
       .select(CHANGE_FIELDS)
-      .eq('location_id', locationId)
-      .eq('command_type', 'profile.update')
-      .in('status', ['awaiting_approval', 'queued', 'executing'])
+      .eq('platform', 'google_business')
+      .eq('ad_account_id', target)
+      .in('command_type', PROFILE_COMMANDS)
+      .in('status', ['awaiting_approval', 'queued', 'executing', 'verifying'])
       .order('created_at', { ascending: false }),
     supabase
-      .from('gbp_change_requests')
+      .from('ads_change_requests')
       .select(CHANGE_FIELDS)
-      .eq('location_id', locationId)
-      .eq('command_type', 'profile.update')
-      .in('status', ['succeeded', 'failed', 'drifted', 'rejected'])
+      .eq('platform', 'google_business')
+      .eq('ad_account_id', target)
+      .in('command_type', PROFILE_COMMANDS)
+      .in('status', ['succeeded', 'failed', 'drifted', 'cancelled', 'expired'])
       .order('created_at', { ascending: false })
       .limit(20),
   ])

@@ -302,7 +302,7 @@ gbp_performance_daily (org_id, location_id, date, metric text, value bigint,
   primary key(location_id, date, metric))
 gbp_search_keywords_monthly (org_id, location_id, month date, keyword text, impressions bigint)
 gbp_profile_snapshots (id, org_id, location_id, taken_at, data jsonb, google_updated boolean)
-gbp_change_requests / gbp_change_events      -- ledger de escrita (cópia do modelo do Ads)
+gbp_change_requests / gbp_change_events      -- ledger de escrita; REMOVIDAS na 1322: a escrita virou comando do Ads Command Engine (ads_change_requests)
 ```
 - A tabela antiga `google_reviews` (SerpAPI) continua valendo para locations **não conectadas** e para o widget. Quando a location está conectada, a fonte oficial do widget passa a ser `gbp_reviews`, com o mesmo contrato de saída.
 
@@ -351,7 +351,7 @@ local_seo_report_shares (id, org_id, report_id, token text unique, expires_at, r
 - **Billing:** `requireFeature('local_seo')` e checagem de cota antes de criar qualquer scan, por qualquer caminho (UI, cron, workflow ou MCP). Os guards são no-op enquanto `BILLING_ENFORCEMENT_ENABLED` estiver desligado, então **a cota de pontos é aplicada sempre** e não depende dessa flag, porque é custo real.
 - **Segredos:** tokens OAuth e chaves BYO criptografados com `crypto.ts` (sem mudar o formato). A chave da plataforma fica em `platform_settings`.
 - **Webhooks/postbacks:** sempre 200, idempotentes, com token secreto na URL e runtime Node.
-- **Escrita no Google:** só pelo ledger `gbp_change_requests`. Nenhuma rota, tool ou workflow chama a API de escrita direto, a mesma regra do Ads.
+- **Escrita no Google:** só pelo Ads Command Engine (`ads_change_requests`, plataforma `google_business`; desde a 1322). Nenhuma rota, tool ou workflow chama a API de escrita direto, a mesma regra do Ads.
 
 ---
 
@@ -411,7 +411,7 @@ Cada fase entrega algo utilizável sozinho e termina com uma parada de validaç�
 - **Aceite:** responder um review real pela UI, a resposta aparecer no Google, e o status voltar pelo sync.
 
 ### Fase 4: Perfil, posts e performance (≈ 1,5 semana)
-- Ledger `gbp_change_requests`/`events` (snapshot → plan → validate → execute → verify → rollback), copiado do Ads.
+- Escrita pelo Ads Command Engine (snapshot → plan → validate → execute → verify → rollback); o ledger próprio `gbp_change_requests`/`events` da 1318 foi removido na 1322.
 - Edição de horários, horários especiais, descrição, categorias, atributos, serviços e links. Cada mudança gera anotação.
 - Detecção de "Google alterou seu perfil": snapshot diário comparado com o anterior, mais o sinal de edição feita pelo Google que a API expõe. Gera alerta.
 - Posts: compositor, agendamento, recorrência (`RecurrenceInfo`), mídia e calendário.

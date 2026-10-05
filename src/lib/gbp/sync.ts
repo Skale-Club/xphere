@@ -25,6 +25,7 @@ import { dispatchLocalSeoWorkflowEvent } from '@/lib/local-seo/workflow-events'
 
 import { GbpClient, PERFORMANCE_METRICS, STAR_TO_NUMBER, type GbpReview } from './client'
 import { proposeChange } from './commands'
+import { locationTarget } from './engine-targets'
 import { diffProfiles, flattenProfile, FIELD_LABEL } from './profile'
 import { generateReplyDraft, getReplySettings } from './replies'
 
@@ -175,7 +176,7 @@ export async function syncProfile(admin: Admin, location: LocationRow): Promise<
 
   // Edits we made ourselves are already annotated by the ledger; only an
   // unexplained change (or Google's flag) is worth an alert.
-  if (last && (newlyGoogleUpdated || (changed && !(await recentLedgerEdit(admin, location.id))))) {
+  if (last && (newlyGoogleUpdated || (changed && !(await recentLedgerEdit(admin, location))))) {
     const fields = newlyGoogleUpdated ? googleFields : diff.map((d) => FIELD_LABEL[d.field] ?? d.field)
     const title = newlyGoogleUpdated ? 'Google updated the profile' : 'The profile changed outside Xphere'
     await admin.from('local_seo_annotations').insert({
@@ -217,14 +218,19 @@ export async function syncProfile(admin: Admin, location: LocationRow): Promise<
   return { changed, googleUpdated: newlyGoogleUpdated }
 }
 
-async function recentLedgerEdit(admin: Admin, locationId: string): Promise<boolean> {
+/** A profile edit Xphere itself applied in the last two days (any surface: Local SEO, MCP, Copilot, workflow). */
+async function recentLedgerEdit(admin: Admin, location: LocationRow): Promise<boolean> {
+  const target = locationTarget(location)
+  if (!target) return false
   const since = new Date(Date.now() - 2 * DAY_MS).toISOString()
   const { data } = await admin
-    .from('gbp_change_requests')
+    .from('ads_change_requests')
     .select('id')
-    .eq('location_id', locationId)
-    .eq('command_type', 'profile.update')
-    .eq('status', 'succeeded')
+    .eq('org_id', location.org_id)
+    .eq('platform', 'google_business')
+    .eq('ad_account_id', target)
+    .like('command_type', 'google_business.location.%')
+    .in('status', ['succeeded', 'drifted'])
     .gte('completed_at', since)
     .limit(1)
   return !!data?.length

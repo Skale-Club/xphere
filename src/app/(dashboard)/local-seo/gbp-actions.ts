@@ -17,6 +17,7 @@ import {
   type GbpActor,
   type GbpCommand,
 } from '@/lib/gbp/commands'
+import { gbpTargetName, locationTarget, removeEngineTarget, upsertEngineTarget } from '@/lib/gbp/engine-targets'
 import { DAYS, type ProfilePatch } from '@/lib/gbp/profile'
 import { generateReplyDraft } from '@/lib/gbp/replies'
 import { syncPerformance, syncProfile, syncReviews } from '@/lib/gbp/sync'
@@ -99,14 +100,18 @@ export async function linkGbpLocation(
   if (!conn) return { error: 'Connection not found.' }
 
   let warning: string | undefined
+  let title = location.business_name ?? location.name
   try {
     const gl = await new GbpClient(db, conn.id).getLocation(input.locationName)
     if (location.place_id && gl.metadata?.placeId && gl.metadata.placeId !== location.place_id) {
       warning = 'This Business Profile has a different Place ID than the tracked location. Check that you picked the right one.'
     }
+    if (gl.title) title = gl.title
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Could not read that location from Google.' }
   }
+
+  const previous = locationTarget(location)
 
   const { error } = await db
     .from('local_seo_locations')
@@ -121,6 +126,20 @@ export async function linkGbpLocation(
     })
     .eq('id', locationId)
   if (error) return { error: error.message }
+
+  // Make the profile an Ads Command Engine target (MCP, Copilot, workflows).
+  const target = await upsertEngineTarget(db, {
+    orgId: ctx.orgId,
+    connectionId: conn.id,
+    accountName: input.accountName,
+    locationName: input.locationName,
+    title,
+  })
+  if (target.error) return { error: target.error }
+  if (previous && previous !== gbpTargetName(input.accountName, input.locationName)) {
+    await removeEngineTarget(db, { orgId: ctx.orgId, locationId, target: previous })
+  }
+
   revalidateLocation(locationId)
   return { ok: true, warning }
 }
@@ -128,12 +147,21 @@ export async function linkGbpLocation(
 export async function unlinkGbpLocation(locationId: string): Promise<{ ok: true } | Fail> {
   const ctx = await localSeoContext('local_seo.admin')
   if ('error' in ctx) return { error: ctx.error }
-  const { error } = await admin()
+  const db = admin()
+  const { data: location } = await db
+    .from('local_seo_locations')
+    .select('gbp_account_name, gbp_location_name')
+    .eq('id', locationId)
+    .eq('org_id', ctx.orgId)
+    .maybeSingle()
+  const { error } = await db
     .from('local_seo_locations')
     .update({ gbp_connection_id: null, gbp_account_name: null, gbp_location_name: null })
     .eq('id', locationId)
     .eq('org_id', ctx.orgId)
   if (error) return { error: error.message }
+  const target = location ? locationTarget(location) : null
+  if (target) await removeEngineTarget(db, { orgId: ctx.orgId, locationId, target })
   revalidateLocation(locationId)
   return { ok: true }
 }
@@ -143,6 +171,8 @@ export async function disconnectGbp(connectionId: string): Promise<{ ok: true } 
   if ('error' in ctx) return { error: ctx.error }
   const db = admin()
   await db.from('local_seo_locations').update({ gbp_connection_id: null }).eq('gbp_connection_id', connectionId).eq('org_id', ctx.orgId)
+  // Engine targets of this login go with it (also enforced by the FK cascade).
+  await db.from('ads_connections').delete().eq('org_id', ctx.orgId).eq('gbp_connection_id', connectionId)
   const { error } = await db.from('gbp_connections').delete().eq('id', connectionId).eq('org_id', ctx.orgId)
   if (error) return { error: error.message }
   revalidatePath('/local-seo', 'layout')

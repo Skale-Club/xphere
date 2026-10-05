@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 import { GbpChangeList } from '@/components/local-seo/gbp-changes'
 import { ReviewsInbox, type InboxReview } from '@/components/local-seo/reviews-inbox'
-import { CHANGE_FIELDS, toChangeView } from '@/lib/gbp/views'
+import { CHANGE_FIELDS, gbpTarget, REVIEW_COMMANDS, toChangeView } from '@/lib/gbp/views'
 import { can } from '@/lib/rbac/server'
 import { createClient } from '@/lib/supabase/server'
 
@@ -21,7 +21,7 @@ export default async function LocationReviewsPage({
   const [{ data: location }, canManage, canApprove] = await Promise.all([
     supabase
       .from('local_seo_locations')
-      .select('id, gbp_location_name, google_business_profile_id, rating, reviews_count')
+      .select('id, gbp_account_name, gbp_location_name, google_business_profile_id, rating, reviews_count')
       .eq('id', locationId)
       .maybeSingle(),
     can('local_seo.manage'),
@@ -80,10 +80,11 @@ export default async function LocationReviewsPage({
   const [{ data: reviews }, { data: changes }] = await Promise.all([
     q,
     supabase
-      .from('gbp_change_requests')
+      .from('ads_change_requests')
       .select(CHANGE_FIELDS)
-      .eq('location_id', locationId)
-      .in('command_type', ['review.reply', 'review.delete_reply'])
+      .eq('platform', 'google_business')
+      .eq('ad_account_id', gbpTarget(location) ?? '')
+      .in('command_type', REVIEW_COMMANDS)
       .in('status', ['awaiting_approval', 'queued', 'failed', 'drifted'])
       .order('created_at', { ascending: false })
       .limit(30),

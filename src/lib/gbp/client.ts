@@ -11,7 +11,9 @@ import 'server-only'
 // dead refresh token marks the connection `error` so the UI asks for a
 // reconnect instead of failing silently (the Google Contacts lesson).
 //
-// Writes here are only called from the change ledger (src/lib/gbp/commands.ts).
+// Reads only. Every Business Profile write is a command of the Ads Command
+// Engine (src/lib/ads/providers/google-business-adapter.ts), which borrows
+// this client's token handling through src/lib/google-business/api.ts.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -242,11 +244,6 @@ export class GbpClient {
     return this.request(`${INFO}/${locationName}:getGoogleUpdated?readMask=${encodeURIComponent(LOCATION_READ_MASK)}`)
   }
 
-  patchLocation(locationName: string, updateMask: string[], body: Partial<GbpLocation>, validateOnly = false): Promise<GbpLocation> {
-    const q = new URLSearchParams({ updateMask: updateMask.join(','), validateOnly: String(validateOnly) })
-    return this.request<GbpLocation>(`${INFO}/${locationName}?${q.toString()}`, { method: 'PATCH', body: JSON.stringify(body) })
-  }
-
   // ── Reviews (v4) ──────────────────────────────────────────────────────────
   async listReviews(accountName: string, locationName: string, maxPages = 10): Promise<{ reviews: GbpReview[]; averageRating?: number; totalReviewCount?: number }> {
     const out: GbpReview[] = []
@@ -268,25 +265,9 @@ export class GbpClient {
     return this.request<GbpReview>(`${V4}/${reviewName}`)
   }
 
-  updateReply(reviewName: string, comment: string): Promise<{ comment?: string; updateTime?: string }> {
-    return this.request(`${V4}/${reviewName}/reply`, { method: 'PUT', body: JSON.stringify({ comment }) })
-  }
-
-  deleteReply(reviewName: string): Promise<unknown> {
-    return this.request(`${V4}/${reviewName}/reply`, { method: 'DELETE' })
-  }
-
   // ── Local posts (v4) ──────────────────────────────────────────────────────
-  createLocalPost(accountName: string, locationName: string, post: GbpLocalPost): Promise<GbpLocalPost> {
-    return this.request<GbpLocalPost>(`${V4}/${accountName}/${locationName}/localPosts`, { method: 'POST', body: JSON.stringify(post) })
-  }
-
   getLocalPost(postName: string): Promise<GbpLocalPost> {
     return this.request<GbpLocalPost>(`${V4}/${postName}`)
-  }
-
-  deleteLocalPost(postName: string): Promise<unknown> {
-    return this.request(`${V4}/${postName}`, { method: 'DELETE' })
   }
 
   // ── Performance ───────────────────────────────────────────────────────────

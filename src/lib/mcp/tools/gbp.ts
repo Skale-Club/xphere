@@ -1,7 +1,8 @@
-// MCP tools for Google Business Profile. Reads are org-scoped by hand
-// (service-role client). The only write is a PROPOSAL: replies and profile
-// edits from an AI land in the change ledger and wait for a person with
-// local_seo.approve in Local SEO — an agent can never publish on its own.
+// MCP tools for Google Business Profile, keyed by Local SEO location. Reads
+// are org-scoped by hand (service-role client). The only write is a PROPOSAL
+// in the Ads Command Engine ledger — the same one ads_preview_change writes
+// for google_business.* commands — and it waits for a person with approval
+// rights in Local SEO or Ads → Changes. An agent never publishes on its own.
 
 import { z } from 'zod'
 
@@ -58,8 +59,10 @@ export const gbpTools: McpToolDef[] = [
     name: 'gbp_propose_change',
     title: 'Propose a Business Profile change',
     description:
-      'Propose a reply to a review or a profile edit (description, website, phone). The change waits for a human ' +
-      'approver in Local SEO; tell the operator where to approve it. Never claim it was published.',
+      'Propose a reply to a review or a profile edit (description, website, phone) for a Local SEO location. The change ' +
+      'waits for a human approver in Local SEO or Ads → Changes; tell the operator where to approve it. Never claim it ' +
+      'was published. For other Business Profile edits (hours, categories, services, posts, photos...) use ' +
+      'ads_get_capabilities + ads_preview_change with platform google_business.',
     area: 'general_xphere',
     inputSchema: z
       .object({
@@ -86,7 +89,7 @@ export const gbpTools: McpToolDef[] = [
         orgId: auth.orgId,
         locationId: location_id,
         command,
-        actor: { type: 'ai', id: auth.userId, label: 'MCP agent' },
+        actor: { type: 'ai', id: auth.userId, label: auth.actor },
       })
       if (!res.ok) return { error: res.code, detail: res.message, status: 422 }
       return {

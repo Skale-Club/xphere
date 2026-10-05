@@ -5,6 +5,8 @@ import { assertPublicHttpsUrl } from '../safe-fetch'
 import {
   createGoogleBusinessLocalPost,
   createGoogleBusinessMedia,
+  deleteGoogleBusinessLocalPost,
+  deleteGoogleBusinessReviewReply,
   getGoogleBusinessAttributes,
   getGoogleBusinessLocalPost,
   getGoogleBusinessLocation,
@@ -22,7 +24,9 @@ import type { AdapterContext, AdsProviderAdapter, ExecuteResult, VerifyResult } 
 const TYPES = [
   'google_business.local_post.create',
   'google_business.local_post.update',
+  'google_business.local_post.delete',
   'google_business.review.reply',
+  'google_business.review.delete_reply',
   'google_business.media.upload',
   'google_business.location.update_info',
   'google_business.location.update_service_items',
@@ -56,6 +60,7 @@ function postFields(post: Record<string, unknown>) {
   const cta = plain(post.callToAction)
   return {
     summary: post.summary ?? null,
+    topic_type: post.topicType ?? null,
     photo_url: media.sourceUrl ?? null,
     cta_type: cta.actionType ?? null,
     cta_url: cta.url ?? null,
@@ -85,10 +90,98 @@ function locationFields(location: Record<string, unknown>) {
         : [],
     },
     address: location.storefrontAddress ?? null,
-    regular_hours: location.regularHours ?? null,
-    special_hours: location.specialHours ?? null,
+    regular_hours: canonicalRegularHours(location.regularHours),
+    special_hours: canonicalSpecialHours(location.specialHours),
     open_status: openInfo.status ?? null,
   }
+}
+
+// Google's JSON drops zero values ({hours: 9} for 09:00, {} for midnight,
+// no `closed: false`) and keeps its own period order. Both the snapshot and the
+// intended state go through these, so the diff, the optimistic-concurrency
+// hash and the read-back compare like with like.
+const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+
+function canonicalTime(value: unknown) {
+  const t = plain(value)
+  return { hours: typeof t.hours === 'number' ? t.hours : 0, minutes: typeof t.minutes === 'number' ? t.minutes : 0 }
+}
+
+function canonicalDate(value: unknown) {
+  const d = plain(value)
+  return { year: Number(d.year ?? 0), month: Number(d.month ?? 0), day: Number(d.day ?? 0) }
+}
+
+const clock = (t: { hours: number; minutes: number }) => `${String(t.hours).padStart(2, '0')}:${String(t.minutes).padStart(2, '0')}`
+
+function canonicalRegularHours(value: unknown) {
+  const periods = plain(value).periods
+  if (!Array.isArray(periods)) return null
+  return {
+    periods: periods
+      .map(plain)
+      .map((p) => ({ openDay: String(p.openDay ?? ''), openTime: canonicalTime(p.openTime), closeDay: String(p.closeDay ?? p.openDay ?? ''), closeTime: canonicalTime(p.closeTime) }))
+      .sort((a, b) => DAY_ORDER.indexOf(a.openDay) - DAY_ORDER.indexOf(b.openDay) || clock(a.openTime).localeCompare(clock(b.openTime))),
+  }
+}
+
+function canonicalSpecialHours(value: unknown) {
+  const periods = plain(value).specialHourPeriods
+  if (!Array.isArray(periods)) return null
+  return {
+    specialHourPeriods: periods
+      .map(plain)
+      .map((p) => {
+        const startDate = canonicalDate(p.startDate)
+        const closed = p.closed === true
+        return {
+          startDate,
+          endDate: p.endDate ? canonicalDate(p.endDate) : startDate,
+          closed,
+          ...(!closed ? { openTime: canonicalTime(p.openTime), closeTime: canonicalTime(p.closeTime) } : {}),
+        }
+      })
+      .sort((a, b) => JSON.stringify(a.startDate).localeCompare(JSON.stringify(b.startDate))),
+  }
+}
+
+/** "Mon 09:00–18:00, Tue …" for the diff instead of raw JSON. */
+function hoursDisplay(value: unknown): string {
+  const regular = canonicalRegularHours(value)
+  if (!regular?.periods.length) return '—'
+  return regular.periods
+    .map((p) => `${p.openDay.slice(0, 3).toLowerCase().replace(/^./, (c) => c.toUpperCase())} ${clock(p.openTime)}–${clock(p.closeTime)}`)
+    .join(', ')
+}
+
+type HoursPeriod = CommandOf<'google_business.location.set_regular_hours'>['periods'][number]
+
+function hhmm(value: unknown): string | null {
+  const t = plain(value)
+  const h = typeof t.hours === 'number' ? t.hours : 0
+  const m = typeof t.minutes === 'number' ? t.minutes : 0
+  if (h < 0 || h > 24 || m < 0 || m > 59 || (h === 24 && m !== 0)) return null
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+}
+
+/** Google's stored regularHours as set_regular_hours periods, or null when that is not exact. */
+function regularHoursCommandPeriods(value: unknown): HoursPeriod[] | null {
+  const periods = plain(value).periods
+  if (!Array.isArray(periods) || periods.length === 0) return null
+  const out: HoursPeriod[] = []
+  for (const raw of periods) {
+    const p = plain(raw)
+    const open = hhmm(p.openTime)
+    const close = hhmm(p.closeTime)
+    if (typeof p.openDay !== 'string' || !open || !close) return null
+    out.push({
+      open_day: p.openDay as HoursPeriod['open_day'],
+      open_time: open,
+      close_day: (typeof p.closeDay === 'string' ? p.closeDay : p.openDay) as HoursPeriod['open_day'],
+      close_time: close,
+    })
+  }
+  return out
 }
 
 function time(value: string): Record<string, number> {
@@ -118,13 +211,36 @@ function serviceItems(command: CommandOf<'google_business.location.update_servic
   }))
 }
 
+/** An ISO datetime as Google's {date, time} pair (UTC). */
+function googleDateTime(iso: string) {
+  const d = new Date(iso)
+  return {
+    date: { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() },
+    time: { hours: d.getUTCHours(), minutes: d.getUTCMinutes() },
+  }
+}
+
 function postBody(command: CommandOf<'google_business.local_post.create'> | CommandOf<'google_business.local_post.update'>) {
+  const create = command.type === 'google_business.local_post.create' ? command : null
+  const start = create?.event ? googleDateTime(create.event.start) : null
+  const end = create?.event ? googleDateTime(create.event.end) : null
   return {
     ...(command.summary !== undefined ? { summary: command.summary } : {}),
-    ...('language_code' in command ? { languageCode: command.language_code } : {}),
-    ...('summary' in command && command.type.endsWith('.create') ? { topicType: 'STANDARD' } : {}),
+    ...(create ? { languageCode: create.language_code, topicType: create.topic_type } : {}),
     ...(command.photo_url ? { media: [{ mediaFormat: 'PHOTO', sourceUrl: command.photo_url }] } : {}),
     ...(command.cta_type ? { callToAction: { actionType: command.cta_type, ...(command.cta_url ? { url: command.cta_url } : {}) } } : {}),
+    ...(create?.event && start && end
+      ? { event: { title: create.event.title, schedule: { startDate: start.date, startTime: start.time, endDate: end.date, endTime: end.time } } }
+      : {}),
+    ...(create?.offer
+      ? {
+          offer: {
+            ...(create.offer.coupon_code ? { couponCode: create.offer.coupon_code } : {}),
+            ...(create.offer.redeem_online_url ? { redeemOnlineUrl: create.offer.redeem_online_url } : {}),
+            ...(create.offer.terms ? { termsConditions: create.offer.terms } : {}),
+          },
+        }
+      : {}),
   }
 }
 
@@ -132,7 +248,9 @@ function intended(command: BusinessCommand): Record<string, unknown> {
   switch (command.type) {
     case 'google_business.local_post.create': return postFields(postBody(command))
     case 'google_business.local_post.update': return Object.fromEntries(Object.entries(postFields(postBody(command))).filter(([, value]) => value !== null))
+    case 'google_business.local_post.delete': return { post: null }
     case 'google_business.review.reply': return { reply_comment: command.comment }
+    case 'google_business.review.delete_reply': return { reply_comment: null }
     case 'google_business.media.upload': return { photo_url: command.photo_url, category: command.category }
     case 'google_business.location.update_info': return {
       ...(command.description !== undefined ? { description: command.description } : {}),
@@ -153,24 +271,33 @@ function intended(command: BusinessCommand): Record<string, unknown> {
       ...(command.locality ? { locality: command.locality } : {}),
       ...(command.postal_code ? { postalCode: command.postal_code } : {}),
     } }
-    case 'google_business.location.set_regular_hours': return { regular_hours: { periods: command.periods.map((period) => ({
+    case 'google_business.location.set_regular_hours': return { regular_hours: canonicalRegularHours({ periods: command.periods.map((period) => ({
       openDay: period.open_day, openTime: time(period.open_time), closeDay: period.close_day ?? period.open_day, closeTime: time(period.close_time),
-    })) } }
-    case 'google_business.location.set_special_hours': return { special_hours: { specialHourPeriods: command.periods.map((period) => ({
+    })) }) }
+    case 'google_business.location.set_special_hours': return { special_hours: canonicalSpecialHours({ specialHourPeriods: command.periods.map((period) => ({
       startDate: date(period.date), endDate: date(period.date), closed: period.closed,
       ...(!period.closed ? { openTime: time(period.open_time!), closeTime: time(period.close_time!) } : {}),
-    })) } }
+    })) }) }
     case 'google_business.location.set_open_status': return { open_status: command.status }
   }
 }
 
 async function snapshot(ctx: AdapterContext, command: BusinessCommand): Promise<ResourceSnapshot | null> {
   try {
-    if (command.type === 'google_business.local_post.update') {
+    if (command.type === 'google_business.local_post.update' || command.type === 'google_business.local_post.delete') {
       const post = await getGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, command.post_id)
-      return { resourceType: 'local_post', resourceId: String(post.name ?? command.post_id), resourceName: String(post.name ?? command.post_id), campaignId: null, currency: 'USD', fields: postFields(post) }
+      const fields = postFields(post)
+      return {
+        resourceType: 'local_post',
+        resourceId: String(post.name ?? command.post_id),
+        resourceName: String(post.name ?? command.post_id),
+        campaignId: null,
+        currency: 'USD',
+        // `post` is what a delete removes: shown in the diff, null afterwards.
+        fields: command.type === 'google_business.local_post.delete' ? { ...fields, post: fields.summary ?? String(post.name ?? command.post_id) } : fields,
+      }
     }
-    if (command.type === 'google_business.review.reply') {
+    if (command.type === 'google_business.review.reply' || command.type === 'google_business.review.delete_reply') {
       const review = await getGoogleBusinessReview(ctx.adAccountId, ctx.credential, command.review_id)
       const reply = plain(review.reviewReply)
       const reviewer = plain(review.reviewer)
@@ -204,7 +331,8 @@ function plan(command: BusinessCommand, before: ResourceSnapshot): PlanResult {
   const after = intended(command)
   const diffs: DiffEntry[] = []
   for (const [field, value] of Object.entries(after)) {
-    diffs.push(diffField(field, field.replaceAll('_', ' '), before.fields[field], value))
+    const entry = diffField(field, field.replaceAll('_', ' '), before.fields[field], value)
+    diffs.push(field === 'regular_hours' ? { ...entry, beforeDisplay: hoursDisplay(entry.before), afterDisplay: hoursDisplay(entry.after) } : entry)
   }
   const diff = effective(diffs)
   if (!diff.length && !command.type.endsWith('.create') && command.type !== 'google_business.media.upload') {
@@ -222,9 +350,10 @@ function plan(command: BusinessCommand, before: ResourceSnapshot): PlanResult {
 function locationPatch(command: BusinessCommand): { body: Record<string, unknown>; mask: string[] } | null {
   switch (command.type) {
     case 'google_business.location.update_info': return { body: {
-      ...(command.description !== undefined ? { profile: { description: command.description } } : {}),
+      // Google clears a masked field sent as an empty string.
+      ...(command.description !== undefined ? { profile: { description: command.description ?? '' } } : {}),
       ...(command.primary_phone !== undefined ? { phoneNumbers: { primaryPhone: command.primary_phone } } : {}),
-      ...(command.website_url !== undefined ? { websiteUri: command.website_url } : {}),
+      ...(command.website_url !== undefined ? { websiteUri: command.website_url ?? '' } : {}),
     }, mask: [command.description !== undefined ? 'profile.description' : '', command.primary_phone !== undefined ? 'phoneNumbers.primaryPhone' : '', command.website_url !== undefined ? 'websiteUri' : ''].filter(Boolean) }
     case 'google_business.location.update_service_items': return { body: { serviceItems: serviceItems(command) }, mask: ['serviceItems'] }
     case 'google_business.location.update_categories': return { body: { categories: {
@@ -265,8 +394,16 @@ async function execute(ctx: AdapterContext, command: BusinessCommand): Promise<E
       const result = await updateGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, command.post_id, body, Object.keys(body).filter((key) => key !== 'languageCode'))
       return { providerRef: String(result.name ?? command.post_id), raw: result }
     }
+    case 'google_business.local_post.delete': {
+      const result = await deleteGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, command.post_id)
+      return { providerRef: command.post_id, raw: result }
+    }
     case 'google_business.review.reply': {
       const result = await replyToGoogleBusinessReview(ctx.adAccountId, ctx.credential, command.review_id, command.comment)
+      return { providerRef: command.review_id, raw: result }
+    }
+    case 'google_business.review.delete_reply': {
+      const result = await deleteGoogleBusinessReviewReply(ctx.adAccountId, ctx.credential, command.review_id)
       return { providerRef: command.review_id, raw: result }
     }
     case 'google_business.media.upload': {
@@ -293,7 +430,16 @@ async function observed(ctx: AdapterContext, command: BusinessCommand, providerR
     if (!id) return null
     return postFields(await getGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, id))
   }
-  if (command.type === 'google_business.review.reply') {
+  if (command.type === 'google_business.local_post.delete') {
+    try {
+      const post = await getGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, command.post_id)
+      return { post: post.summary ?? post.name ?? command.post_id }
+    } catch (error) {
+      if (error instanceof GoogleBusinessError && error.status === 404) return { post: null }
+      throw error
+    }
+  }
+  if (command.type === 'google_business.review.reply' || command.type === 'google_business.review.delete_reply') {
     const review = await getGoogleBusinessReview(ctx.adAccountId, ctx.credential, command.review_id)
     return { reply_comment: plain(review.reviewReply).comment ?? null }
   }
@@ -357,13 +503,25 @@ export const googleBusinessAdapter: AdsProviderAdapter = {
         }
         return rollback as AdsCommand
       }
-      case 'google_business.review.reply': return typeof before.fields.reply_comment === 'string' ? { ...base, type: command.type, review_id: command.review_id, comment: before.fields.reply_comment } : null
+      // A first reply rolls back to "no reply"; an edited one to the old text.
+      case 'google_business.review.reply': return typeof before.fields.reply_comment === 'string'
+        ? { ...base, type: command.type, review_id: command.review_id, comment: before.fields.reply_comment }
+        : { ...base, type: 'google_business.review.delete_reply', review_id: command.review_id }
+      case 'google_business.review.delete_reply': return typeof before.fields.reply_comment === 'string'
+        ? { ...base, type: 'google_business.review.reply', review_id: command.review_id, comment: before.fields.reply_comment }
+        : null
+      case 'google_business.location.set_regular_hours': {
+        const periods = regularHoursCommandPeriods(before.fields.regular_hours)
+        return periods ? { ...base, type: command.type, periods } : null
+      }
       case 'google_business.location.update_info': {
         const rollback: Record<string, unknown> = { ...base, type: command.type }
         for (const field of ['description', 'primary_phone', 'website_url'] as const) {
           if (command[field] === undefined) continue
-          if (typeof before.fields[field] !== 'string') return null
-          rollback[field] = before.fields[field]
+          const old = before.fields[field]
+          // description and website can be cleared again; the phone cannot.
+          if (typeof old !== 'string' && !(old == null && field !== 'primary_phone')) return null
+          rollback[field] = old ?? null
         }
         return rollback as AdsCommand
       }

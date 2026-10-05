@@ -34,14 +34,18 @@ import {
   changesToReconcile,
   hasLaterChange,
   updateReconciliation,
-  transition,
+  transition as storeTransition,
   type ChangeFilters,
   type ChangeRow,
   type EventActor,
 } from './store'
 import type { AdsActor, ChangeStatus, DiffEntry, PolicyFacts, ResourceSnapshot, RiskLevel } from './types'
-import { TERMINAL_STATUSES } from './types'
+import { actsWithHumanAuthority, TERMINAL_STATUSES } from './types'
 import type { Json } from '@/types/database'
+import { onBusinessProfileChangeSettled } from '@/lib/gbp/ledger-effects'
+import { createLogger } from '@/lib/obs/logger'
+
+const log = createLogger({ module: 'ads/engine' })
 
 export const MAX_ATTEMPTS = 5
 
@@ -165,6 +169,24 @@ function eventActor(actor: AdsActor): EventActor {
   return { type: actor.type, id: actor.id, label: actor.label }
 }
 
+/**
+ * Every status change goes through here. When a Business Profile change
+ * settles, Local SEO's own tables (review reply state, post status, reply
+ * drafts, chart annotations) are brought in line with the ledger — whichever
+ * surface proposed the change (Local SEO, MCP, Copilot, a workflow).
+ */
+async function transition(params: Parameters<typeof storeTransition>[0]): Promise<ChangeRow | null> {
+  const row = await storeTransition(params)
+  if (row && row.platform === 'google_business' && TERMINAL_STATUSES.includes(row.status as ChangeStatus)) {
+    try {
+      await onBusinessProfileChangeSettled(row)
+    } catch (error) {
+      log.warn('gbp_settle_failed', { changeId: row.id, message: error instanceof Error ? error.message : String(error) })
+    }
+  }
+  return row
+}
+
 const SYSTEM_ACTOR: AdsActor = { type: 'system', id: null, label: 'system:ads-engine', canManage: true, canApprove: false }
 
 // ─── Preview ──────────────────────────────────────────────────────────────────
@@ -234,7 +256,7 @@ export async function previewChange(input: PreviewInput): Promise<PreviewSuccess
   const beforeHash = hashState(before.fields)
   const idempotencyKey =
     input.idempotencyKey ?? sha256(stableStringify({ command, beforeHash, rollbackOf: input.rollbackOf ?? null }))
-  const token = actor.type === 'user' ? null : newConfirmationToken()
+  const token = actsWithHumanAuthority(actor) ? null : newConfirmationToken()
   const now = Date.now()
 
   const insertRow = {
@@ -330,7 +352,7 @@ async function providerFailure(
 export async function submitChange(input: PreviewInput): Promise<PreviewSuccess | ExecutionSuccess | EngineFailure> {
   const preview = await previewChange(input)
   if (!preview.ok) return preview
-  if (input.actor.type !== 'user') return preview
+  if (!actsWithHumanAuthority(input.actor)) return preview
   if (preview.change.status !== 'awaiting_approval') return preview
   if (preview.change.approval_required && !input.actor.canApprove) return preview
   return approveChange({ orgId: input.orgId, changeId: preview.change.id, actor: input.actor })
@@ -360,7 +382,7 @@ export async function approveChange(params: {
 
   const policy = await loadEffectivePolicy(orgId, row.platform as 'meta' | 'google' | 'google_business', row.ad_account_id)
 
-  if (actor.type === 'user') {
+  if (actsWithHumanAuthority(actor)) {
     if (!actor.canManage) return fail('forbidden', 'You do not have permission to manage ads (ads.manage).')
     if (row.approval_required && !actor.canApprove) {
       return fail('forbidden', 'This change needs approval from someone with the ads.approve permission.')
@@ -386,7 +408,7 @@ export async function approveChange(params: {
   const verdict = (row.policy_verdict ?? {}) as StoredPolicyVerdict
   const recheck = evaluatePolicy({
     policy,
-    actor: actor.type === 'user' ? actor : { ...actor, type: row.actor_type as AdsActor['type'] },
+    actor: actsWithHumanAuthority(actor) ? actor : { ...actor, type: row.actor_type as AdsActor['type'] },
     risk: row.risk_level as RiskLevel,
     campaignId: row.campaign_id,
     facts: verdict.facts ?? {},
@@ -672,8 +694,8 @@ async function afterSuccess(row: ChangeRow, actor: AdsActor): Promise<void> {
 export async function cancelChange(params: { orgId: string; changeId: string; actor: AdsActor; reason?: string }): Promise<ExecutionSuccess | EngineFailure> {
   const row = await getChangeRow(params.orgId, params.changeId)
   if (!row) return fail('not_found', 'Change request not found.')
-  if (params.actor.type === 'user' && !params.actor.canManage) return fail('forbidden', 'You do not have permission to manage ads (ads.manage).')
-  if (params.actor.type !== 'user' && row.actor_label !== params.actor.label) {
+  if (actsWithHumanAuthority(params.actor) && !params.actor.canManage) return fail('forbidden', 'You do not have permission to manage ads (ads.manage).')
+  if (!actsWithHumanAuthority(params.actor) && row.actor_label !== params.actor.label) {
     return fail('forbidden', 'An AI client can only cancel changes it proposed itself.')
   }
   const cancelled = await transition({

@@ -324,6 +324,21 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     photo_url: Url().optional(),
     cta_type: z.enum(['BOOK', 'ORDER', 'SHOP', 'LEARN_MORE', 'SIGN_UP', 'CALL']).optional(),
     cta_url: Url().optional(),
+    topic_type: z.enum(['STANDARD', 'EVENT', 'OFFER', 'ALERT']).default('STANDARD'),
+    // EVENT and OFFER posts: title and the period they run (ISO datetimes).
+    event: z.object({
+      title: z.string().trim().min(1).max(58),
+      start: z.string().datetime({ offset: true }),
+      end: z.string().datetime({ offset: true }),
+    }).strict().optional(),
+    offer: z.object({
+      coupon_code: z.string().trim().min(1).max(58).optional(),
+      redeem_online_url: Url().optional(),
+      terms: z.string().trim().min(1).max(5000).optional(),
+    }).strict().optional(),
+  }),
+  googleBusiness('google_business.local_post.delete', {
+    post_id: z.string().trim().min(1).max(500),
   }),
   googleBusiness('google_business.local_post.update', {
     post_id: z.string().trim().min(1).max(500),
@@ -336,14 +351,18 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     review_id: z.string().trim().min(1).max(500),
     comment: z.string().trim().min(1).max(4096),
   }),
+  googleBusiness('google_business.review.delete_reply', {
+    review_id: z.string().trim().min(1).max(500),
+  }),
   googleBusiness('google_business.media.upload', {
     photo_url: Url(),
     category: z.enum(['ADDITIONAL', 'COVER', 'PROFILE', 'LOGO', 'EXTERIOR', 'INTERIOR', 'PRODUCT', 'AT_WORK', 'FOOD_AND_DRINK', 'MENU', 'COMMON_AREA', 'ROOMS', 'TEAMS']).default('ADDITIONAL'),
   }),
   googleBusiness('google_business.location.update_info', {
-    description: z.string().trim().min(1).max(750).optional(),
+    // null clears the field on the profile.
+    description: z.string().trim().min(1).max(750).nullable().optional(),
     primary_phone: z.string().trim().min(1).max(40).optional(),
-    website_url: Url().optional(),
+    website_url: Url().nullable().optional(),
   }),
   googleBusiness('google_business.location.update_service_items', {
     service_items: z.array(z.object({
@@ -626,7 +645,9 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'google.negative_keyword.remove': { platform: 'google', resourceType: 'negative_keyword', risk: 2, label: 'Remove negative keyword' },
   'google_business.local_post.create': { platform: 'google_business', resourceType: 'local_post', risk: 4, label: 'Publish Google Business Profile post' },
   'google_business.local_post.update': { platform: 'google_business', resourceType: 'local_post', risk: 2, label: 'Update Google Business Profile post' },
+  'google_business.local_post.delete': { platform: 'google_business', resourceType: 'local_post', risk: 3, label: 'Delete Google Business Profile post' },
   'google_business.review.reply': { platform: 'google_business', resourceType: 'review', risk: 3, label: 'Reply to Google review' },
+  'google_business.review.delete_reply': { platform: 'google_business', resourceType: 'review', risk: 3, label: 'Delete reply to Google review' },
   'google_business.media.upload': { platform: 'google_business', resourceType: 'media', risk: 4, label: 'Upload Google Business Profile photo' },
   'google_business.location.update_info': { platform: 'google_business', resourceType: 'location', risk: 2, label: 'Update Google Business Profile information' },
   'google_business.location.update_service_items': { platform: 'google_business', resourceType: 'service_item', risk: 2, label: 'Replace Google Business Profile services' },
@@ -782,6 +803,11 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
     if (cmd.type === 'google_business.local_post.update' && [cmd.summary, cmd.photo_url, cmd.cta_type].every((value) => value === undefined)) {
       return 'Provide summary, photo_url and/or cta_type'
     }
+  }
+  if (cmd.type === 'google_business.local_post.create') {
+    if ((cmd.topic_type === 'EVENT' || cmd.topic_type === 'OFFER') && !cmd.event) return `${cmd.topic_type} posts need event (title, start, end)`
+    if (cmd.event && Date.parse(cmd.event.end) <= Date.parse(cmd.event.start)) return 'event.end must be after event.start'
+    if (cmd.offer && cmd.topic_type !== 'OFFER') return 'offer only applies to OFFER posts'
   }
   if (cmd.type === 'google_business.location.update_info') {
     if ([cmd.description, cmd.primary_phone, cmd.website_url].every((value) => value === undefined)) {
