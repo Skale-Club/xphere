@@ -39,7 +39,7 @@ export { hasCreditsPlan, getCreditsVisualState }
  *      column to a free-text ref is deferred (see RESEARCH.md Open
  *      Question 3) until a second feature actually needs it.
  */
-export type MeterReason = 'copilot_turn'
+export type MeterReason = 'copilot_turn' | 'seo_action_plan'
 
 export interface CopilotBalance {
   /** Monthly allowance remaining (resets each period). */

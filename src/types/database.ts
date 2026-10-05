@@ -6074,6 +6074,7 @@ export interface Database {
           finished_at: string | null
           created_at: string
           updated_at: string
+          action_plan: Json | null
         }
         Insert: {
           id?: string
@@ -6100,6 +6101,7 @@ export interface Database {
           finished_at?: string | null
           created_at?: string
           updated_at?: string
+          action_plan?: Json | null
         }
         Update: {
           site_id?: string
@@ -6123,6 +6125,7 @@ export interface Database {
           started_at?: string | null
           finished_at?: string | null
           updated_at?: string
+          action_plan?: Json | null
         }
         Relationships: [
           {

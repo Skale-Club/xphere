@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritableOrThrow } from '@/lib/demo/guard'
@@ -12,6 +13,9 @@ import type { Database } from '@/types/database'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getGscAccessToken } from '@/lib/seo/gsc/tokens'
 import { listGscProperties, suggestProperty } from '@/lib/seo/gsc/client'
+import { generateActionPlan, type ActionPlan } from '@/lib/seo/action-plan'
+import { isBillingEnforced } from '@/lib/billing/config'
+import { hasCopilotCredits } from '@/lib/billing/credits'
 
 type SiteRow = Database['public']['Tables']['seo_sites']['Row']
 
@@ -234,4 +238,31 @@ export async function setGscProperty(siteId: string, property: string | null): P
   revalidatePath(`/seo/${siteId}`)
   revalidatePath('/seo')
   return ok(undefined)
+}
+
+// ── AI action plan ───────────────────────────────────────────────────────────
+
+/** Generate (or regenerate) the AI action plan for the site's latest audit. Costs Copilot credits. */
+export async function generateSeoActionPlan(siteId: string): Promise<ActionResult<ActionPlan>> {
+  const guard = await guardManage()
+  if ('error' in guard) return err(guard.error)
+
+  const supabase = await createClient()
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return err('No active organization')
+  if (isBillingEnforced() && !(await hasCopilotCredits(orgId as string))) {
+    return err('Out of AI credits. Top up in Settings → Billing to generate the plan.')
+  }
+
+  // Write the plan in the language the user's browser asks for.
+  const locale = ((await headers()).get('accept-language') ?? 'en').split(',')[0].trim() || 'en'
+  try {
+    const plan = await generateActionPlan(supabase, orgId as string, siteId, locale)
+    revalidatePath(`/seo/${siteId}`)
+    return ok(plan)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    if (message === 'no_openrouter_key') return err('No AI provider key is configured (OpenRouter).')
+    return err(message)
+  }
 }

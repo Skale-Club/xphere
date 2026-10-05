@@ -262,7 +262,27 @@ revogado mostra o banner e tira os nós GSC do spec de workflows.
   se justifica para keywords que ainda não ranqueiam, para concorrentes e para local pack. Dá para lançar
   a Fase 2 e medir a demanda antes de pagar dados.
 
-## Fase 4: Automação, IA e relatório
+## Fase 4: Automação, IA e relatório 🟡 PARCIAL 2026-10-05 (feito antes da Fase 3, que aguarda a D1)
+
+**Entregue:**
+- **Workflows:** ação `seo_run_audit` (site por id, host ou URL; devolve a auditoria em andamento em vez de falhar)
+  e eventos `event:seo.audit_completed` / `event:seo.critical_issue_new` (erro novo em relação à auditoria anterior;
+  nunca na primeira). Emitidos só pela chamada que fez a transição para `completed`. Variáveis `seo.*` no spec e no
+  seletor do canvas, entradas na paleta, `SPEC_VERSION` 2026.10.05, exemplos validados em
+  `.planning/workflows/examples/seo-*.yaml`.
+- **MCP:** `seo_list_sites`, `seo_get_audit`, `seo_list_issue_pages`, `seo_get_search_performance`, `seo_run_audit`
+  (exige `seo.manage` via `userCanInOrg`, que reaproveita a decisão de `can()` extraída para
+  `src/lib/rbac/decide.ts`). Sem checagem de plano: os entitlements dependem de sessão e nenhuma tool MCP faz isso hoje.
+- **Copilot:** as mesmas 5 tools (leitura exige `seo.view`; `seo_run_audit` exige `seo.manage` + plano) e uma seção
+  SEO no system prompt. Tudo em cima de `src/lib/seo/service.ts`.
+- **Plano de ação por IA:** botão na Visão geral, sob demanda (migration 1314: `seo_audits.action_plan`). Cinco ações
+  priorizadas com os dados do GSC e reescritas de title/meta, no idioma do navegador, via OpenRouter (chave da org,
+  depois a da plataforma; modelo `SEO_ACTION_PLAN_MODEL` ou o padrão do Copilot), debitado como créditos
+  (`seo_action_plan`).
+
+**Pendente:** `seo_track_keyword`, `event:seo.rank_changed` e nós GSC de workflow (dependem da Fase 3 / de demanda);
+relatório mensal white-label (depende da D3).
+
 
 - **Workflows** (`src/lib/workflows/spec.ts` + executor em `src/lib/action-engine/executors/`, bump do
   `SPEC_VERSION`):

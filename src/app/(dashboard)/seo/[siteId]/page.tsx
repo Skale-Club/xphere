@@ -21,6 +21,8 @@ import { RunAuditButton } from '@/components/seo/run-audit-button'
 import { ScoreBadge } from '@/components/seo/score-badge'
 import { ScoreHistoryChart } from '@/components/seo/score-history-chart'
 import { SiteSettingsDialog } from '@/components/seo/site-settings-dialog'
+import { ActionPlanCard } from '@/components/seo/action-plan-card'
+import type { ActionPlan } from '@/lib/seo/action-plan'
 import { PerformanceTab, RANGES, type RangeDays } from './performance'
 
 export const dynamic = 'force-dynamic'
@@ -62,7 +64,7 @@ export default async function SeoSitePage({
 
   const { data: audits } = await supabase
     .from('seo_audits')
-    .select('id, status, stage, health_score, summary, site_checks, pages_crawled, pages_discovered, error_message, finished_at, created_at')
+    .select('id, status, stage, health_score, summary, site_checks, action_plan, pages_crawled, pages_discovered, error_message, finished_at, created_at')
     .eq('site_id', siteId)
     .order('created_at', { ascending: false })
     .limit(30)
@@ -166,7 +168,9 @@ export default async function SeoSitePage({
         </Card>
       ) : (
         <>
-          {tab === 'overview' && <Overview audit={latest} summary={summary} history={history} base={base} />}
+          {tab === 'overview' && (
+            <Overview audit={latest} summary={summary} history={history} base={base} siteId={site.id} canManage={canManage} />
+          )}
           {tab === 'issues' && <IssueGroups summary={summary} base={base} />}
           {tab === 'pages' && <PagesTab auditId={latest.id} base={base} />}
         </>
@@ -185,8 +189,12 @@ function Overview({
   summary,
   history,
   base,
+  siteId,
+  canManage,
 }: {
-  audit: { health_score: number | null; pages_crawled: number; finished_at: string | null; site_checks: unknown }
+  audit: { health_score: number | null; pages_crawled: number; finished_at: string | null; site_checks: unknown; action_plan: unknown }
+  siteId: string
+  canManage: boolean
   summary: Summary
   history: { label: string; score: number }[]
   base: string
@@ -241,6 +249,8 @@ function Overview({
           <ScoreHistoryChart data={history} />
         </CardContent>
       </Card>
+
+      <ActionPlanCard siteId={siteId} plan={(audit.action_plan as ActionPlan | null) ?? null} canManage={canManage} />
 
       <Card className="lg:col-span-2">
         <CardHeader className="pb-2">
