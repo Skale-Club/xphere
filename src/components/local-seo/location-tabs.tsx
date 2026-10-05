@@ -12,6 +12,7 @@ const TABS = [
   { label: 'Reviews', segment: 'reviews' },
   { label: 'Posts', segment: 'posts' },
   { label: 'Profile', segment: 'profile' },
+  { label: 'Audit', segment: 'audit' },
   { label: 'Settings', segment: 'settings' },
 ]
 

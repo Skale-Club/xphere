@@ -135,6 +135,37 @@ same output contract; otherwise it keeps the SerpAPI scrape.
 |---|---|
 | `GBP_REPLY_MODEL` | OpenRouter model for reply drafts (default `anthropic/claude-haiku-4.5`) |
 
+## Audit (Phase 5)
+
+Local SEO → location → **Audit** runs `src/lib/local-seo/audit.ts`: it reads
+the profile (GBP snapshot when connected, the location row otherwise),
+reviews, posts, the top 3 competitors of each keyword's latest scan, the
+scan metrics and the website, then scores each check Good / OK / Poor
+(N/A when the data needs a GBP connection) in five pillars: Business Profile,
+Reviews, Website & NAP, Map visibility, Competition. The score is the weighted
+share of points over the applicable checks. Selected Poor/OK items become
+Tasks (priority high for Poor, due in 7 days).
+
+The website check fetches the home page server-side through
+`safeFetchBytes` (https only, public addresses only, re-checked on redirects)
+and looks for LocalBusiness JSON-LD, the profile phone (last 8 digits), the
+street number + postal code and the business name.
+
+## Reports (Phase 6)
+
+Local SEO → **Reports**: choose locations, period (7/30/90 days) and sections
+(geogrid maps, trends, competitors, reviews, profile performance, audit).
+
+- **Share link** `/r/local-seo/<token>`: no login, `noindex`, 30-day expiry,
+  revocable; only the token's SHA-256 is stored.
+- **PDF**: Chromium prints the public page (`?print=1`) inside the
+  website-analyzer slot gate (`withBrowserSlot`), so it never opens a second
+  Chromium pool. It reaches the page at `LOCAL_SEO_PDF_ORIGIN` (default
+  `http://127.0.0.1:$PORT`, the container itself).
+- **Monthly email**: the daily `local-seo-maintenance` cron sends reports whose
+  `send_day` is today with the PDF attached and a 30-day link, via the org's
+  email integration (`sendTenantEmail`) or the platform sender as fallback.
+
 ## Data retention
 
 `local_seo_serp_results` (top 20 per point) is pruned after 60 days. Each point

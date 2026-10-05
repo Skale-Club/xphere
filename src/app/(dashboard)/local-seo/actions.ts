@@ -9,6 +9,7 @@ import { businessSearchKey } from '@/lib/local-seo/credentials'
 import { cidFromDataId } from '@/lib/local-seo/providers/serpapi'
 import { estimateScan, createScan, type ScanEstimate } from '@/lib/local-seo/scans'
 import { nextRunAt } from '@/lib/local-seo/schedules'
+import { createTasksFromAudit, runAudit } from '@/lib/local-seo/audit'
 import { GRID_SIZES } from '@/lib/local-seo/types'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
 import { SerpApiClient, isSerpApiError } from '@/lib/serpapi/client'
@@ -557,4 +558,36 @@ export async function getCompetitorRanks(
     } else ranks[p.id] = null
   }
   return { ranks }
+}
+
+// ---------------------------------------------------------------------------
+// Audit (Phase 5)
+// ---------------------------------------------------------------------------
+
+export async function runLocationAudit(locationId: string): Promise<{ auditId: string; score: number } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const res = await runAudit(createServiceRoleClient(), { orgId: ctx.orgId, locationId, userId: ctx.user.id })
+  if (!res.ok) return { error: res.error }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { auditId: res.auditId, score: res.score }
+}
+
+export async function createAuditTasks(auditId: string, locationId: string, checkIds: string[]): Promise<{ created: number } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { data: loc } = await ctx.supabase.from('local_seo_locations').select('name').eq('id', locationId).maybeSingle()
+  if (!loc) return { error: 'Location not found.' }
+  const res = await createTasksFromAudit(createServiceRoleClient(), {
+    orgId: ctx.orgId,
+    auditId,
+    checkIds,
+    userId: ctx.user.id,
+    locationName: loc.name,
+    locationId,
+  })
+  if (!res.ok) return { error: res.error }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath('/tasks')
+  return { created: res.created }
 }

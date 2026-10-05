@@ -10189,6 +10189,240 @@ export interface Database {
         }
         Relationships: []
       }
+      local_seo_audits: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          score: number
+          pillar_scores: Json
+          checks: Json
+          context: Json
+          created_by: string | null
+          tasks_created_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          score: number
+          pillar_scores?: Json
+          checks?: Json
+          context?: Json
+          created_by?: string | null
+          tasks_created_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          score?: number
+          pillar_scores?: Json
+          checks?: Json
+          context?: Json
+          created_by?: string | null
+          tasks_created_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_reports: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          location_ids: string[]
+          period_days: number
+          sections: string[]
+          intro: string | null
+          schedule: 'none' | 'monthly'
+          send_day: number
+          recipients: string[]
+          last_sent_at: string | null
+          last_error: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          location_ids?: string[]
+          period_days?: number
+          sections?: string[]
+          intro?: string | null
+          schedule?: 'none' | 'monthly'
+          send_day?: number
+          recipients?: string[]
+          last_sent_at?: string | null
+          last_error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          location_ids?: string[]
+          period_days?: number
+          sections?: string[]
+          intro?: string | null
+          schedule?: 'none' | 'monthly'
+          send_day?: number
+          recipients?: string[]
+          last_sent_at?: string | null
+          last_error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_report_shares: {
+        Row: {
+          id: string
+          org_id: string
+          report_id: string
+          token_hash: string
+          token_hint: string
+          expires_at: string | null
+          revoked_at: string | null
+          view_count: number
+          last_viewed_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          report_id: string
+          token_hash: string
+          token_hint: string
+          expires_at?: string | null
+          revoked_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          report_id?: string
+          token_hash?: string
+          token_hint?: string
+          expires_at?: string | null
+          revoked_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_citation_checks: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          run_id: string
+          directory: string
+          domain: string
+          found: boolean
+          url: string | null
+          listed_name: string | null
+          snippet: string | null
+          name_match: boolean | null
+          phone_match: boolean | null
+          address_match: boolean | null
+          error: string | null
+          checked_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          run_id: string
+          directory: string
+          domain: string
+          found?: boolean
+          url?: string | null
+          listed_name?: string | null
+          snippet?: string | null
+          name_match?: boolean | null
+          phone_match?: boolean | null
+          address_match?: boolean | null
+          error?: string | null
+          checked_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          run_id?: string
+          directory?: string
+          domain?: string
+          found?: boolean
+          url?: string | null
+          listed_name?: string | null
+          snippet?: string | null
+          name_match?: boolean | null
+          phone_match?: boolean | null
+          address_match?: boolean | null
+          error?: string | null
+          checked_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_ai_checks: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          run_id: string
+          prompt: string
+          model: string
+          mentioned: boolean
+          position: number | null
+          competitors: string[]
+          excerpt: string | null
+          error: string | null
+          checked_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          run_id: string
+          prompt: string
+          model: string
+          mentioned?: boolean
+          position?: number | null
+          competitors?: string[]
+          excerpt?: string | null
+          error?: string | null
+          checked_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          run_id?: string
+          prompt?: string
+          model?: string
+          mentioned?: boolean
+          position?: number | null
+          competitors?: string[]
+          excerpt?: string | null
+          error?: string | null
+          checked_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {

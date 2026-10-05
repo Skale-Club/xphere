@@ -1,11 +1,12 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { MapPin } from 'lucide-react'
+import { FileText, MapPin } from 'lucide-react'
 
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { AddLocationDialog } from '@/components/local-seo/add-location-dialog'
 import { LocationCard, type LocationCardData } from '@/components/local-seo/location-card'
 import { QuotaMeter } from '@/components/local-seo/quota-meter'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { getQuotaSnapshot } from '@/lib/local-seo/quota'
 import { orgRedirect } from '@/lib/org/redirect'
@@ -82,6 +83,12 @@ export default async function LocalSeoPage() {
         actions={
           <>
             <QuotaMeter used={quota.used} limit={quota.limit} />
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/local-seo/reports">
+                <FileText className="h-4 w-4" />
+                Reports
+              </Link>
+            </Button>
             {canManage && <AddLocationDialog />}
           </>
         }
