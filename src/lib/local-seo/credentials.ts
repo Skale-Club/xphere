@@ -74,8 +74,9 @@ export function providerProfile(id: ProviderId): { mode: 'sync' | 'async'; costP
 }
 
 /**
- * SerpAPI key for the business search used when adding a location: the
- * platform key, else any key the org saved for Google Reviews.
+ * SerpAPI key for the one-off business searches (adding a Local SEO location,
+ * the Reviews → Review link tool): the platform key, else any key the org
+ * saved for Google Reviews.
  */
 export async function businessSearchKey(admin: Admin, orgId: string): Promise<string | null> {
   const platform = await platformCredential(admin, 'SERPAPI_API_KEY')
