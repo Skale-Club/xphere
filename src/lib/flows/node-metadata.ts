@@ -142,6 +142,22 @@ export const TRIGGER_METADATA: TriggerMetadata[] = [
     group: 'General',
   },
   {
+    key: 'seo.audit_completed',
+    label: 'SEO audit completed',
+    description: 'A site audit finished (health score, issue counts)',
+    icon: MagnifyingGlass,
+    iconClass: 'bg-emerald-500/15 text-emerald-300',
+    group: 'General',
+  },
+  {
+    key: 'seo.critical_issue_new',
+    label: 'New critical SEO issue',
+    description: 'An audit found errors the previous audit did not have',
+    icon: MagnifyingGlass,
+    iconClass: 'bg-rose-500/15 text-rose-300',
+    group: 'General',
+  },
+  {
     key: 'vapi.call.ended',
     label: 'Call ended',
     description: 'After a Vapi AI call ends',
@@ -403,6 +419,16 @@ export const ACTION_METADATA: ActionMetadata[] = [
   },
 
   // ── Automation ──
+  {
+    key: 'seo_run_audit',
+    label: 'Run SEO audit',
+    description: 'Queue a technical SEO audit of a site (async)',
+    icon: MagnifyingGlass,
+    iconClass: 'bg-emerald-500/15 text-emerald-300',
+    logo: '/xphere-icon.svg',
+    subtitle: 'SEO',
+    group: 'Automation',
+  },
   {
     key: 'knowledge_base',
     label: 'Query knowledge base',

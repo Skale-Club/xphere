@@ -27,6 +27,9 @@ import { runPageSpeed } from './pagespeed'
 import { healthScore, summarizeIssues } from './score'
 import { selectAll } from './select-all'
 import { runGscSyncs, type GscSyncResult } from './gsc/sync'
+import { emitSeoEvent, type SeoEventPayload } from './events'
+import { newCriticalIssues } from './service'
+import { getSiteOrigin } from '@/lib/site-url'
 
 type Sb = SupabaseClient<Database>
 type AuditRow = Database['public']['Tables']['seo_audits']['Row']
@@ -563,13 +566,14 @@ async function runFinalize(sb: Sb, audit: AuditRow, site: SiteRow, deadline: num
 
   const { robotsTxt: _robotsTxt, ...storedChecks } = checks
   void _robotsTxt
-  const { error } = await sb
+  const summary = summarizeIssues(allIssues)
+  const { data: completed, error } = await sb
     .from('seo_audits')
     .update({
       status: 'completed',
       stage: 'done',
       health_score: score,
-      summary: summarizeIssues(allIssues) as unknown as Json,
+      summary: summary as unknown as Json,
       site_checks: storedChecks as unknown as Json,
       sitemap_urls: null,
       pages_crawled: pages.length,
@@ -580,7 +584,65 @@ async function runFinalize(sb: Sb, audit: AuditRow, site: SiteRow, deadline: num
     .eq('id', audit.id)
     // A member may have cancelled while this tick ran; don't resurrect it.
     .eq('status', 'running')
+    .select('id')
   if (error) throw new Error(`audit completion failed: ${error.message}`)
+
+  // Emit only when THIS call made the transition, so a re-run finalisation
+  // (or a cancel that won the race) never fires workflows twice.
+  if (completed?.length) {
+    await notifyCompletion(sb, audit, site, { score, summary, pagesCrawled: pages.length }, allIssues).catch((err) =>
+      console.error('[seo-tick] completion events failed:', err instanceof Error ? err.message : err),
+    )
+  }
+}
+
+async function notifyCompletion(
+  sb: Sb,
+  audit: AuditRow,
+  site: SiteRow,
+  result: { score: number; summary: ReturnType<typeof summarizeIssues>; pagesCrawled: number },
+  issues: Array<{ code: string; url: string | null }>,
+) {
+  const { score, summary, pagesCrawled } = result
+  const { data: previous } = await sb
+    .from('seo_audits')
+    .select('id, health_score, details_pruned_at')
+    .eq('site_id', site.id)
+    .eq('status', 'completed')
+    .neq('id', audit.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const withSeverity = (rows: Array<{ code: string; url: string | null }>) =>
+    rows.map((r) => ({ ...r, severity: issueDefinition(r.code)?.severity ?? 'notice' }))
+  // A pruned previous audit has no detail left to diff against: treat as unknown (no alert).
+  const previousIssues =
+    previous && !previous.details_pruned_at
+      ? await selectAll<{ code: string; url: string | null }>((from, to) =>
+          sb.from('seo_audit_issues').select('code, url').eq('audit_id', previous.id).order('id').range(from, to),
+        )
+      : null
+  const fresh = newCriticalIssues(withSeverity(issues), previousIssues ? withSeverity(previousIssues) : null)
+
+  const payload: SeoEventPayload = {
+    site_id: site.id,
+    site_name: site.name,
+    host: site.host,
+    audit_id: audit.id,
+    url: `${getSiteOrigin()}/seo/${site.id}`,
+    health_score: score,
+    previous_health_score: previous?.health_score ?? null,
+    errors: summary.by_severity.error,
+    warnings: summary.by_severity.warning,
+    notices: summary.by_severity.notice,
+    pages_crawled: pagesCrawled,
+    new_issue_count: fresh.length,
+    new_issues: fresh.slice(0, 20).map((i) => ({ code: i.code, title: issueDefinition(i.code)?.title ?? i.code, url: i.url })),
+  }
+
+  await emitSeoEvent(sb, audit.org_id, 'seo.audit_completed', payload)
+  if (fresh.length) await emitSeoEvent(sb, audit.org_id, 'seo.critical_issue_new', payload)
 }
 
 // ───────────────────────────────────────────────────────────────────────────

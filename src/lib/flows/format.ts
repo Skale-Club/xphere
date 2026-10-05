@@ -9,6 +9,7 @@
  */
 const UPPERCASE_TOKENS = new Set<string>([
   'sms',
+  'seo',
   'ai',
   'crm',
   'api',

@@ -44,6 +44,14 @@ vi.mock('@/lib/seo/pagespeed', () => ({
   runPageSpeed: vi.fn(async (url: string) => ({ url, performance: 90, lcpMs: 1500, cls: 0.01, inpMs: 100, fieldCategory: 'FAST' })),
 }))
 
+const emitted = vi.hoisted(() => [] as Array<{ type: string; payload: Record<string, unknown> }>)
+vi.mock('@/lib/seo/events', () => ({
+  emitSeoEvent: vi.fn(async (_sb: unknown, _org: string, type: string, payload: Record<string, unknown>) => {
+    emitted.push({ type, payload })
+    return { dispatched: 0, dispatchId: null }
+  }),
+}))
+
 import { runSeoTick } from '@/lib/seo/audit-engine'
 import { DEFAULTS, fakeSupabase, type Row } from './helpers/seo-fake-supabase'
 
@@ -93,7 +101,10 @@ const issuesOf = (db: Record<string, Row[]>, code: string) => db.seo_audit_issue
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('SEO audit engine', () => {
-  beforeEach(() => buildWeb(4))
+  beforeEach(() => {
+    buildWeb(4)
+    emitted.length = 0
+  })
 
   it('audits a site end to end in one tick', async () => {
     const { db, client } = fakeSupabase()
@@ -170,5 +181,21 @@ describe('SEO audit engine', () => {
     expect(issuesOf(db, 'crawl_blocked')).toEqual([null])
     expect(db.seo_audit_pages.filter((p) => p.status !== 'queued')).toEqual([])
     expect(a.health_score).toBeLessThan(20)
+  })
+
+  it('emits audit_completed once, and critical_issue_new only for errors the previous audit lacked', async () => {
+    const { db, client } = fakeSupabase()
+    const { site } = seed(db)
+    await runSeoTick(client, 60_000)
+    expect(emitted.map((e) => e.type)).toEqual(['seo.audit_completed'])
+    expect(emitted[0].payload).toMatchObject({ site_id: site.id, new_issue_count: 0, previous_health_score: null })
+
+    // Second audit: a page that worked now returns 500 → one new error-severity issue.
+    web['https://acme.test/p1'] = { status: 500, body: 'boom' }
+    emitted.length = 0
+    db.seo_audits.push({ ...DEFAULTS.seo_audits, id: randomUUID(), org_id: site.org_id, site_id: site.id, created_at: '2026-01-02' })
+    await runSeoTick(client, 60_000)
+    expect(emitted.map((e) => e.type)).toEqual(['seo.audit_completed', 'seo.critical_issue_new'])
+    expect(emitted[1].payload.new_issues).toEqual([{ code: 'http_5xx', title: 'Page returns 5xx', url: 'https://acme.test/p1' }])
   })
 })
