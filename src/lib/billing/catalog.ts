@@ -28,6 +28,7 @@ export const ALL_FEATURES = [
   'reviews',
   'calendar',
   'api', // public REST API + API keys
+  'seo', // site audits, Search Console, rank tracking
 ] as const
 
 export type Feature = (typeof ALL_FEATURES)[number]
@@ -93,6 +94,7 @@ export const PLAN_CATALOG: Record<string, Plan> = {
       'reviews',
       'calendar',
       'api',
+      'seo',
     ],
     copilotIncludedUsd: 20,
   },

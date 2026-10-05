@@ -15,6 +15,7 @@ import {
   FolderKanban,
   BarChart3,
   MonitorPlay,
+  SearchCheck,
 } from 'lucide-react'
 import type { Feature } from '@/lib/billing/catalog'
 
@@ -55,6 +56,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view',  feature: 'campaigns' },
   { icon: BarChart3,       label: 'Analytics',    href: '/analytics',    group: 'manage',   permission: 'analytics.view' },
   { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', permission: 'ads.view', feature: 'ads' },
+  { icon: SearchCheck,     label: 'SEO',          href: '/seo',          group: 'manage',   permission: 'seo.view',        feature: 'seo' },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view',   feature: 'crm' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view',  feature: 'crm' },
   { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true,            feature: 'prospects' },

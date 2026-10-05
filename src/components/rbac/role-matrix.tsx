@@ -26,6 +26,7 @@ import {
   CreditCard,
   Info,
   Search,
+  SearchCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -68,6 +69,7 @@ const ICONS: Record<string, LucideIcon> = {
   FolderKanban,
   Star,
   BarChart3,
+  SearchCheck,
   BookOpen,
   Plug2,
   Mail,
