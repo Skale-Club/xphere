@@ -56,7 +56,7 @@ export const CIRCUIT_WINDOW_MINUTES = 10
 
 export type ChangeView = {
   id: string
-  platform: 'meta' | 'google'
+  platform: 'meta' | 'google' | 'google_business'
   ad_account_id: string
   command_type: string
   label: string
@@ -120,7 +120,7 @@ export function toChangeView(row: ChangeRow): ChangeView {
   const verdict = (row.policy_verdict ?? {}) as StoredPolicyVerdict
   return {
     id: row.id,
-    platform: row.platform as 'meta' | 'google',
+    platform: row.platform as 'meta' | 'google' | 'google_business',
     ad_account_id: row.ad_account_id,
     command_type: row.command_type,
     label: COMMAND_CATALOG[row.command_type as AdsCommand['type']]?.label ?? row.command_type,
@@ -358,7 +358,7 @@ export async function approveChange(params: {
     })
   }
 
-  const policy = await loadEffectivePolicy(orgId, row.platform as 'meta' | 'google', row.ad_account_id)
+  const policy = await loadEffectivePolicy(orgId, row.platform as 'meta' | 'google' | 'google_business', row.ad_account_id)
 
   if (actor.type === 'user') {
     if (!actor.canManage) return fail('forbidden', 'You do not have permission to manage ads (ads.manage).')
@@ -644,22 +644,27 @@ async function afterSuccess(row: ChangeRow, actor: AdsActor): Promise<void> {
   const diff = (row.diff ?? []) as unknown as DiffEntry[]
   const first = diff[0]
   const label = COMMAND_CATALOG[row.command_type as AdsCommand['type']]?.label ?? row.command_type
-  await recordMutationExecution({
-    orgId: row.org_id,
-    platform: row.platform as 'meta' | 'google',
-    toolName: row.command_type,
-    executedByAi: row.actor_type === 'ai',
-    actorId: row.approved_by ?? row.actor_id ?? actor.id ?? undefined,
-    campaignId: row.campaign_id ?? undefined,
-    campaignName: row.resource_type === 'campaign' ? row.resource_name ?? undefined : undefined,
-    beforeValue: first?.beforeDisplay ?? null,
-    afterValue: first?.afterDisplay ?? null,
-    title: `${label}: ${row.resource_name ?? row.resource_id ?? ''}${first ? ` (${first.beforeDisplay} → ${first.afterDisplay})` : ''}`.slice(0, 300),
-    executionType: journeyType(row),
-    description: row.status === 'drifted' ? 'Applied, but the platform reads back a different value.' : undefined,
-    changeRequestId: row.id,
-  })
-  await invalidateAccountReports(row.org_id, row.platform as 'meta' | 'google', row.ad_account_id)
+  // The ads journey/report caches only model paid-media concepts. Business
+  // Profile still has the full immutable ledger above, but must not be forced
+  // into campaign analytics tables whose platform CHECK excludes it.
+  if (row.platform !== 'google_business') {
+    await recordMutationExecution({
+      orgId: row.org_id,
+      platform: row.platform as 'meta' | 'google',
+      toolName: row.command_type,
+      executedByAi: row.actor_type === 'ai',
+      actorId: row.approved_by ?? row.actor_id ?? actor.id ?? undefined,
+      campaignId: row.campaign_id ?? undefined,
+      campaignName: row.resource_type === 'campaign' ? row.resource_name ?? undefined : undefined,
+      beforeValue: first?.beforeDisplay ?? null,
+      afterValue: first?.afterDisplay ?? null,
+      title: `${label}: ${row.resource_name ?? row.resource_id ?? ''}${first ? ` (${first.beforeDisplay} → ${first.afterDisplay})` : ''}`.slice(0, 300),
+      executionType: journeyType(row),
+      description: row.status === 'drifted' ? 'Applied, but the platform reads back a different value.' : undefined,
+      changeRequestId: row.id,
+    })
+    await invalidateAccountReports(row.org_id, row.platform as 'meta' | 'google', row.ad_account_id)
+  }
 }
 
 // ─── Cancel / rollback / retry ────────────────────────────────────────────────

@@ -222,3 +222,35 @@ export async function disconnect(): Promise<{ error?: string; success?: boolean 
   revalidatePath('/reviews')
   return { success: true }
 }
+
+/** Select which OAuth-managed Business Profile locations agents may operate. */
+export async function setActiveGoogleBusinessLocations(activeIds: string[]): Promise<{ error?: string; success?: boolean }> {
+  const ctx = await getOrgContext()
+  if ('error' in ctx) return { error: ctx.error }
+
+  const { error: clearError } = await ctx.supabase
+    .from('ads_connections')
+    .update({ status: 'available' })
+    .eq('platform', 'google_business')
+  if (clearError) return { error: clearError.message }
+
+  if (activeIds.length) {
+    const { error } = await ctx.supabase
+      .from('ads_connections')
+      .update({ status: 'active' })
+      .eq('platform', 'google_business')
+      .in('ad_account_id', activeIds)
+    if (error) return { error: error.message }
+  }
+  revalidatePath('/integrations/google-reviews')
+  return { success: true }
+}
+
+export async function disconnectGoogleBusinessOAuth(): Promise<{ error?: string; success?: boolean }> {
+  const ctx = await getOrgContext()
+  if ('error' in ctx) return { error: ctx.error }
+  const { error } = await ctx.supabase.from('ads_connections').delete().eq('platform', 'google_business')
+  if (error) return { error: error.message }
+  revalidatePath('/integrations/google-reviews')
+  return { success: true }
+}

@@ -2,7 +2,9 @@ import { decrypt } from '@/lib/crypto'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { AdsPlatform } from '../commands/types'
 import { googleAdapter } from './google-adapter'
+import { googleBusinessAdapter } from './google-business-adapter'
 import { assetsHandler } from './google/assets'
+import { advancedGoogleHandler } from './google/advanced'
 import { biddingHandler } from './google/bidding'
 import { customerMatchHandler } from './google/customer-match'
 import { withHandlers } from './handlers'
@@ -14,8 +16,9 @@ import type { AdapterContext, AdsProviderAdapter } from './types'
 // New capabilities are CommandHandler modules composed over the base
 // adapters (see handlers.ts); the base adapters keep the original commands.
 const ADAPTERS: Record<AdsPlatform, AdsProviderAdapter> = {
-  google: withHandlers(googleAdapter, [biddingHandler, assetsHandler, customerMatchHandler]),
+  google: withHandlers(googleAdapter, [biddingHandler, assetsHandler, customerMatchHandler, advancedGoogleHandler]),
   meta: withHandlers(metaAdapter, [adsetsHandler, creativesHandler]),
+  google_business: googleBusinessAdapter,
 }
 
 export function getAdapter(platform: AdsPlatform): AdsProviderAdapter {

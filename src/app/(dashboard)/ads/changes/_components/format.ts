@@ -55,12 +55,16 @@ export function riskBadgeVariant(risk: number): NonNullable<BadgeProps['variant'
   return RISK_VARIANTS[risk] ?? 'outline'
 }
 
-export function platformLabel(platform: 'meta' | 'google'): string {
-  return platform === 'meta' ? 'Meta' : 'Google'
+export function platformLabel(platform: 'meta' | 'google' | 'google_business'): string {
+  if (platform === 'meta') return 'Meta'
+  if (platform === 'google_business') return 'Google Business'
+  return 'Google'
 }
 
-export function platformBadgeClass(platform: 'meta' | 'google'): string {
-  return platform === 'meta' ? 'bg-blue-500/10 text-blue-400' : 'bg-[#4285F4]/10 text-[#4285F4]'
+export function platformBadgeClass(platform: 'meta' | 'google' | 'google_business'): string {
+  if (platform === 'meta') return 'bg-blue-500/10 text-blue-400'
+  if (platform === 'google_business') return 'bg-emerald-500/10 text-emerald-400'
+  return 'bg-[#4285F4]/10 text-[#4285F4]'
 }
 
 /** Compact "3 minutes ago" / "in 2 hours" style relative time. */

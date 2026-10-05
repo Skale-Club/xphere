@@ -121,6 +121,18 @@ describe('snapshot + plan — meta.campaign.create', () => {
     expect(updateObjectMock).not.toHaveBeenCalled()
   })
 
+  it('wire: supports a lifetime campaign budget and bid strategy', async () => {
+    const command = { ...baseCommand, lifetime_budget: 500, bid_strategy: 'LOWEST_COST_WITHOUT_CAP' as const }
+    const before = await metaAdapter.snapshot(ctx, command)
+    createObjectMock.mockResolvedValueOnce({ id: 'c_new' })
+    await metaAdapter.execute(ctx, command, before!)
+    expect(createObjectMock).toHaveBeenCalledWith(
+      'act_123456789/campaigns',
+      { name: 'Fall Sale', objective: 'OUTCOME_SALES', status: 'PAUSED', special_ad_categories: [], lifetime_budget: '50000', bid_strategy: 'LOWEST_COST_WITHOUT_CAP' },
+      'token',
+    )
+  })
+
   it('wire: omits daily_budget entirely when the command has none (ad set budgets)', async () => {
     const before = await metaAdapter.snapshot(ctx, baseCommand)
     createObjectMock.mockResolvedValueOnce({ id: 'c_new' })
@@ -131,6 +143,14 @@ describe('snapshot + plan — meta.campaign.create', () => {
     // Graph v26 refuses an ad-set-budget campaign that doesn't say whether its
     // ad sets may share budget (100 / 4834011) — they must not.
     expect(body).toHaveProperty('is_adset_budget_sharing_enabled', false)
+  })
+
+  it('wire: forwards explicit ad-set budget sharing for a no-budget campaign', async () => {
+    const command = { ...baseCommand, is_adset_budget_sharing_enabled: true }
+    const before = await metaAdapter.snapshot(ctx, command)
+    createObjectMock.mockResolvedValueOnce({ id: 'c_new' })
+    await metaAdapter.execute(ctx, command, before!)
+    expect(createObjectMock.mock.calls[0][1]).toHaveProperty('is_adset_budget_sharing_enabled', true)
   })
 
   it('wire: does not send is_adset_budget_sharing_enabled with a campaign budget (CBO)', async () => {

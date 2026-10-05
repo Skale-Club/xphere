@@ -10,7 +10,7 @@ export type PolicyDbRow = Database['public']['Tables']['ads_account_policies']['
 /** One policy scope's editable fields. null = inherit from the broader scope. */
 export const PolicyInputSchema = z
   .object({
-    platform: z.enum(['meta', 'google']).nullable().default(null),
+    platform: z.enum(['meta', 'google', 'google_business']).nullable().default(null),
     ad_account_id: z.string().min(1).max(64).nullable().default(null),
     max_daily_budget: z.number().positive().max(10_000_000).nullable().optional(),
     max_budget_increase_pct: z.number().positive().max(10_000).nullable().optional(),

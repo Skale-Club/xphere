@@ -492,6 +492,24 @@ describe('meta.adset.update_settings', () => {
     expect(updateObjectMock).toHaveBeenCalledWith('as1', { optimization_goal: 'OFFSITE_CONVERSIONS', dsa_beneficiary: 'Acme', dsa_payor: 'Acme' }, 'token')
   })
 
+  it('reads, diffs, validates and writes safe advanced extra_params', async () => {
+    const cmd = { ...command, optimization_goal: undefined, extra_params: { frequency_control_specs: [{ event: 'IMPRESSIONS', interval_days: 7, max_frequency: 2 }] } }
+    getObjectMock.mockResolvedValueOnce({ ...adset, frequency_control_specs: [] })
+    const before = await adsetsHandler.snapshot(ctx, cmd)
+    expect(getObjectMock.mock.calls[0][1]).toContain('frequency_control_specs')
+    const plan = adsetsHandler.plan(cmd, before!)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) expect(plan.diff[0]).toMatchObject({ field: 'frequency_control_specs' })
+    updateObjectMock.mockResolvedValueOnce({ success: true })
+    await adsetsHandler.validate(ctx, cmd, before!)
+    expect(updateObjectMock).toHaveBeenCalledWith(
+      'as1',
+      { frequency_control_specs: cmd.extra_params.frequency_control_specs },
+      'token',
+      { validateOnly: true },
+    )
+  })
+
   it('validate() passes validateOnly through', async () => {
     getObjectMock.mockResolvedValueOnce(adset)
     const before = await adsetsHandler.snapshot(ctx, command)

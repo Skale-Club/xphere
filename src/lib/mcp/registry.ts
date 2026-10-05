@@ -38,6 +38,7 @@ import { metaAudienceTools } from './tools/meta-audiences'
 import { seoTools } from './tools/seo'
 import { localSeoTools } from './tools/local-seo'
 import { gbpTools } from './tools/gbp'
+import { googleBusinessTools } from './tools/google-business'
 
 export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...projectsTools,
@@ -75,6 +76,7 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...emailVerificationTools,
   ...metaAudienceTools,
   ...seoTools,
+  ...googleBusinessTools,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_MCP_TOOLS.map((t) => [t.name, t]))

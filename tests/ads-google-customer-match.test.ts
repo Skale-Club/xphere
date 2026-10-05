@@ -14,6 +14,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 const runGaqlQueryMock = vi.fn()
 const mutateResourcesMock = vi.fn()
 const googleAdsRequestMock = vi.fn()
+const googleAdsMutateMock = vi.fn()
 
 vi.mock('@/lib/ads/google-api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/ads/google-api')>('@/lib/ads/google-api')
@@ -22,6 +23,7 @@ vi.mock('@/lib/ads/google-api', async () => {
     runGaqlQuery: (...args: unknown[]) => runGaqlQueryMock(...args),
     mutateResources: (...args: unknown[]) => mutateResourcesMock(...args),
     googleAdsRequest: (...args: unknown[]) => googleAdsRequestMock(...args),
+    googleAdsMutate: (...args: unknown[]) => googleAdsMutateMock(...args),
   }
 })
 
@@ -349,6 +351,25 @@ describe('user_list.attach', () => {
     expect(result.providerRef).toBe('customers/1234567890/adGroupCriteria/222~9')
   })
 
+  it('atomically changes audience targeting mode and attaches the list', async () => {
+    googleAdsMutateMock.mockResolvedValueOnce({ mutateOperationResponses: [{}, { adGroupCriterionResult: { resourceName: 'customers/1234567890/adGroupCriteria/222~9' } }] })
+    const command = g('google.user_list.attach', { ad_group_id: '222', user_list_id: '555', exclude: false, targeting_mode: 'OBSERVATION' })
+    const before: ResourceSnapshot = {
+      resourceType: 'ad_group', resourceId: null, resourceName: 'x', campaignId: '111', currency: 'USD',
+      fields: { target_restrictions: [{ targetingDimension: 'AGE_RANGE', bidOnly: false }], targeting_mode: 'UNSET' },
+    }
+    const result = await customerMatchHandler.execute(ctx, command, before)
+    const [, , operations] = googleAdsMutateMock.mock.calls[0]
+    expect(operations).toEqual([
+      { adGroupOperation: { update: { resourceName: 'customers/1234567890/adGroups/222', targetingSetting: { targetRestrictions: [
+        { targetingDimension: 'AGE_RANGE', bidOnly: false },
+        { targetingDimension: 'AUDIENCE', bidOnly: true },
+      ] } }, updateMask: 'targetingSetting.targetRestrictions' } },
+      { adGroupCriterionOperation: { create: { adGroup: 'customers/1234567890/adGroups/222', status: 'ENABLED', negative: false, userList: { userList: 'customers/1234567890/userLists/555' } } } },
+    ])
+    expect(result.providerRef).toContain('222~9')
+  })
+
   it('verifies the attached criterion', async () => {
     runGaqlQueryMock.mockResolvedValueOnce([
       { adGroupCriterion: { criterionId: '9', negative: true, type: 'USER_LIST', userList: { userList: 'customers/1234567890/userLists/555' } }, adGroup: { id: '222' }, campaign: { id: '111' } },
@@ -412,6 +433,7 @@ describe('user_list.detach', () => {
     const before: ResourceSnapshot = { resourceType: 'ad_group', resourceId: '9', resourceName: 'x', campaignId: '111', currency: 'USD', fields: { exists: true, user_list_id: '555', exclude: true } }
     expect(customerMatchHandler.buildRollback(command, before, null)).toEqual({
       platform: 'google', ad_account_id: '1234567890', type: 'google.user_list.attach', ad_group_id: '222', user_list_id: '555', exclude: true,
+      targeting_mode: 'UNCHANGED',
     })
   })
 })
@@ -518,6 +540,21 @@ describe('execute — the offline user data job flow', () => {
     expect(result.providerRef).toBe('customers/1234567890/offlineUserDataJobs/777')
   })
 
+  it('sends postal identifiers with REMOVE semantics', async () => {
+    googleAdsRequestMock
+      .mockResolvedValueOnce({ resourceName: 'customers/1234567890/offlineUserDataJobs/778' })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+    const address = { hashed_first_name: hash(11), hashed_last_name: hash(12), country_code: 'US', postal_code: '10001' }
+    const command = uploadCommand({ hashed_emails: [], hashed_addresses: [address], operation_type: 'REMOVE' })
+    const before: ResourceSnapshot = { resourceType: 'user_list', resourceId: '555', resourceName: 'X', campaignId: null, currency: 'USD', fields: {} }
+    await customerMatchHandler.execute(ctx, command, before)
+    const addBody = (googleAdsRequestMock.mock.calls[1][2] as { body: { operations: unknown[] } }).body
+    expect(addBody.operations).toEqual([{ remove: { userIdentifiers: [{ addressInfo: {
+      hashedFirstName: hash(11), hashedLastName: hash(12), countryCode: 'US', postalCode: '10001',
+    } }] } }])
+  })
+
   it('chunks operations into batches of at most 10,000', async () => {
     googleAdsRequestMock
       .mockResolvedValueOnce({ resourceName: 'customers/1234567890/offlineUserDataJobs/777' })
@@ -560,9 +597,14 @@ describe('verify — user_list.upload', () => {
     expect(runGaqlQueryMock).not.toHaveBeenCalled()
   })
 
-  it('has no rollback for an upload', () => {
+  it('rolls an ADD upload back with a REMOVE job for the same hashed identifiers', () => {
     const before: ResourceSnapshot = { resourceType: 'user_list', resourceId: '555', resourceName: 'X', campaignId: null, currency: 'USD', fields: {} }
-    expect(customerMatchHandler.buildRollback(uploadCommand(), before, 'customers/1234567890/offlineUserDataJobs/777')).toBeNull()
+    expect(customerMatchHandler.buildRollback(uploadCommand(), before, 'customers/1234567890/offlineUserDataJobs/777')).toMatchObject({
+      type: 'google.user_list.upload',
+      user_list_id: '555',
+      operation_type: 'REMOVE',
+      hashed_emails: [hash(1)],
+    })
   })
 })
 

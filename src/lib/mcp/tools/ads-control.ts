@@ -3,7 +3,7 @@
 // The flow an agent is expected to follow, and that the descriptions spell
 // out: analyse (read tools) → ads_preview_change → show the diff to the
 // operator → ads_approve_change only after they explicitly agree →
-// ads_get_change_status. The agent never writes to Google or Meta directly;
+// ads_get_change_status. The agent never writes to Google, Meta or Google Business directly;
 // every change is a ledger row with a policy verdict and a read-back.
 //
 // Whether an agent can confirm its own proposal is an account policy
@@ -129,11 +129,11 @@ export const adsControlTools: McpToolDef[] = [
     name: 'ads_get_capabilities',
     title: 'Get ads editing capabilities',
     description:
-      'List every change Xphere can make on Google Ads and Meta Ads (command types, risk level 1-4) and, for each connected ad account, the guardrail policy that applies: ai_mode (read_only / propose / execute_with_confirmation), budget ceiling, max budget increase per change, whether activating or bidding changes are allowed, protected campaigns. Call this before proposing changes to an account.',
+      'List every guarded change Xphere can make on Google Ads, Meta Ads and Google Business Profile (command types, risk level 1-4) and the policy for each connected target. Call this before proposing a write. Google Business targets use accounts/{account}/locations/{location}; budget fields in their policy are irrelevant, while ai_mode, approval threshold, bulk permission and expiry still apply.',
     area: 'general_xphere',
-    inputSchema: z.object({ platform: z.enum(['meta', 'google']).optional() }).strict(),
+    inputSchema: z.object({ platform: z.enum(['meta', 'google', 'google_business']).optional() }).strict(),
     handler: async ({ platform }, { auth }) => {
-      const platforms = platform ? [platform] : (['google', 'meta'] as const)
+      const platforms = platform ? [platform] : (['google', 'meta', 'google_business'] as const)
       const commands = Object.entries(COMMAND_CATALOG)
         .filter(([, e]) => platforms.includes(e.platform))
         .map(([type, e]) => ({ type, platform: e.platform, resource: e.resourceType, risk: e.risk, label: e.label }))
@@ -165,10 +165,10 @@ export const adsControlTools: McpToolDef[] = [
           1: 'reversible: name, status, budget, dates',
           2: 'targeting: keywords, negatives, audience, geo, placements',
           3: 'strategy: bids, bidding strategy',
-          4: 'structural (not yet available)',
+          4: 'structural: creates, duplicates and destructive changes; approval required',
         },
         workflow:
-          'Read → ads_preview_change (returns diff + change_id + confirmation_token) → show the diff to the operator → only after they confirm, ads_approve_change → ads_get_change_status. Money is always in major units of the account currency (e.g. 50 = R$50).',
+          'Read → ads_preview_change (returns diff + change_id + confirmation_token) → show the diff to the operator → only after they confirm, ads_approve_change → ads_get_change_status. Money in ad commands is always in major units of the account currency.',
       }
     },
   },
@@ -413,7 +413,7 @@ export const adsControlTools: McpToolDef[] = [
     name: 'ads_preview_change',
     title: 'Preview an ads change',
     description:
-      'Propose ONE change to a Google Ads or Meta Ads account. Nothing is written to the platform: Xphere reads the current state, computes the before→after diff, checks the account policy, asks the platform to validate the change, and records it as awaiting approval. Returns change_id, diff, warnings, approval_reasons and (when the account allows AI confirmation) a one-time confirmation_token. You MUST show the diff to the operator and get an explicit yes before calling ads_approve_change. Money is in major units of the account currency.',
+      'Propose ONE change to Google Ads, Meta Ads or Google Business Profile. Nothing is written: Xphere reads the current state, computes the before→after diff, checks policy, performs provider preflight when supported, and records it as awaiting approval. Returns change_id, diff, warnings, approval_reasons and possibly a one-time confirmation_token. You MUST show the diff to the operator and get an explicit yes before calling ads_approve_change. Google Business targets use accounts/{account}/locations/{location}.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     inputSchema: z.object({ command: AdsCommandSchema }).strict(),
@@ -430,7 +430,7 @@ export const adsControlTools: McpToolDef[] = [
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     // Each item has exactly the shape of ads_preview_change's `command`. The full
-    // 79-variant schema is published once (on ads_preview_change) rather than
+    // Full command schema is published once (on ads_preview_change) rather than
     // twice — it is ~45 KB of JSON Schema in every client's context. Items are
     // validated by the same parser inside previewChange, with per-item errors.
     inputSchema: z
@@ -528,7 +528,7 @@ export const adsControlTools: McpToolDef[] = [
     inputSchema: z
       .object({
         status: z.array(StatusSchema).optional(),
-        platform: z.enum(['meta', 'google']).optional(),
+        platform: z.enum(['meta', 'google', 'google_business']).optional(),
         ad_account_id: z.string().optional(),
         campaign_id: z.string().optional(),
         limit: z.number().int().min(1).max(100).default(25),

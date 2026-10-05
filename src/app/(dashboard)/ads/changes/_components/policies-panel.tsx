@@ -28,9 +28,9 @@ import { platformLabel } from './format'
 
 type PolicyDbRow = Database['public']['Tables']['ads_account_policies']['Row']
 
-type Account = { platform: 'meta' | 'google'; adAccountId: string; adAccountName: string | null }
+type Account = { platform: 'meta' | 'google' | 'google_business'; adAccountId: string; adAccountName: string | null }
 
-type Scope = { key: string; label: string; platform: 'meta' | 'google' | null; adAccountId: string | null }
+type Scope = { key: string; label: string; platform: 'meta' | 'google' | 'google_business' | null; adAccountId: string | null }
 
 type TriState = 'inherit' | 'true' | 'false'
 type AiModeChoice = 'inherit' | 'read_only' | 'propose' | 'execute_with_confirmation'
@@ -96,6 +96,7 @@ export function PoliciesPanel({ accounts, canAdmin }: { accounts: Account[]; can
       { key: 'global', label: 'All platforms (org default)', platform: null, adAccountId: null },
       { key: 'meta', label: 'Meta (all accounts)', platform: 'meta', adAccountId: null },
       { key: 'google', label: 'Google (all accounts)', platform: 'google', adAccountId: null },
+      { key: 'google_business', label: 'Google Business (all locations)', platform: 'google_business', adAccountId: null },
     ]
     const seen = new Set<string>()
     const accountScopes: Scope[] = []

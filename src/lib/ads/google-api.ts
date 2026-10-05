@@ -510,6 +510,7 @@ export type GAdsBatchMutateOperationResult = {
   campaignResult?: { resourceName?: string }
   campaignCriterionResult?: { resourceName?: string }
   adGroupResult?: { resourceName?: string }
+  adGroupCriterionResult?: { resourceName?: string }
   adGroupAdResult?: { resourceName?: string }
 }
 

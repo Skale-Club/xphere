@@ -200,6 +200,19 @@ describe('execute — campaign.create_search', () => {
     expect((manualOps as Array<{ campaignOperation?: { create: Record<string, unknown> } }>)[1].campaignOperation?.create).toMatchObject({ manualCpc: {} })
   })
 
+  it('declares EU political advertising when explicitly requested', async () => {
+    googleAdsMutateMock.mockResolvedValueOnce({ mutateOperationResponses: [{ campaignResult: { resourceName: 'customers/1234567890/campaigns/3' } }] })
+    const command = g('google.campaign.create_search', {
+      name: 'Political', daily_budget: 10, bidding: 'MANUAL_CPC', search_partners: false,
+      location_ids: ['2276'], language_ids: ['1014'], contains_eu_political_advertising: true,
+    })
+    const before: ResourceSnapshot = { resourceType: 'campaign', resourceId: null, resourceName: 'Political', campaignId: null, currency: 'EUR', fields: {} }
+    await googleAdapter.execute(ctx, command, before)
+    const [, , operations] = googleAdsMutateMock.mock.calls[0]
+    expect((operations as Array<{ campaignOperation?: { create: Record<string, unknown> } }>)[1].campaignOperation?.create)
+      .toHaveProperty('containsEuPoliticalAdvertising', 'CONTAINS_EU_POLITICAL_ADVERTISING')
+  })
+
   it('passes validateOnly through to the batch mutate call', async () => {
     googleAdsMutateMock.mockResolvedValueOnce({})
     const command = g('google.campaign.create_search', {

@@ -18,6 +18,7 @@ import { resolveOrgBranding } from '@/lib/branding'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { BusinessSearch } from '@/components/reviews/business-search'
+import { GoogleBusinessOAuthCard } from '@/components/reviews/google-business-oauth-card'
 import { RefreshButton } from '@/components/reviews/refresh-button'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
 import { ReviewsSetupWizard } from '@/components/reviews/reviews-setup-wizard'
@@ -78,7 +79,20 @@ function StatusBadge({ status }: { status: string | null }) {
   )
 }
 
-export default async function GoogleReviewsIntegrationPage() {
+const GBP_ERROR_MESSAGES: Record<string, string> = {
+  missing_code: 'Google did not return an authorization code. Please try again.',
+  csrf: 'The Google OAuth security check expired. Please reconnect.',
+  no_org: 'Choose an organization before connecting Google Business Profile.',
+  no_locations: 'No Business Profile locations were available to this Google account.',
+  no_refresh_token: 'Google did not return durable access. Remove Xphere from Google account permissions and reconnect.',
+  oauth_exchange: 'Google Business Profile authorization failed.',
+}
+
+export default async function GoogleReviewsIntegrationPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ gbp_error?: string; detail?: string }>
+}) {
   const user = await getUser()
   if (!user) redirect('/')
 
@@ -112,6 +126,28 @@ export default async function GoogleReviewsIntegrationPage() {
     .limit(1)
     .maybeSingle()
 
+  const { data: googleBusinessConnections } = await supabase
+    .from('ads_connections')
+    .select('ad_account_id, ad_account_name, status, health, connection_error')
+    .eq('platform', 'google_business')
+    .order('ad_account_name', { ascending: true })
+  const params = await searchParams
+  const oauthError = params.gbp_error
+    ? `${GBP_ERROR_MESSAGES[params.gbp_error] ?? 'Google Business Profile connection failed.'}${params.detail ? ` ${params.detail}` : ''}`
+    : null
+  const oauthCard = (
+    <GoogleBusinessOAuthCard
+      connections={(googleBusinessConnections ?? []).map((row) => ({
+        ad_account_id: row.ad_account_id,
+        ad_account_name: row.ad_account_name,
+        status: row.status,
+        health: row.health,
+        connection_error: row.connection_error,
+      }))}
+      error={oauthError}
+    />
+  )
+
   let keyHint: string | null = null
   if (profile?.serpapi_key_encrypted) {
     try {
@@ -141,6 +177,8 @@ export default async function GoogleReviewsIntegrationPage() {
           description="Scrape your Google Business reviews daily via SerpAPI and serve them through an embeddable widget."
           back={{ href: '/integrations', label: 'All integrations' }}
         />
+
+        {oauthCard}
 
         <div className="flex w-full flex-col items-center justify-center gap-4 rounded-[12px] border border-dashed border-border bg-bg-secondary/40 px-6 py-16 text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bg-tertiary ring-1 ring-border-subtle">
@@ -235,6 +273,8 @@ export default async function GoogleReviewsIntegrationPage() {
           </div>
         }
       />
+
+      {oauthCard}
 
       {/* ── Business stats ── */}
       <SectionCard

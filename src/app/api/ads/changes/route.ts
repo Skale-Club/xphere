@@ -55,7 +55,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const platform = q.get('platform')
   const changes = await listChanges(orgId, {
     status: status.length ? status : undefined,
-    platform: platform === 'meta' || platform === 'google' ? platform : undefined,
+    platform: platform === 'meta' || platform === 'google' || platform === 'google_business' ? platform : undefined,
     adAccountId: q.get('ad_account_id') ?? undefined,
     campaignId: q.get('campaign_id') ?? undefined,
     batchId: q.get('batch_id') ?? undefined,

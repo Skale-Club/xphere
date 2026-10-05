@@ -4,13 +4,13 @@
 // approve flow this follows).
 //
 // ads_google_prepare_customer_match_upload is the only tool here that turns
-// contacts into a command: it hashes raw emails/phones (or contacts read
+// contacts into a command: it hashes raw emails/phones/addresses (or contacts read
 // from the org's own CRM by tag) server-side with the same normalise+SHA-256
 // helpers the dashboard uses (src/lib/ads/customer-match.ts), then previews a
 // google.user_list.upload command. Raw addresses/numbers and their hashes
 // never appear in the tool's response — only accepted/rejected counts — and
-// they never reach the change ledger either (the command schema only accepts
-// hashed_emails/hashed_phones).
+// raw values never reach the change ledger (the command schema accepts only
+// normalized SHA-256 identifiers).
 
 import { z } from 'zod'
 
@@ -161,7 +161,7 @@ export const adsGoogleCustomerMatchTools: McpToolDef[] = [
     name: 'ads_google_prepare_customer_match_upload',
     title: 'Hash contacts and preview a Customer Match upload',
     description:
-      'Turn raw contacts into a Customer Match upload: give emails/phones directly, or a crm_tag to pull contacts already tagged in the Xphere CRM (org-scoped). Contacts are normalised and SHA-256 hashed here on the server — this tool NEVER returns raw addresses/numbers or their hashes, only accepted/rejected counts. Previews a google.user_list.upload change the same way ads_preview_change does: show the operator the counts and warnings, then ads_approve_change with the confirmation_token after they agree.',
+      'Turn raw contacts into a Customer Match add/remove job: give emails, phones or complete postal identities directly, or a crm_tag to pull contacts already tagged in the Xphere CRM (org-scoped). Contacts are normalised and SHA-256 hashed here on the server — this tool NEVER returns raw values or hashes, only accepted/rejected counts. Previews a google.user_list.upload change the same way ads_preview_change does: show the operator the counts and warnings, then ads_approve_change with the confirmation_token after they agree.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     inputSchema: z
@@ -170,6 +170,13 @@ export const adsGoogleCustomerMatchTools: McpToolDef[] = [
         user_list_id: z.string().min(1).max(20).regex(/^\d+$/, 'Must be a numeric id'),
         emails: z.array(z.string()).max(10_000).optional(),
         phones: z.array(z.string()).max(10_000).optional(),
+        addresses: z.array(z.object({
+          first_name: z.string().min(1),
+          last_name: z.string().min(1),
+          country_code: z.string().length(2),
+          postal_code: z.string().min(1).max(20),
+        }).strict()).max(10_000).optional(),
+        operation_type: z.enum(['ADD', 'REMOVE']).default('ADD'),
         /** Pull contacts with this tag from the org's own CRM instead of (or in addition to) emails/phones. */
         crm_tag: z.string().trim().min(1).max(100).optional(),
         /** ISO 3166-1 alpha-2, used only for phones with no country code of their own. */
@@ -178,9 +185,9 @@ export const adsGoogleCustomerMatchTools: McpToolDef[] = [
         consent_ad_personalization: ConsentSchema.default('UNSPECIFIED'),
       })
       .strict(),
-    handler: async ({ customer_id, user_list_id, emails, phones, crm_tag, default_country, consent_ad_user_data, consent_ad_personalization }, { auth }) => {
-      if (!emails?.length && !phones?.length && !crm_tag) {
-        return { error: 'no_contacts', detail: 'Provide emails and/or phones, or crm_tag to pull contacts from the CRM.' }
+    handler: async ({ customer_id, user_list_id, emails, phones, addresses, operation_type, crm_tag, default_country, consent_ad_user_data, consent_ad_personalization }, { auth }) => {
+      if (!emails?.length && !phones?.length && !addresses?.length && !crm_tag) {
+        return { error: 'no_contacts', detail: 'Provide emails, phones and/or complete addresses, or crm_tag to pull contacts from the CRM.' }
       }
       const conn = await resolveAdAccount(auth.orgId, 'google', customer_id)
       if (!conn.ok) return { error: conn.error, detail: conn.detail, available_accounts: conn.available }
@@ -214,10 +221,15 @@ export const adsGoogleCustomerMatchTools: McpToolDef[] = [
 
       // Hashing happens here, once, before anything else touches the
       // contacts — the raw values go out of scope right after this call.
-      const { hashed_emails, hashed_phones, rejected } = hashContacts({ emails: rawEmails, phones: rawPhones, defaultCountry: default_country })
-      const accepted = hashed_emails.length + hashed_phones.length
+      const { hashed_emails, hashed_phones, hashed_addresses, rejected } = hashContacts({
+        emails: rawEmails,
+        phones: rawPhones,
+        addresses,
+        defaultCountry: default_country,
+      })
+      const accepted = hashed_emails.length + hashed_phones.length + hashed_addresses.length
       if (accepted === 0) {
-        return { error: 'no_valid_contacts', detail: 'None of the given contacts normalised to a valid email or E.164 phone number.', rejected }
+        return { error: 'no_valid_contacts', detail: 'None of the given contacts normalised to a valid email, E.164 phone number, or complete postal address.', rejected }
       }
 
       const result = await previewChange({
@@ -230,6 +242,8 @@ export const adsGoogleCustomerMatchTools: McpToolDef[] = [
           user_list_id,
           hashed_emails,
           hashed_phones,
+          ...(hashed_addresses.length > 0 ? { hashed_addresses } : {}),
+          ...(operation_type !== undefined ? { operation_type } : {}),
           consent_ad_user_data,
           consent_ad_personalization,
         },
