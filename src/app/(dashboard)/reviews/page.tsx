@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Star } from 'lucide-react'
 import { redirect } from 'next/navigation'
 
@@ -9,6 +10,7 @@ import { RefreshButton } from '@/components/reviews/refresh-button'
 import { ReviewProfileSwitcher } from '@/components/reviews/review-profile-switcher'
 import { WidgetSettingsDialog } from '@/components/reviews/widget-settings-dialog'
 import { ReviewsSetupWizard } from '@/components/reviews/reviews-setup-wizard'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { PageContainer } from '@/components/layout/page-header'
 import { saveWidgetSettings, type SavedWidgetSettings } from './actions'
@@ -98,6 +100,16 @@ export default async function ReviewsPage({
     }
   }
 
+  // When this business is connected to Google Business Profile, replies are
+  // made from Local SEO → Reviews.
+  const { data: localSeoLocation } = await supabase
+    .from('local_seo_locations')
+    .select('id')
+    .eq('google_business_profile_id', profile.id)
+    .not('gbp_location_name', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
   const { data: widgetPreviewRows } = await supabase
     .from('google_reviews')
     .select(
@@ -150,6 +162,11 @@ export default async function ReviewsPage({
                 currentId={profile.id}
                 profiles={switchable.map((p) => ({ id: p.id, label: p.business_name ?? p.place_id }))}
               />
+            )}
+            {localSeoLocation && (
+              <Button asChild size="sm" variant="secondary">
+                <Link href={`/local-seo/${localSeoLocation.id}/reviews`}>Reply in Local SEO</Link>
+              </Button>
             )}
             <RefreshButton profileId={profile.id} />
             <WidgetSettingsDialog

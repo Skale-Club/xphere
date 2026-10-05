@@ -13,6 +13,7 @@ const TABS = [
   { label: 'Posts', segment: 'posts' },
   { label: 'Profile', segment: 'profile' },
   { label: 'Audit', segment: 'audit' },
+  { label: 'Citations & AI', segment: 'visibility' },
   { label: 'Settings', segment: 'settings' },
 ]
 

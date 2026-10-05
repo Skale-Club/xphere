@@ -10,15 +10,23 @@ Code: `src/lib/local-seo/`, UI under `/local-seo`.
 | Geogrid worker tick | `GET /api/cron/local-seo-tick` | every minute (skale-cron) |
 | Housekeeping (60-day SERP retention, stuck scans) | `GET /api/cron/local-seo-maintenance` | daily (skale-cron) |
 | DataForSEO postback | `POST /api/local-seo/providers/dataforseo/postback?secret=…` | pushed by DataForSEO |
+| Business Profile sync | `GET /api/cron/gbp-sync-tick` | every 15 min (skale-cron) |
+| GBP OAuth | `/api/local-seo/gbp/oauth` → `/api/local-seo/gbp/callback` | user flow |
+| Public report | `/r/local-seo/<token>` | public, noindex |
+| Report PDF | `GET /api/local-seo/reports/<id>/pdf` | dashboard session |
 
 Both cron routes need `Authorization: Bearer $CRON_SECRET` and fail closed (503)
 without it. Point skale-cron at `https://origin.xphere.app` (Cloudflare cuts
 proxied requests at 100 s; the tick spends at most ~55 s):
 
 ```
-* * * * *   local-seo-tick         GET https://origin.xphere.app/api/cron/local-seo-tick         expected 60s
-17 4 * * *  local-seo-maintenance  GET https://origin.xphere.app/api/cron/local-seo-maintenance  expected 86400s
+* * * * *     local-seo-tick         GET https://origin.xphere.app/api/cron/local-seo-tick         expected 60s
+*/15 * * * *  gbp-sync-tick          GET https://origin.xphere.app/api/cron/gbp-sync-tick          expected 900s
+17 4 * * *    local-seo-maintenance  GET https://origin.xphere.app/api/cron/local-seo-maintenance  expected 86400s
 ```
+
+`local-seo-maintenance` also sends the monthly reports, so it renders PDFs;
+it is allowed 300 s (call it on the origin, not through Cloudflare).
 
 "Scan now" also runs one tick right after the scan is created (`after()`), so a
 manual scan starts even before the cron is wired; scheduled scans need the cron.
@@ -37,6 +45,10 @@ manual scan starts even before the cron is wired; scheduled scans need the cron.
 | `LOCAL_SEO_DISABLED=true` | runtime env | Kill switch: no new scans anywhere |
 | `LOCAL_SEO_DAILY_POINT_CAP` | runtime env, default 20000 | Platform-wide ceiling of billable points per UTC day |
 | `LOCAL_SEO_UNPLANNED_POINTS_MONTH` | runtime env, default 500 | Monthly points for orgs without a plan while billing enforcement is off |
+| `GBP_REPLY_MODEL` | runtime env, optional | OpenRouter model for review reply drafts |
+| `LOCAL_SEO_AI_MODELS` | runtime env, optional | Comma-separated OpenRouter models for the AI visibility check |
+| `LOCAL_SEO_PDF_ORIGIN` | runtime env, optional | Origin Chromium uses to print reports (default `http://127.0.0.1:$PORT`) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | runtime env (existing) | OAuth client for the Business Profile connection |
 
 Runtime env goes through `coolify-set-envs.yml` (manual dispatch), not the build.
 
@@ -165,6 +177,23 @@ Local SEO → **Reports**: choose locations, period (7/30/90 days) and sections
 - **Monthly email**: the daily `local-seo-maintenance` cron sends reports whose
   `send_day` is today with the PDF attached and a 30-day link, via the org's
   email integration (`sendTenantEmail`) or the platform sender as fallback.
+
+## Citations and AI visibility (Phase 7)
+
+Location → **Citations & AI**. Option B of the plan (own lightweight check;
+the BrightLocal API stays available as a later option):
+
+- **Citations** (`src/lib/local-seo/citations.ts`): one SerpAPI Google search
+  `site:<directory> "<name>" <area>` per directory of the location's country
+  (US and BR lists, a short default elsewhere). The first result on that
+  domain is judged against the profile NAP; a field missing from the snippet
+  is "unknown", not a mismatch. Each search spends one scan point.
+- **AI assistants** (`src/lib/local-seo/ai-visibility.ts`): for up to 3
+  keywords, asks each model in `LOCAL_SEO_AI_MODELS` (default
+  `perplexity/sonar,openai/gpt-4o-mini:online`, both search the web) for the
+  best options in the area, in the location's language, and records whether
+  the business is mentioned, its position in the list and who else is.
+  Uses the org's OpenRouter key or the platform's.
 
 ## Data retention
 

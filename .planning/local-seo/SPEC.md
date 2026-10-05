@@ -1,6 +1,6 @@
 # Local SEO: geogrid, Google Business Profile, auditoria e relatórios
 
-**Status:** Fases 0, 1 e 2 implementadas na branch `feat/local-seo` (2026-10-05), com as recomendações da seção 1 adotadas. Migrations 1312–1314 escritas e ainda não aplicadas. Fases 3 a 7 pendentes.
+**Status:** Fases 0 a 7 implementadas na branch `feat/local-seo` (2026-10-05), com as recomendações da seção 1 adotadas e a opção B na Fase 7. Migrations 1312–1318 escritas e ainda não aplicadas. Nada foi validado contra o banco nem contra as APIs reais; as Fases 3 e 4 dependem da aprovação do Google.
 **Contexto:** hoje o Xphere só faz scraping de reviews do Google (SerpAPI, SEED-009) e tem o widget embeddável. A referência de mercado é a BrightLocal (Local Search Grid, Rank Tracker, Citation Tracker, Audit, Reputation, relatórios white-label). Este plano leva o essencial disso para dentro do Xphere, aproveitando os padrões que já existem: command ledger do Ads, fila com `SKIP LOCKED`, skale-cron, workflows, MCP, RBAC e billing.
 
 ---
@@ -12,7 +12,11 @@
 | 0 Fundação | Feita | migration 1312, `src/lib/local-seo/{credentials,quota}.ts`, `/local-seo`, correção do `/reviews` |
 | 1 Geogrid | Feita | migration 1313, `grid/metrics/matching/providers/worker/scans.ts`, crons, postback, aba Rankings |
 | 2 Tracking | Feita | migration 1314, `schedules/events/workflow-events.ts`, abas Trends/Competitors, Settings, MCP, ação `local_seo_run_scan` |
-| 3–7 | Pendentes | dependem da validação das fases 0–2 em produção; 3 e 4 também da aprovação do Google |
+| 3 GBP + reviews | Feita | migration 1315, `src/lib/google/oauth.ts`, `src/lib/gbp/{client,commands,replies,sync}.ts`, OAuth, `gbp-sync-tick`, aba Reviews, widget |
+| 4 Perfil, posts, performance | Feita | `src/lib/gbp/profile.ts`, abas Profile e Posts, performance na aba Trends |
+| 5 Auditoria | Feita | migration 1316, `audit-checks.ts` (puro) + `audit.ts`, aba Audit, criação de Tasks |
+| 6 Relatórios | Feita | migration 1317, `reports.ts`, `/r/local-seo/[token]`, PDF, envio mensal, página Reports |
+| 7 Citações e IA | Feita (opção B) | migration 1318, `citations.ts`, `ai-visibility.ts`, aba Citations & AI |
 
 Runbook com variáveis de ambiente, crons e troubleshooting: `docs/local-seo/README.md`.
 
@@ -24,6 +28,12 @@ Runbook com variáveis de ambiente, crons e troubleshooting: `docs/local-seo/REA
 - Alertas: o canal nativo é in-app + push. Email/Telegram/Slack ficam a cargo de workflows no evento `local_seo.rank_changed`, em vez de uma lista fixa de canais por regra.
 - Postback da DataForSEO é opcional (`LOCAL_SEO_POSTBACK_SECRET`); sem ele o worker consulta `task_get` depois de 2 min.
 - Chave do Maps é runtime (`GOOGLE_MAPS_BROWSER_KEY`), passada da página para o cliente, para não exigir rebuild da imagem.
+- GBP: o ledger tem 5 comandos (`review.reply`, `review.delete_reply`, `profile.update`, `post.create`, `post.delete`). Edição de perfil cobre descrição, site, telefone e horários; categorias, atributos, serviços e horários especiais ficaram de fora porque exigem IDs de categoria/atributo do Google e uma UI própria.
+- GBP: quem tem `local_seo.approve` aprova ao enviar; membros, workflows e IA sempre esperam aprovação. O Pub/Sub de notificações do Google não foi feito; o sync de reviews roda a cada 15 min.
+- Auditoria: o site é buscado com `fetch` (via `safeFetchBytes`, só https e IPs públicos), não com Chromium. Sites que montam o conteúdo só via JavaScript podem dar falso "não encontrado" no NAP.
+- Relatórios: o link público guarda só o hash do token (como `api_keys`). O PDF imprime a própria página pública dentro do gate de Chromium do website-analyzer.
+- Citações (opção B): uma busca `site:` por diretório via SerpAPI, cobrando 1 ponto cada. Campo ausente no snippet conta como "desconhecido", não como divergência.
+- Visibilidade em IA: até 3 keywords × modelos de `LOCAL_SEO_AI_MODELS` (padrão Perplexity Sonar e GPT-4o mini com busca). O custo de LLM não entra na cota de pontos.
 
 ---
 

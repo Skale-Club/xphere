@@ -10,6 +10,8 @@ import { cidFromDataId } from '@/lib/local-seo/providers/serpapi'
 import { estimateScan, createScan, type ScanEstimate } from '@/lib/local-seo/scans'
 import { nextRunAt } from '@/lib/local-seo/schedules'
 import { createTasksFromAudit, runAudit } from '@/lib/local-seo/audit'
+import { runAiVisibilityCheck } from '@/lib/local-seo/ai-visibility'
+import { runCitationCheck } from '@/lib/local-seo/citations'
 import { GRID_SIZES } from '@/lib/local-seo/types'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
 import { SerpApiClient, isSerpApiError } from '@/lib/serpapi/client'
@@ -590,4 +592,26 @@ export async function createAuditTasks(auditId: string, locationId: string, chec
   revalidatePath(`/local-seo/${locationId}`, 'layout')
   revalidatePath('/tasks')
   return { created: res.created }
+}
+
+// ---------------------------------------------------------------------------
+// Citations & AI visibility (Phase 7)
+// ---------------------------------------------------------------------------
+
+export async function runCitations(locationId: string, area: string): Promise<{ found: number; total: number } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const res = await runCitationCheck(createServiceRoleClient(), { orgId: ctx.orgId, locationId, area })
+  if (!res.ok) return { error: res.error }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { found: res.found, total: res.total }
+}
+
+export async function runAiVisibility(locationId: string, area: string): Promise<{ mentioned: number; total: number } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const res = await runAiVisibilityCheck(createServiceRoleClient(), { orgId: ctx.orgId, locationId, area })
+  if (!res.ok) return { error: res.error }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { mentioned: res.mentioned, total: res.total }
 }
