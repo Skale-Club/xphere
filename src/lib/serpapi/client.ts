@@ -144,7 +144,7 @@ export class SerpApiClient {
   async searchBusinesses(
     query: string,
     location?: string,
-    opts: { hl?: string; gl?: string } = {}
+    opts: { hl?: string; gl?: string; ll?: { lat: number; lng: number } } = {}
   ): Promise<SerpApiMapsSearchPlace[]> {
     // The location is folded into the query instead of being sent as SerpAPI's
     // `location` param: on the google_maps engine that param is rejected with a
@@ -159,7 +159,32 @@ export class SerpApiClient {
     })
     if (opts.hl) params.set('hl', opts.hl)
     if (opts.gl) params.set('gl', opts.gl)
+    // Bias the search to where the user is standing ("near me" by name).
+    if (opts.ll) params.set('ll', `@${opts.ll.lat},${opts.ll.lng},14z`)
 
+    const json = await this.mapsRequest(params)
+    if (json.place_results) return [json.place_results]
+    return json.local_results ?? []
+  }
+
+  /**
+   * Resolve a single place by an identifier other than its Place ID: Google's
+   * CID (`data_cid`) or a Maps `data` blob (`!4m5!3m4!1s<data_id>!8m2!3d<lat>!4d<lng>`).
+   * Returns null when SerpAPI finds no place for it.
+   */
+  async lookupPlace(
+    by: { dataCid: string } | { data: string },
+    opts: { hl?: string } = {}
+  ): Promise<SerpApiMapsSearchPlace | null> {
+    const params = new URLSearchParams({ engine: 'google_maps', type: 'place', api_key: this.apiKey })
+    if ('dataCid' in by) params.set('data_cid', by.dataCid)
+    else params.set('data', by.data)
+    if (opts.hl) params.set('hl', opts.hl)
+    const json = await this.mapsRequest(params)
+    return json.place_results ?? null
+  }
+
+  private async mapsRequest(params: URLSearchParams): Promise<SerpApiMapsSearchResponse> {
     const url = `${SERPAPI_BASE}?${params.toString()}`
     const res = await fetch(url, { method: 'GET' })
 
@@ -185,8 +210,7 @@ export class SerpApiClient {
       }
       throw <SerpApiError>{ status: 'request_error', message: json.error }
     }
-    if (json.place_results) return [json.place_results]
-    return json.local_results ?? []
+    return json
   }
 }
 

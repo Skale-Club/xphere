@@ -66,6 +66,9 @@ export default async function ReviewsPage({
               Connect your Google Business via SerpAPI to start capturing reviews automatically.
             </p>
             <ReviewsSetupWizard triggerLabel="Configure integration" />
+            <Button asChild size="sm" variant="ghost">
+              <Link href="/reviews/review-link">Just need a review link? Generate one</Link>
+            </Button>
           </CardContent>
         </Card>
       </PageContainer>
@@ -168,6 +171,9 @@ export default async function ReviewsPage({
                 <Link href={`/local-seo/${localSeoLocation.id}/reviews`}>Reply in Local SEO</Link>
               </Button>
             )}
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/reviews/review-link">Review link</Link>
+            </Button>
             <RefreshButton profileId={profile.id} />
             <WidgetSettingsDialog
               currentHint={keyHint}

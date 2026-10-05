@@ -38,7 +38,7 @@ export const PLATFORM_KEY_META: Record<
   SERPAPI_API_KEY: {
     label: 'SerpAPI key (platform default)',
     description:
-      'Fallback Local SEO rank provider and the business search used to add a location. Orgs that saved their own SerpAPI key for Google Reviews keep using theirs.',
+      'Fallback Local SEO rank provider and the business search used to add a location or build a review link. Orgs that saved their own SerpAPI key for Google Reviews keep using theirs.',
     tab: 'Local SEO',
   },
 }

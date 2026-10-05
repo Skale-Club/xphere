@@ -21,6 +21,14 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     shortcuts: [
       { name: 'Dashboard', url: '/dashboard', description: 'Open dashboard' },
       { name: 'Contacts',  url: '/contacts',  description: 'View contacts' },
+      { name: 'Review Link', url: '/reviews/review-link', description: 'Generate a Google review link' },
     ],
+    // Sharing a business from the Google Maps app to the installed app opens the
+    // Review Link tool with the shared name + link, which generates right away.
+    share_target: {
+      action: '/reviews/review-link',
+      method: 'GET',
+      params: { title: 'title', text: 'text', url: 'url' },
+    },
   }
 }
