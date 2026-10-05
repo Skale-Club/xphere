@@ -5986,6 +5986,306 @@ export interface Database {
           },
         ]
       }
+      seo_sites: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          root_url: string
+          host: string
+          crawl_max_pages: number
+          audit_schedule: 'off' | 'weekly' | 'monthly'
+          next_audit_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          root_url: string
+          host: string
+          crawl_max_pages?: number
+          audit_schedule?: 'off' | 'weekly' | 'monthly'
+          next_audit_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          root_url?: string
+          host?: string
+          crawl_max_pages?: number
+          audit_schedule?: 'off' | 'weekly' | 'monthly'
+          next_audit_at?: string | null
+          created_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'seo_sites_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      seo_audits: {
+        Row: {
+          id: string
+          org_id: string
+          site_id: string
+          status: 'pending' | 'running' | 'completed' | 'failed'
+          stage: 'setup' | 'crawl' | 'finalize' | 'done'
+          trigger: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          max_pages: number
+          pages_discovered: number
+          pages_crawled: number
+          health_score: number | null
+          summary: Json | null
+          site_checks: Json
+          sitemap_urls: string[] | null
+          attempts: number
+          next_attempt_at: string | null
+          lease_expires_at: string | null
+          last_tick_at: string | null
+          error_message: string | null
+          details_pruned_at: string | null
+          created_by: string | null
+          started_at: string | null
+          finished_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          site_id: string
+          status?: 'pending' | 'running' | 'completed' | 'failed'
+          stage?: 'setup' | 'crawl' | 'finalize' | 'done'
+          trigger?: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          max_pages?: number
+          pages_discovered?: number
+          pages_crawled?: number
+          health_score?: number | null
+          summary?: Json | null
+          site_checks?: Json
+          sitemap_urls?: string[] | null
+          attempts?: number
+          next_attempt_at?: string | null
+          lease_expires_at?: string | null
+          last_tick_at?: string | null
+          error_message?: string | null
+          details_pruned_at?: string | null
+          created_by?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          site_id?: string
+          status?: 'pending' | 'running' | 'completed' | 'failed'
+          stage?: 'setup' | 'crawl' | 'finalize' | 'done'
+          trigger?: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          max_pages?: number
+          pages_discovered?: number
+          pages_crawled?: number
+          health_score?: number | null
+          summary?: Json | null
+          site_checks?: Json
+          sitemap_urls?: string[] | null
+          attempts?: number
+          next_attempt_at?: string | null
+          lease_expires_at?: string | null
+          last_tick_at?: string | null
+          error_message?: string | null
+          details_pruned_at?: string | null
+          created_by?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'seo_audits_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'seo_audits_site_id_fkey'
+            columns: ['site_id']
+            isOneToOne: false
+            referencedRelation: 'seo_sites'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      seo_audit_pages: {
+        Row: {
+          id: string
+          org_id: string
+          audit_id: string
+          url: string
+          depth: number
+          status: 'queued' | 'fetched' | 'failed' | 'skipped'
+          in_sitemap: boolean
+          http_status: number | null
+          redirect_to: string | null
+          redirect_hops: number
+          ttfb_ms: number | null
+          content_type: string | null
+          bytes: number | null
+          title: string | null
+          meta_description: string | null
+          h1: string | null
+          h1_count: number | null
+          word_count: number | null
+          canonical: string | null
+          indexable: boolean | null
+          content_hash: string | null
+          links: string[] | null
+          inlinks: number | null
+          outlinks: number | null
+          error: string | null
+          fetched_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          audit_id: string
+          url: string
+          depth?: number
+          status?: 'queued' | 'fetched' | 'failed' | 'skipped'
+          in_sitemap?: boolean
+          http_status?: number | null
+          redirect_to?: string | null
+          redirect_hops?: number
+          ttfb_ms?: number | null
+          content_type?: string | null
+          bytes?: number | null
+          title?: string | null
+          meta_description?: string | null
+          h1?: string | null
+          h1_count?: number | null
+          word_count?: number | null
+          canonical?: string | null
+          indexable?: boolean | null
+          content_hash?: string | null
+          links?: string[] | null
+          inlinks?: number | null
+          outlinks?: number | null
+          error?: string | null
+          fetched_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          audit_id?: string
+          url?: string
+          depth?: number
+          status?: 'queued' | 'fetched' | 'failed' | 'skipped'
+          in_sitemap?: boolean
+          http_status?: number | null
+          redirect_to?: string | null
+          redirect_hops?: number
+          ttfb_ms?: number | null
+          content_type?: string | null
+          bytes?: number | null
+          title?: string | null
+          meta_description?: string | null
+          h1?: string | null
+          h1_count?: number | null
+          word_count?: number | null
+          canonical?: string | null
+          indexable?: boolean | null
+          content_hash?: string | null
+          links?: string[] | null
+          inlinks?: number | null
+          outlinks?: number | null
+          error?: string | null
+          fetched_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'seo_audit_pages_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'seo_audit_pages_audit_id_fkey'
+            columns: ['audit_id']
+            isOneToOne: false
+            referencedRelation: 'seo_audits'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      seo_audit_issues: {
+        Row: {
+          id: string
+          org_id: string
+          audit_id: string
+          page_id: string | null
+          url: string | null
+          code: string
+          severity: 'error' | 'warning' | 'notice'
+          source: 'page' | 'final'
+          details: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          audit_id: string
+          page_id?: string | null
+          url?: string | null
+          code: string
+          severity: 'error' | 'warning' | 'notice'
+          source?: 'page' | 'final'
+          details?: Json | null
+          created_at?: string
+        }
+        Update: {
+          audit_id?: string
+          page_id?: string | null
+          url?: string | null
+          code?: string
+          severity?: 'error' | 'warning' | 'notice'
+          source?: 'page' | 'final'
+          details?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'seo_audit_issues_org_id_fkey'
+            columns: ['org_id']
+            isOneToOne: false
+            referencedRelation: 'organizations'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'seo_audit_issues_audit_id_fkey'
+            columns: ['audit_id']
+            isOneToOne: false
+            referencedRelation: 'seo_audits'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'seo_audit_issues_page_id_fkey'
+            columns: ['page_id']
+            isOneToOne: false
+            referencedRelation: 'seo_audit_pages'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       google_review_photos: {
         Row: {
           id: string
@@ -9007,6 +9307,18 @@ export interface Database {
     }
     Views: Record<string, never>
     Functions: {
+      claim_seo_audits: {
+        Args: { p_limit: number; p_lease_seconds: number }
+        Returns: Database['public']['Tables']['seo_audits']['Row'][]
+      }
+      enqueue_due_seo_audits: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      prune_seo_audit_details: {
+        Args: { p_keep?: number; p_batch?: number }
+        Returns: number
+      }
       record_cron_heartbeat: {
         Args: {
           p_job_name: string
