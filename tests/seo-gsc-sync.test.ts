@@ -37,7 +37,7 @@ import { runGscSyncs } from '@/lib/seo/gsc/sync'
 import { fakeSupabase } from './helpers/seo-fake-supabase'
 
 function site(db: Record<string, Record<string, unknown>[]>, over: Record<string, unknown> = {}) {
-  const row = {
+  const row: Record<string, unknown> = {
     id: randomUUID(),
     org_id: 'org',
     name: 'Acme',
