@@ -173,6 +173,17 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     ],
   },
   {
+    key: 'local_seo',
+    label: 'Local SEO',
+    icon: 'MapPin',
+    permissions: [
+      { key: 'local_seo.view', label: 'View rankings, competitors & reports' },
+      { key: 'local_seo.manage', label: 'Manage locations, keywords & scans' },
+      { key: 'local_seo.approve', label: 'Approve review replies, posts & profile changes' },
+      { key: 'local_seo.admin', label: 'Manage Google connections & scan quota' },
+    ],
+  },
+  {
     key: 'analytics',
     label: 'Analytics',
     icon: 'BarChart3',

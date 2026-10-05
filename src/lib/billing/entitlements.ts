@@ -53,6 +53,7 @@ const ZERO_LIMITS: Record<LimitKey, number | null> = {
   members: 0,
   agents: 0,
   workflows: 0,
+  local_seo_points_month: 0,
 }
 
 /** No org / unauthenticated: nothing is granted. */

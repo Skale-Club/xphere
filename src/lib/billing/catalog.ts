@@ -28,12 +28,13 @@ export const ALL_FEATURES = [
   'reviews',
   'calendar',
   'api', // public REST API + API keys
+  'local_seo', // geogrid rank tracking, competitors, Google Business Profile
 ] as const
 
 export type Feature = (typeof ALL_FEATURES)[number]
 
 /** Countable, per-plan resource limits. `null` means unlimited. */
-export type LimitKey = 'contacts' | 'members' | 'agents' | 'workflows'
+export type LimitKey = 'contacts' | 'members' | 'agents' | 'workflows' | 'local_seo_points_month'
 
 export interface Plan {
   /** Stable key. Used as the STRIPE_PRICE_<KEY> env suffix and the override value. */
@@ -68,7 +69,7 @@ export const PLAN_CATALOG: Record<string, Plan> = {
     key: 'starter',
     name: 'Starter',
     purchasable: true,
-    limits: { contacts: 1000, members: 3, agents: 1, workflows: 3 },
+    limits: { contacts: 1000, members: 3, agents: 1, workflows: 3, local_seo_points_month: 0 },
     features: ['crm', 'chat', 'calendar', 'knowledge', 'reviews'],
     copilotIncludedUsd: 5,
   },
@@ -76,7 +77,7 @@ export const PLAN_CATALOG: Record<string, Plan> = {
     key: 'pro',
     name: 'Pro',
     purchasable: true,
-    limits: { contacts: 25000, members: 10, agents: 10, workflows: 50 },
+    limits: { contacts: 25000, members: 10, agents: 10, workflows: 50, local_seo_points_month: 1000 },
     features: [
       'crm',
       'chat',
@@ -93,6 +94,7 @@ export const PLAN_CATALOG: Record<string, Plan> = {
       'reviews',
       'calendar',
       'api',
+      'local_seo',
     ],
     copilotIncludedUsd: 20,
   },
@@ -100,7 +102,7 @@ export const PLAN_CATALOG: Record<string, Plan> = {
     key: 'enterprise',
     name: 'Enterprise',
     purchasable: true,
-    limits: { contacts: null, members: null, agents: null, workflows: null },
+    limits: { contacts: null, members: null, agents: null, workflows: null, local_seo_points_month: 10000 },
     features: ALL_FEATURES,
     copilotIncludedUsd: 100,
   },

@@ -108,6 +108,8 @@ export default async function GoogleReviewsIntegrationPage() {
     .select(
       'id, place_id, business_name, address, serpapi_key_encrypted, scrape_interval_hours, last_scraped_at, last_scrape_status, last_scrape_error, total_reviews_count, average_rating, is_active, widget_token'
     )
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
   let keyHint: string | null = null

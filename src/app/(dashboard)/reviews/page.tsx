@@ -6,6 +6,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { decrypt, maskApiKey } from '@/lib/crypto'
 import { ReviewWidgetBuilder, type ReviewWidgetPreviewReview } from '@/components/reviews/review-widget-builder'
 import { RefreshButton } from '@/components/reviews/refresh-button'
+import { ReviewProfileSwitcher } from '@/components/reviews/review-profile-switcher'
 import { WidgetSettingsDialog } from '@/components/reviews/widget-settings-dialog'
 import { ReviewsSetupWizard } from '@/components/reviews/reviews-setup-wizard'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +15,12 @@ import { saveWidgetSettings, type SavedWidgetSettings } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-export default async function ReviewsPage() {
+export default async function ReviewsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ profile?: string }>
+}) {
+  const { profile: requestedProfileId } = await searchParams
   const user = await getUser()
   if (!user) redirect('/')
 
@@ -33,12 +39,17 @@ export default async function ReviewsPage() {
     )
   }
 
-  const { data: profile } = await supabase
+  // An org can hold one reviews profile per business (Local SEO links each
+  // tracked location to its own). Pick the requested one, else the oldest.
+  const { data: profiles } = await supabase
     .from('google_business_profiles')
     .select(
       'id, business_name, address, average_rating, total_reviews_count, last_scraped_at, is_active, place_id, widget_token, widget_settings, serpapi_key_encrypted'
     )
-    .maybeSingle()
+    .order('created_at', { ascending: true })
+  const switchable = (profiles ?? []).filter((p) => p.is_active && p.place_id !== '__pending__')
+  const profile =
+    profiles?.find((p) => p.id === requestedProfileId) ?? switchable[0] ?? profiles?.[0] ?? null
 
   if (!profile || !profile.is_active || profile.place_id === '__pending__') {
     return (
@@ -134,7 +145,13 @@ export default async function ReviewsPage() {
         onSave={saveWidgetSettings.bind(null, profile.id)}
         settingsSlot={
           <>
-            <RefreshButton />
+            {switchable.length > 1 && (
+              <ReviewProfileSwitcher
+                currentId={profile.id}
+                profiles={switchable.map((p) => ({ id: p.id, label: p.business_name ?? p.place_id }))}
+              />
+            )}
+            <RefreshButton profileId={profile.id} />
             <WidgetSettingsDialog
               currentHint={keyHint}
               hasApiKey={hasApiKey}

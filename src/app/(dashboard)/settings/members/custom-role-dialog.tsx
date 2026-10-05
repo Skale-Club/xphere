@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import {
   LayoutDashboard, MessageSquare, Phone, Bot, Megaphone, Contact, Building2,
   TrendingUp, CheckSquare, CalendarDays, Zap, FolderKanban, Star, BarChart3,
-  BookOpen, Plug2, Mail, Settings, Users, CreditCard, type LucideIcon,
+  BookOpen, Plug2, Mail, Settings, Users, CreditCard, MapPin, type LucideIcon,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -35,7 +35,7 @@ import { createCustomRole, updateCustomRole, type CustomRole } from './actions'
 const ICONS: Record<string, LucideIcon> = {
   LayoutDashboard, MessageSquare, Phone, Bot, Megaphone, Contact, Building2,
   TrendingUp, CheckSquare, CalendarDays, Zap, FolderKanban, Star, BarChart3,
-  BookOpen, Plug2, Mail, Settings, Users, CreditCard,
+  BookOpen, Plug2, Mail, Settings, Users, CreditCard, MapPin,
 }
 
 const ORG_GROUPS = PERMISSION_GROUPS.filter((g) => !g.platformOnly)

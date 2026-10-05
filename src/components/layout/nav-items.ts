@@ -15,6 +15,7 @@ import {
   FolderKanban,
   BarChart3,
   MonitorPlay,
+  MapPin,
 } from 'lucide-react'
 import type { Feature } from '@/lib/billing/catalog'
 
@@ -65,6 +66,7 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view',   feature: 'projects' },
   { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view',   feature: 'calendar' },
   { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view',    feature: 'reviews' },
+  { icon: MapPin,          label: 'Local SEO',    href: '/local-seo',    group: 'manage',   permission: 'local_seo.view',  feature: 'local_seo' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [

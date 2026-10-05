@@ -9004,9 +9004,472 @@ export interface Database {
         }
         Relationships: []
       }
+      local_seo_locations: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          business_name: string
+          place_id: string | null
+          cid: string | null
+          address: string | null
+          lat: number
+          lng: number
+          is_service_area: boolean
+          timezone: string | null
+          primary_category: string | null
+          website_url: string | null
+          phone: string | null
+          rating: number | null
+          reviews_count: number | null
+          language: string
+          country: string
+          default_grid_size: number
+          default_spacing_m: number
+          default_shape: 'square' | 'circle'
+          tenant_location_id: string | null
+          google_business_profile_id: string | null
+          gbp_location_name: string | null
+          gbp_connection_id: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          business_name: string
+          place_id?: string | null
+          cid?: string | null
+          address?: string | null
+          lat: number
+          lng: number
+          is_service_area?: boolean
+          timezone?: string | null
+          primary_category?: string | null
+          website_url?: string | null
+          phone?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          language?: string
+          country?: string
+          default_grid_size?: number
+          default_spacing_m?: number
+          default_shape?: 'square' | 'circle'
+          tenant_location_id?: string | null
+          google_business_profile_id?: string | null
+          gbp_location_name?: string | null
+          gbp_connection_id?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          business_name?: string
+          place_id?: string | null
+          cid?: string | null
+          address?: string | null
+          lat?: number
+          lng?: number
+          is_service_area?: boolean
+          timezone?: string | null
+          primary_category?: string | null
+          website_url?: string | null
+          phone?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          language?: string
+          country?: string
+          default_grid_size?: number
+          default_spacing_m?: number
+          default_shape?: 'square' | 'circle'
+          tenant_location_id?: string | null
+          google_business_profile_id?: string | null
+          gbp_location_name?: string | null
+          gbp_connection_id?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_keywords: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword: string
+          language: string | null
+          country: string | null
+          tags: string[]
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword: string
+          language?: string | null
+          country?: string | null
+          tags?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword?: string
+          language?: string | null
+          country?: string | null
+          tags?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_usage_ledger: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string | null
+          points: number
+          cost_usd: number
+          provider: string
+          billable: boolean
+          period: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id?: string | null
+          points: number
+          cost_usd?: number
+          provider: string
+          billable?: boolean
+          period: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string | null
+          points?: number
+          cost_usd?: number
+          provider?: string
+          billable?: boolean
+          period?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_scans: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_id: string | null
+          keyword: string
+          language: string
+          country: string
+          schedule_id: string | null
+          provider: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode: 'sync' | 'async'
+          grid_size: number
+          spacing_m: number
+          shape: 'square' | 'circle'
+          zoom: number
+          depth: number
+          center_lat: number
+          center_lng: number
+          comparable_key: string
+          status: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total: number
+          points_done: number
+          points_failed: number
+          arp: number | null
+          atrp: number | null
+          solv: number | null
+          found_pct: number | null
+          est_cost_usd: number
+          cost_usd: number | null
+          triggered_by: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user: string | null
+          error: string | null
+          started_at: string | null
+          finished_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_id?: string | null
+          keyword: string
+          language: string
+          country: string
+          schedule_id?: string | null
+          provider: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode: 'sync' | 'async'
+          grid_size: number
+          spacing_m: number
+          shape: 'square' | 'circle'
+          zoom?: number
+          depth?: number
+          center_lat: number
+          center_lng: number
+          comparable_key: string
+          status?: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total?: number
+          points_done?: number
+          points_failed?: number
+          arp?: number | null
+          atrp?: number | null
+          solv?: number | null
+          found_pct?: number | null
+          est_cost_usd?: number
+          cost_usd?: number | null
+          triggered_by: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user?: string | null
+          error?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          keyword?: string
+          language?: string
+          country?: string
+          schedule_id?: string | null
+          provider?: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode?: 'sync' | 'async'
+          grid_size?: number
+          spacing_m?: number
+          shape?: 'square' | 'circle'
+          zoom?: number
+          depth?: number
+          center_lat?: number
+          center_lng?: number
+          comparable_key?: string
+          status?: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total?: number
+          points_done?: number
+          points_failed?: number
+          arp?: number | null
+          atrp?: number | null
+          solv?: number | null
+          found_pct?: number | null
+          est_cost_usd?: number
+          cost_usd?: number | null
+          triggered_by?: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user?: string | null
+          error?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_scan_points: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string
+          row_idx: number
+          col_idx: number
+          lat: number
+          lng: number
+          status: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank: number | null
+          match_method: 'place_id' | 'cid' | 'name' | null
+          top3: Json | null
+          results_count: number | null
+          provider_task_id: string | null
+          attempts: number
+          next_attempt_at: string
+          claimed_at: string | null
+          last_error: string | null
+          cost_usd: number | null
+          fetched_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id: string
+          row_idx: number
+          col_idx: number
+          lat: number
+          lng: number
+          status?: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank?: number | null
+          match_method?: 'place_id' | 'cid' | 'name' | null
+          top3?: Json | null
+          results_count?: number | null
+          provider_task_id?: string | null
+          attempts?: number
+          next_attempt_at?: string
+          claimed_at?: string | null
+          last_error?: string | null
+          cost_usd?: number | null
+          fetched_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string
+          row_idx?: number
+          col_idx?: number
+          lat?: number
+          lng?: number
+          status?: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank?: number | null
+          match_method?: 'place_id' | 'cid' | 'name' | null
+          top3?: Json | null
+          results_count?: number | null
+          provider_task_id?: string | null
+          attempts?: number
+          next_attempt_at?: string
+          claimed_at?: string | null
+          last_error?: string | null
+          cost_usd?: number | null
+          fetched_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_serp_results: {
+        Row: {
+          id: number
+          org_id: string
+          scan_id: string
+          point_id: string
+          position: number
+          place_id: string | null
+          cid: string | null
+          title: string
+          rating: number | null
+          reviews: number | null
+          category: string | null
+          address: string | null
+          is_target: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          org_id: string
+          scan_id: string
+          point_id: string
+          position: number
+          place_id?: string | null
+          cid?: string | null
+          title: string
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          address?: string | null
+          is_target?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          org_id?: string
+          scan_id?: string
+          point_id?: string
+          position?: number
+          place_id?: string | null
+          cid?: string | null
+          title?: string
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          address?: string | null
+          is_target?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_competitor_snapshots: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string
+          location_id: string
+          keyword_id: string | null
+          competitor_key: string
+          place_id: string | null
+          title: string
+          is_target: boolean
+          appearances: number
+          avg_rank: number | null
+          solv: number | null
+          rating: number | null
+          reviews: number | null
+          category: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id: string
+          location_id: string
+          keyword_id?: string | null
+          competitor_key: string
+          place_id?: string | null
+          title: string
+          is_target?: boolean
+          appearances: number
+          avg_rank?: number | null
+          solv?: number | null
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          competitor_key?: string
+          place_id?: string | null
+          title?: string
+          is_target?: boolean
+          appearances?: number
+          avg_rank?: number | null
+          solv?: number | null
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
+      claim_local_seo_points: {
+        Args: { p_limit: number }
+        Returns: Database['public']['Tables']['local_seo_scan_points']['Row'][]
+      }
       record_cron_heartbeat: {
         Args: {
           p_job_name: string
