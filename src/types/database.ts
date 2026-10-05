@@ -126,7 +126,7 @@ export interface InboundEmailRouteRow {
   created_at: string
 }
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
@@ -9459,6 +9459,243 @@ export interface Database {
           rating?: number | null
           reviews?: number | null
           category?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_schedules: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_ids: string[]
+          grid_size: number | null
+          spacing_m: number | null
+          shape: 'square' | 'circle' | null
+          frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday: number
+          day_of_month: number
+          hour_utc: number
+          minute_utc: number
+          next_run_at: string
+          last_run_at: string | null
+          last_error: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_ids?: string[]
+          grid_size?: number | null
+          spacing_m?: number | null
+          shape?: 'square' | 'circle' | null
+          frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday?: number
+          day_of_month?: number
+          hour_utc?: number
+          minute_utc?: number
+          next_run_at: string
+          last_run_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_ids?: string[]
+          grid_size?: number | null
+          spacing_m?: number | null
+          shape?: 'square' | 'circle' | null
+          frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday?: number
+          day_of_month?: number
+          hour_utc?: number
+          minute_utc?: number
+          next_run_at?: string
+          last_run_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_competitors: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          competitor_key: string
+          place_id: string | null
+          title: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          competitor_key: string
+          place_id?: string | null
+          title: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          competitor_key?: string
+          place_id?: string | null
+          title?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_alert_rules: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string | null
+          metric: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction: 'worse' | 'better' | 'any'
+          threshold: number
+          channels: string[]
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id?: string | null
+          metric: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction?: 'worse' | 'better' | 'any'
+          threshold: number
+          channels?: string[]
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string | null
+          metric?: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction?: 'worse' | 'better' | 'any'
+          threshold?: number
+          channels?: string[]
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_alerts: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_id: string | null
+          keyword: string
+          scan_id: string
+          previous_scan_id: string | null
+          rule_id: string | null
+          metric: string
+          previous_value: number | null
+          current_value: number | null
+          delta: number
+          is_worse: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_id?: string | null
+          keyword: string
+          scan_id: string
+          previous_scan_id?: string | null
+          rule_id?: string | null
+          metric: string
+          previous_value?: number | null
+          current_value?: number | null
+          delta: number
+          is_worse: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          keyword?: string
+          scan_id?: string
+          previous_scan_id?: string | null
+          rule_id?: string | null
+          metric?: string
+          previous_value?: number | null
+          current_value?: number | null
+          delta?: number
+          is_worse?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_annotations: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          occurred_at: string
+          kind: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title: string
+          note: string | null
+          ref_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          occurred_at: string
+          kind?: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title: string
+          note?: string | null
+          ref_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          occurred_at?: string
+          kind?: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title?: string
+          note?: string | null
+          ref_id?: string | null
+          created_by?: string | null
           created_at?: string
         }
         Relationships: []

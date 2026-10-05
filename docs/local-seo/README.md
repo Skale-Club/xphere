@@ -60,6 +60,32 @@ Failed points are excluded (unknown, not a miss). A scan with any failed point
 ends `partial`. Scans are only compared when their `comparable_key` matches
 (same keyword, language, grid, zoom, centre and provider).
 
+## Tracking, alerts and automation (Phase 2)
+
+- **Schedules** (`local_seo_schedules`): daily / weekly / every 2 weeks /
+  monthly at an hour in UTC; `minute_utc` is random so schedules spread over
+  the hour. The tick claims due schedules with a conditional update (no double
+  runs) and creates one scan per keyword through `createScan()`, so the quota
+  applies. A quota error is stored in `last_error` and the schedule still moves
+  to its next run.
+- **Alerts** (`local_seo_alert_rules` → `local_seo_alerts`): metric + direction
+  (`worse` respects polarity: lower SoLV/Found, higher ARP/ATRP) + threshold,
+  compared with the previous scan with the same `comparable_key`. A fired alert
+  creates an in-app notification (`local_seo_alert`, with push). One alert per
+  scan per rule.
+- **Workflow events**: `event:local_seo.scan_completed` (every finished scan) and
+  `event:local_seo.rank_changed` (any metric moved; `change.<metric>` has
+  `{from, to, delta, worse}`). Route alerts to email / Slack / Telegram with a
+  workflow instead of a hardcoded channel.
+- **Workflow action** `local_seo_run_scan` (`location_id`, optional
+  `keyword_id`, `grid_size`) — quota-checked like the UI.
+- **MCP tools**: `localseo_list_locations`, `localseo_list_scans`,
+  `localseo_get_scan`, `localseo_get_competitors`, `localseo_trigger_scan`.
+- **Annotations** (`local_seo_annotations`) are drawn on the Trends chart.
+- **Competitors**: ranked by SoLV from each scan's snapshot; pinned competitors
+  (`local_seo_competitors`) get a SoLV-over-time line next to the business.
+  "View as" on the Rankings map recolours the grid by a competitor's rank.
+
 ## Data retention
 
 `local_seo_serp_results` (top 20 per point) is pruned after 60 days. Each point

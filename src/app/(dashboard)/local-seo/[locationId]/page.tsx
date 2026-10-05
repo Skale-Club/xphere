@@ -45,12 +45,18 @@ function toSummary(s: ScanRow): ScanSummary {
   }
 }
 
+type PointRow = { id: string; row_idx: number; col_idx: number; lat: number; lng: number; status: 'queued' | 'in_flight' | 'done' | 'failed'; rank: number | null }
+
+function toPins(points: PointRow[]) {
+  return points.map((pt) => ({ id: pt.id, row: pt.row_idx, col: pt.col_idx, lat: pt.lat, lng: pt.lng, status: pt.status, rank: pt.rank }))
+}
+
 export default async function RankingsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locationId: string }>
-  searchParams: Promise<{ keyword?: string; scan?: string }>
+  searchParams: Promise<{ keyword?: string; scan?: string; compare?: string }>
 }) {
   const { locationId } = await params
   const sp = await searchParams
@@ -91,6 +97,22 @@ export default async function RankingsPage({
         .select('id, row_idx, col_idx, lat, lng, status, rank')
         .eq('scan_id', current.id)
     : { data: [] }
+  const compareRow = current ? (rows.find((s) => s.id === sp.compare && s.id !== current.id) ?? null) : null
+  const [{ data: comparePoints }, { data: competitorRows }] = await Promise.all([
+    compareRow
+      ? supabase.from('local_seo_scan_points').select('id, row_idx, col_idx, lat, lng, status, rank').eq('scan_id', compareRow.id)
+      : Promise.resolve({ data: [] as NonNullable<typeof points> }),
+    current
+      ? supabase
+          .from('local_seo_competitor_snapshots')
+          .select('competitor_key, place_id, title')
+          .eq('scan_id', current.id)
+          .eq('is_target', false)
+          .order('solv', { ascending: false })
+          .limit(15)
+      : Promise.resolve({ data: [] as { competitor_key: string; place_id: string | null; title: string }[] }),
+  ])
+
   // Same grid, keyword and provider, finished before this one: the baseline
   // for the deltas.
   const previous = current
@@ -112,15 +134,9 @@ export default async function RankingsPage({
         scans={rows.map(toSummary)}
         scan={current ? toSummary(current) : null}
         previous={previous ? toSummary(previous).metrics : null}
-        pins={(points ?? []).map((pt) => ({
-          id: pt.id,
-          row: pt.row_idx,
-          col: pt.col_idx,
-          lat: pt.lat,
-          lng: pt.lng,
-          status: pt.status,
-          rank: pt.rank,
-        }))}
+        pins={toPins(points ?? [])}
+        compare={compareRow ? { scan: toSummary(compareRow), pins: toPins(comparePoints ?? []) } : null}
+        competitors={(competitorRows ?? []).map((c) => ({ key: c.competitor_key, placeId: c.place_id, title: c.title }))}
         canManage={canManage}
         mapsKey={process.env.GOOGLE_MAPS_BROWSER_KEY ?? null}
         mapId={process.env.GOOGLE_MAPS_MAP_ID ?? null}

@@ -1,8 +1,9 @@
 // src/app/api/cron/local-seo-tick/route.ts
 //
-// Drives the Local SEO geogrid queue: fetches due scan points, polls async
-// provider tasks that never posted back, and finalizes finished scans. See
-// src/lib/local-seo/worker.ts for the state machine.
+// Drives the Local SEO geogrid queue: starts due scheduled scans, fetches due
+// scan points, polls async provider tasks that never posted back, and
+// finalizes finished scans. See src/lib/local-seo/worker.ts for the state
+// machine and src/lib/local-seo/schedules.ts for schedules.
 //
 // Schedule: every minute from skale-cron, against origin.xphere.app (the
 // Cloudflare proxy cuts requests at 100 s; the tick budget is ~55 s).
@@ -18,6 +19,7 @@ import { createClient } from '@supabase/supabase-js'
 
 import type { Database } from '@/types/database'
 import { captureApiError } from '@/lib/api-error'
+import { runDueSchedules } from '@/lib/local-seo/schedules'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
 
 const CRON_SECRET = process.env.CRON_SECRET
@@ -37,8 +39,10 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = createClient<Database>(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } })
   try {
-    const tick = await runLocalSeoTick(supabase, { budgetMs: 50_000 })
-    return Response.json({ ok: true, tick })
+    // Schedules first: the scans they create are picked up by this same tick.
+    const schedules = await runDueSchedules(supabase)
+    const tick = await runLocalSeoTick(supabase, { budgetMs: 45_000 })
+    return Response.json({ ok: true, schedules, tick })
   } catch (err) {
     captureApiError(err, { route: 'api/cron/local-seo-tick' })
     return Response.json({ ok: false, error: err instanceof Error ? err.message : 'tick failed' }, { status: 500 })

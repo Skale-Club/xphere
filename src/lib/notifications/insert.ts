@@ -8,6 +8,7 @@ export type NotificationType =
   | 'new_message'
   | 'incoming_call'
   | 'handoff_requested'
+  | 'local_seo_alert'
 
 export interface InsertNotificationOptions {
   /**

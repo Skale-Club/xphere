@@ -193,7 +193,9 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
         for (const raw of Array.isArray(this.payload) ? this.payload : [this.payload!]) {
           const existing = rows.find((r) => keys.every((k) => r[k] === raw[k]))
           if (existing) {
-            if (!this.upsertOpts.ignoreDuplicates) Object.assign(existing, raw)
+            // PostgREST returns nothing for a row skipped by ignoreDuplicates.
+            if (this.upsertOpts.ignoreDuplicates) continue
+            Object.assign(existing, raw)
             out.push(existing)
           } else {
             const row = this.db.withDefaults(this.table, raw)

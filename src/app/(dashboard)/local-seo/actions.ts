@@ -8,6 +8,7 @@ import { requireFeature } from '@/lib/billing/guards'
 import { businessSearchKey } from '@/lib/local-seo/credentials'
 import { cidFromDataId } from '@/lib/local-seo/providers/serpapi'
 import { estimateScan, createScan, type ScanEstimate } from '@/lib/local-seo/scans'
+import { nextRunAt } from '@/lib/local-seo/schedules'
 import { GRID_SIZES } from '@/lib/local-seo/types'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
 import { requirePermission } from '@/lib/rbac/server'
@@ -367,4 +368,214 @@ export async function getPointDetail(pointId: string): Promise<PointDetail | Fai
     truncated: top3.length > 0,
     results: top3.map((t) => ({ position: t.position, title: t.title, rating: null, reviews: null, category: null, address: null, isTarget: false })),
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tracking: schedules, alerts, annotations, competitors (Phase 2)
+// ---------------------------------------------------------------------------
+
+const scheduleSchema = z.object({
+  frequency: z.enum(['daily', 'weekly', 'biweekly', 'monthly']),
+  weekday: z.number().int().min(0).max(6),
+  dayOfMonth: z.number().int().min(1).max(28),
+  hourUtc: z.number().int().min(0).max(23),
+})
+
+export async function createSchedule(
+  locationId: string,
+  input: z.infer<typeof scheduleSchema>,
+): Promise<{ id: string } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const parsed = scheduleSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid schedule.' }
+  const v = parsed.data
+  // Spread schedules over the hour so they don't all fire on :00.
+  const minuteUtc = Math.floor(Math.random() * 60)
+  const timing = { frequency: v.frequency, weekday: v.weekday, day_of_month: v.dayOfMonth, hour_utc: v.hourUtc, minute_utc: minuteUtc }
+  const { data, error } = await ctx.supabase
+    .from('local_seo_schedules')
+    .insert({
+      org_id: ctx.orgId,
+      location_id: locationId,
+      ...timing,
+      next_run_at: nextRunAt(timing, new Date()).toISOString(),
+      created_by: ctx.user.id,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { id: data.id }
+}
+
+export async function setScheduleActive(scheduleId: string, locationId: string, active: boolean): Promise<{ ok: true } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { data: schedule } = await ctx.supabase.from('local_seo_schedules').select('*').eq('id', scheduleId).maybeSingle()
+  if (!schedule) return { error: 'Schedule not found.' }
+  // Re-enabling must not fire every run missed while it was paused.
+  const update = active
+    ? { is_active: true, next_run_at: nextRunAt(schedule, new Date()).toISOString(), last_error: null }
+    : { is_active: false }
+  const { error } = await ctx.supabase.from('local_seo_schedules').update(update).eq('id', scheduleId)
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { ok: true }
+}
+
+export async function deleteSchedule(scheduleId: string, locationId: string): Promise<{ ok: true } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { error } = await ctx.supabase.from('local_seo_schedules').delete().eq('id', scheduleId)
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { ok: true }
+}
+
+const alertRuleSchema = z.object({
+  metric: z.enum(['solv', 'arp', 'atrp', 'found_pct']),
+  direction: z.enum(['worse', 'better', 'any']),
+  threshold: z.number().positive().max(100),
+  allLocations: z.boolean().optional(),
+})
+
+export async function createAlertRule(locationId: string, input: z.infer<typeof alertRuleSchema>): Promise<{ id: string } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const parsed = alertRuleSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Invalid alert.' }
+  const v = parsed.data
+  const { data, error } = await ctx.supabase
+    .from('local_seo_alert_rules')
+    .insert({
+      org_id: ctx.orgId,
+      location_id: v.allLocations ? null : locationId,
+      metric: v.metric,
+      direction: v.direction,
+      threshold: v.threshold,
+      created_by: ctx.user.id,
+    })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { id: data.id }
+}
+
+export async function deleteAlertRule(ruleId: string, locationId: string): Promise<{ ok: true } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { error } = await ctx.supabase.from('local_seo_alert_rules').delete().eq('id', ruleId)
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { ok: true }
+}
+
+export async function acknowledgeAlert(alertId: string): Promise<{ ok: true } | Fail> {
+  const ctx = await context('local_seo.view')
+  if ('error' in ctx) return { error: ctx.error }
+  // Alerts are server-written (SELECT-only for users); the org filter keeps
+  // the service-role write inside the caller's org.
+  const { error } = await createServiceRoleClient()
+    .from('local_seo_alerts')
+    .update({ acknowledged_at: new Date().toISOString(), acknowledged_by: ctx.user.id })
+    .eq('id', alertId)
+    .eq('org_id', ctx.orgId)
+  if (error) return { error: error.message }
+  revalidatePath('/local-seo', 'layout')
+  return { ok: true }
+}
+
+export async function addAnnotation(locationId: string, input: { title: string; occurredAt: string }): Promise<{ id: string } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const title = input.title.trim()
+  if (!title || title.length > 200) return { error: 'Give the annotation a short title.' }
+  const at = new Date(input.occurredAt)
+  if (Number.isNaN(at.getTime())) return { error: 'Invalid date.' }
+  const { data, error } = await ctx.supabase
+    .from('local_seo_annotations')
+    .insert({ org_id: ctx.orgId, location_id: locationId, occurred_at: at.toISOString(), title, kind: 'manual', created_by: ctx.user.id })
+    .select('id')
+    .single()
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { id: data.id }
+}
+
+export async function deleteAnnotation(annotationId: string, locationId: string): Promise<{ ok: true } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { error } = await ctx.supabase.from('local_seo_annotations').delete().eq('id', annotationId)
+  if (error) return { error: error.message }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { ok: true }
+}
+
+export async function togglePinnedCompetitor(
+  locationId: string,
+  competitor: { key: string; placeId: string | null; title: string },
+): Promise<{ pinned: boolean } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const { data: existing } = await ctx.supabase
+    .from('local_seo_competitors')
+    .select('id')
+    .eq('location_id', locationId)
+    .eq('competitor_key', competitor.key)
+    .maybeSingle()
+  if (existing) {
+    const { error } = await ctx.supabase.from('local_seo_competitors').delete().eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await ctx.supabase.from('local_seo_competitors').insert({
+      org_id: ctx.orgId,
+      location_id: locationId,
+      competitor_key: competitor.key,
+      place_id: competitor.placeId,
+      title: competitor.title.slice(0, 500),
+      created_by: ctx.user.id,
+    })
+    if (error) return { error: error.message }
+  }
+  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  return { pinned: !existing }
+}
+
+/**
+ * Where a competitor ranked at every point of a scan — the "view as
+ * competitor" overlay. Needs the full results, so only works for scans
+ * younger than the 60-day retention (older ones fall back to the top 3).
+ */
+export async function getCompetitorRanks(
+  scanId: string,
+  competitor: { placeId: string | null; title: string },
+): Promise<{ ranks: Record<string, number | null> } | Fail> {
+  const ctx = await context('local_seo.view')
+  if ('error' in ctx) return { error: ctx.error }
+  const [{ data: points }, { data: results }] = await Promise.all([
+    ctx.supabase.from('local_seo_scan_points').select('id, status, top3').eq('scan_id', scanId),
+    (() => {
+      const q = ctx.supabase.from('local_seo_serp_results').select('point_id, position').eq('scan_id', scanId)
+      return competitor.placeId ? q.eq('place_id', competitor.placeId) : q.eq('title', competitor.title)
+    })(),
+  ])
+  const byPoint = new Map<string, number>()
+  for (const r of results ?? []) {
+    const prev = byPoint.get(r.point_id)
+    if (prev === undefined || r.position < prev) byPoint.set(r.point_id, r.position)
+  }
+  const ranks: Record<string, number | null> = {}
+  const hasFull = (results ?? []).length > 0
+  for (const p of points ?? []) {
+    if (p.status !== 'done') continue
+    if (byPoint.has(p.id)) ranks[p.id] = byPoint.get(p.id)!
+    else if (!hasFull) {
+      const top = (Array.isArray(p.top3) ? p.top3 : []) as { position: number; title: string; placeId: string | null }[]
+      const hit = top.find((t) => (competitor.placeId ? t.placeId === competitor.placeId : t.title === competitor.title))
+      ranks[p.id] = hit?.position ?? null
+    } else ranks[p.id] = null
+  }
+  return { ranks }
 }

@@ -53,6 +53,7 @@ import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import { emitXkeduleBookingCreatedEvents } from '@/lib/action-engine/executors/xkedule-booking-events'
+import { executeLocalSeoRunScan } from './executors/local-seo-run-scan'
 import { executeAdsProposeChange } from './executors/ads-propose-change'
 import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
 import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booking'
@@ -267,6 +268,14 @@ async function _executeActionInner(
       throw new Error('ads_propose_change requires ctx.organizationId')
     }
     return executeAdsProposeChange(params, { organizationId: ctx.organizationId })
+  }
+
+  // Local SEO: start geogrid scans (quota-checked). Not in the DB enum either.
+  if ((actionType as string) === 'local_seo_run_scan') {
+    if (!ctx?.organizationId) {
+      throw new Error('local_seo_run_scan requires ctx.organizationId')
+    }
+    return executeLocalSeoRunScan(params, { organizationId: ctx.organizationId })
   }
 
   // Native CRM contact create/update | not in the action_type DB enum either.

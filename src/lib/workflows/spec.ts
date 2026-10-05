@@ -305,6 +305,25 @@ export const TRIGGERS: TriggerSpec[] = [
     ],
   },
 
+  // ─── Local SEO events. Emitted by the geogrid worker when a scan closes
+  // (src/lib/local-seo/events.ts).
+  {
+    type: 'event:local_seo.scan_completed',
+    description:
+      'A Local SEO geogrid scan finished (completed, partial or failed). scan.* has the keyword, status and ' +
+      'metrics (solv = % of grid points in the top 3, arp = average rank where found, atrp, found_pct); ' +
+      'location.* the tracked business; url links to the map.',
+    variables: ['scan.*', 'location.*', 'url', 'trigger.fired_at'],
+  },
+  {
+    type: 'event:local_seo.rank_changed',
+    description:
+      'A geogrid scan moved against the previous scan of the same keyword and grid. change.<metric> has ' +
+      '{from, to, delta, worse} for solv, arp, atrp and found_pct; previous.* is the earlier scan. Use a ' +
+      'condition on change.solv.delta (or worse) to alert by email, Slack or Telegram.',
+    variables: ['scan.*', 'previous.*', 'change.*', 'location.*', 'url', 'trigger.fired_at'],
+  },
+
   // ─── Analytics events (Analytics module). Tenant-scoped only — emitted by the
   // ingest pipeline when a visitor or session event matches a conversion or
   // behavioral condition. NOT available in Superadmin Analytics scope.
@@ -868,6 +887,23 @@ export const NODES: NodeSpec[] = [
     ],
   },
   {
+    type: 'local_seo_run_scan',
+    kind: 'action',
+    description:
+      'Start a Local SEO geogrid scan for a tracked location: one keyword, or every active keyword when ' +
+      'keyword_id is omitted. Spends scan points from the monthly quota (one per grid point, 49 for 7x7) and ' +
+      'fails when the quota is exhausted. Results arrive asynchronously and fire event:local_seo.scan_completed.',
+    params_schema: {
+      type: 'object',
+      properties: {
+        location_id: { type: 'string', description: 'local_seo_locations id.' },
+        keyword_id: { type: 'string', description: 'Optional local_seo_keywords id; omit to scan every active keyword.' },
+        grid_size: { type: 'number', description: 'Optional odd grid size (3-13). Defaults to the location setting.' },
+      },
+      required: ['location_id'],
+    },
+  },
+  {
     type: 'contact_create',
     kind: 'action',
     description:
@@ -1373,6 +1409,14 @@ export const VARIABLE_NAMESPACES = {
   customer:
     'Medusa customer fields for event:commerce.customer.created. Exposes customer_id, ' +
     'email, first_name, last_name.',
+  scan:
+    'Local SEO geogrid scan for event:local_seo.*. Exposes id, keyword, status, grid_size, ' +
+    'points_total, points_done, points_failed, arp, atrp, solv, found_pct, triggered_by, finished_at.',
+  previous: 'The previous comparable scan on event:local_seo.rank_changed (same fields as scan).',
+  change:
+    'Per-metric movement on event:local_seo.rank_changed: change.solv / arp / atrp / found_pct, ' +
+    'each {from, to, delta, worse}.',
+  location: 'Tracked Local SEO business: id, name, business_name, address, place_id.',
 }
 
 // ─── Spec assembly ────────────────────────────────────────────────────────────

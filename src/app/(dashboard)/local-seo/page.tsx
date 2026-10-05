@@ -22,7 +22,7 @@ export default async function LocalSeoPage() {
   const { data: orgId } = await supabase.rpc('get_current_org_id')
   if (!orgId) return orgRedirect('/dashboard')
 
-  const [{ data: locations }, { data: keywords }, { data: scans }, canManage, quota] = await Promise.all([
+  const [{ data: locations }, { data: keywords }, { data: scans }, { data: alerts }, canManage, quota] = await Promise.all([
     supabase
       .from('local_seo_locations')
       .select('id, name, business_name, address, rating, reviews_count, is_active, primary_category')
@@ -34,6 +34,7 @@ export default async function LocalSeoPage() {
       .in('status', ['completed', 'partial'])
       .order('created_at', { ascending: false })
       .limit(500),
+    supabase.from('local_seo_alerts').select('location_id').is('acknowledged_at', null).limit(1000),
     can('local_seo.manage'),
     getQuotaSnapshot(createServiceRoleClient(), orgId as string),
   ])
@@ -70,6 +71,7 @@ export default async function LocalSeoPage() {
       arp: avg(latest.map((s) => s.arp)),
       lastScanAt: own[0]?.finished_at ?? own[0]?.created_at ?? null,
       trend,
+      openAlerts: (alerts ?? []).filter((a) => a.location_id === l.id).length,
     }
   })
 

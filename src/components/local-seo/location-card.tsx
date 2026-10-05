@@ -17,6 +17,7 @@ export type LocationCardData = {
   arp: number | null
   lastScanAt: string | null
   trend: number[]
+  openAlerts: number
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -42,6 +43,11 @@ export function LocationCard({ data }: { data: LocationCardData }) {
             <div className="flex items-center gap-2">
               <h3 className="truncate text-[15px] font-semibold text-text-primary">{data.name}</h3>
               {!data.isActive && <Badge variant="secondary">Paused</Badge>}
+              {data.openAlerts > 0 && (
+                <Badge variant="warning">
+                  {data.openAlerts} alert{data.openAlerts === 1 ? '' : 's'}
+                </Badge>
+              )}
             </div>
             {data.businessName !== data.name && (
               <p className="truncate text-[12.5px] text-text-secondary">{data.businessName}</p>

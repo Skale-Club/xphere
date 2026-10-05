@@ -1,7 +1,29 @@
 # Local SEO: geogrid, Google Business Profile, auditoria e relatórios
 
-**Status:** proposta (2026-10-05), aguardando as decisões da seção 1
+**Status:** Fases 0, 1 e 2 implementadas na branch `feat/local-seo` (2026-10-05), com as recomendações da seção 1 adotadas. Migrations 1312–1314 escritas e ainda não aplicadas. Fases 3 a 7 pendentes.
 **Contexto:** hoje o Xphere só faz scraping de reviews do Google (SerpAPI, SEED-009) e tem o widget embeddável. A referência de mercado é a BrightLocal (Local Search Grid, Rank Tracker, Citation Tracker, Audit, Reputation, relatórios white-label). Este plano leva o essencial disso para dentro do Xphere, aproveitando os padrões que já existem: command ledger do Ads, fila com `SKIP LOCKED`, skale-cron, workflows, MCP, RBAC e billing.
+
+---
+
+## Execução (atualizado em 2026-10-05)
+
+| Fase | Estado | Onde |
+|---|---|---|
+| 0 Fundação | Feita | migration 1312, `src/lib/local-seo/{credentials,quota}.ts`, `/local-seo`, correção do `/reviews` |
+| 1 Geogrid | Feita | migration 1313, `grid/metrics/matching/providers/worker/scans.ts`, crons, postback, aba Rankings |
+| 2 Tracking | Feita | migration 1314, `schedules/events/workflow-events.ts`, abas Trends/Competitors, Settings, MCP, ação `local_seo_run_scan` |
+| 3–7 | Pendentes | dependem da validação das fases 0–2 em produção; 3 e 4 também da aprovação do Google |
+
+Runbook com variáveis de ambiente, crons e troubleshooting: `docs/local-seo/README.md`.
+
+**Desvios do plano, decididos na implementação:**
+- Colunas `row_idx`/`col_idx` no lugar de `row`/`col`; estados do ponto são `queued → in_flight → done | failed` (o `submitted` virou `in_flight` com `provider_task_id`).
+- Chave BYO de SerpAPI **não** é usada no geogrid: o plano grátis dela tem 100 buscas/mês e um scan 7×7 gastaria metade. Ela só serve para a busca do negócio ao cadastrar a location. BYO de geogrid fica para quando alguém pedir.
+- Kill switch e teto diário são variáveis de ambiente (`LOCAL_SEO_DISABLED`, `LOCAL_SEO_DAILY_POINT_CAP`), não `platform_settings`, porque lá os valores são segredos mascarados.
+- Org sem plano, com enforcement de billing desligado, recebe `LOCAL_SEO_UNPLANNED_POINTS_MONTH` (500) pontos; com enforcement ligado, zero.
+- Alertas: o canal nativo é in-app + push. Email/Telegram/Slack ficam a cargo de workflows no evento `local_seo.rank_changed`, em vez de uma lista fixa de canais por regra.
+- Postback da DataForSEO é opcional (`LOCAL_SEO_POSTBACK_SECRET`); sem ele o worker consulta `task_get` depois de 2 min.
+- Chave do Maps é runtime (`GOOGLE_MAPS_BROWSER_KEY`), passada da página para o cliente, para não exigir rebuild da imagem.
 
 ---
 

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { PhoneMissed, AlertTriangle, Phone, Bell, Hand, type LucideIcon } from 'lucide-react'
+import { PhoneMissed, AlertTriangle, Phone, Bell, Hand, MapPin, type LucideIcon } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
@@ -60,6 +60,8 @@ function getNavigationTarget(notification: NotificationRow): string {
       return '/calls'
     case 'flow_failed':
       return '/workflows/logs'
+    case 'local_seo_alert':
+      return `/local-seo/${payload.location_id ?? ''}/trends`
     default:
       return '/'
   }
@@ -176,6 +178,18 @@ function describe(notification: NotificationRow): NotificationContent {
         title: name ? `${name} failed` : 'Workflow failed',
         detail: str(p.error) ?? 'An automation step returned an error',
         reason: 'Automation error',
+      }
+    }
+
+    case 'local_seo_alert': {
+      const delta = typeof p.delta === 'number' ? p.delta : null
+      return {
+        tile: <IconTile icon={MapPin} tone={p.is_worse ? 'danger' : 'accent'} />,
+        title: str(p.location_name) ?? 'Local SEO',
+        detail: `${str(p.metric_label) ?? 'Ranking'} for “${str(p.keyword) ?? ''}”: ${p.previous_value ?? '—'} → ${p.current_value ?? '—'}${
+          delta !== null ? ` (${delta > 0 ? '+' : ''}${delta})` : ''
+        }`,
+        reason: p.is_worse ? 'Ranking dropped' : 'Ranking improved',
       }
     }
 
