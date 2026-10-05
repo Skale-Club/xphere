@@ -48,12 +48,19 @@ Hoje não existe nada de SEO de verdade no app. O que encosta no tema:
       plataforma** (SERP a ~US$0,0006/consulta na fila standard; volume e ideias via Labs) com limite por
       plano e um ledger de uso. A alternativa é BYO key por org (padrão SerpAPI), que tem atrito de
       onboarding. Ahrefs API é cara demais para revender.
-- [ ] **D2. Projeto Google Cloud do OAuth do Search Console.** `webmasters.readonly` é escopo **sensível**.
-      Em modo "Testing", o refresh token expira em 7 dias, que é o mesmo problema já visto no OAuth do Ads.
-      É preciso publicar e verificar a tela de consentimento. Decidir se o escopo entra num projeto
-      existente (Contacts/Calendar/Ads) ou num client novo (`GOOGLE_GSC_CLIENT_ID/_SECRET`, seguindo a
-      convenção de um client por produto). **Iniciar a verificação já**, porque leva de dias a semanas e não
-      bloqueia a Fase 1.
+- [x] **D2. Projeto Google Cloud do OAuth do Search Console.** **Decidido (2026-10-05): reutilizar o client
+      OAuth genérico que já existe (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, o mesmo do Google Contacts).** Sem client
+      nem env novos. O Search Console é um grant separado (rotas próprias `/api/google/search-console/{connect,callback}`,
+      linha própria em `integrations` com provider `google_search_console`), pedindo só `openid email
+      webmasters.readonly`, então conectar o GSC não mexe no token do Contacts e vice-versa. O login do usuário
+      (Supabase Auth com Google) não serve para isso: o Supabase não guarda o refresh token do Google e o login só
+      pede `email profile`. O que se reaproveita é o client/projeto, não a sessão.
+      Ainda é preciso, no console desse projeto: (1) ativar a **Google Search Console API**; (2) adicionar o escopo
+      `webmasters.readonly` à tela de consentimento; (3) cadastrar o redirect
+      `https://xphere.app/api/google/search-console/callback`; (4) conferir o status de publicação. `webmasters.readonly`
+      é escopo **sensível**: se o app estiver em "Testing", o refresh token expira em 7 dias; se estiver em produção,
+      o escopo novo entra na fila de verificação do Google. Isso não bloqueia o código da Fase 2, só o uso por
+      clientes externos.
 - [ ] **D3. Público.** O módulo é ferramenta interna da agência (Skale Club operando sites de clientes) ou
       self-serve para a org cliente? Isso muda a prioridade do relatório white-label (Fase 4) e dos limites.
 - [ ] **D4. Gating.** Quais planos recebem `seo` em `src/lib/billing/catalog.ts`, e os limites
