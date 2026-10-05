@@ -9,6 +9,7 @@ import { noteTools } from './notes'
 import { workflowTools } from './workflows'
 import { analyticsTools } from './analytics'
 import { adsTools } from './ads'
+import { seoTools } from './seo'
 
 export const ALL_TOOLS: CopilotToolRegistry = {
   ...contactTools,
@@ -19,6 +20,7 @@ export const ALL_TOOLS: CopilotToolRegistry = {
   ...workflowTools,
   ...analyticsTools,
   ...adsTools,
+  ...seoTools,
 }
 
 export function getActiveTools(writeMode: boolean): CopilotToolRegistry {

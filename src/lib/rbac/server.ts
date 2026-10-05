@@ -7,6 +7,7 @@ import {
   DEFAULT_ROLE_PERMISSIONS,
   type OrgRole,
 } from './permissions'
+import { decidePermission } from './decide'
 
 /**
  * Server-side RBAC helpers. These mirror the database `has_permission()`
@@ -101,8 +102,8 @@ export async function isCurrentUserPlatformAdmin(): Promise<boolean> {
 export async function can(permissionKey: string): Promise<boolean> {
   const { userId, orgId, role, isPlatformAdmin } = await getRbacContext()
   if (!userId) return false
-  if (isPlatformAdmin) return true
-  if (role === 'owner') return true
+  // Owners/admins short-circuit before the grants read, as before.
+  if (isPlatformAdmin || role === 'owner') return true
   if (!orgId || (role !== 'admin' && role !== 'member')) return false
 
   const supabase = await createClient()
@@ -111,13 +112,7 @@ export async function can(permissionKey: string): Promise<boolean> {
     .select('permission_key, enabled, role')
     .eq('organization_id', orgId)
 
-  // RBAC not configured for this org yet → no restriction (non-disruptive:
-  // enforcement only kicks in once an Owner saves a configuration).
-  if (error || !data || data.length === 0) return true
-
-  const roleRows = data.filter((r) => r.role === role)
-  if (roleRows.length === 0) return DEFAULT_ROLE_PERMISSIONS[role].includes(permissionKey)
-  return roleRows.find((r) => r.permission_key === permissionKey)?.enabled ?? false
+  return decidePermission({ role, isPlatformAdmin, hasOrg: true, grants: error ? null : data, permissionKey })
 }
 
 /**
