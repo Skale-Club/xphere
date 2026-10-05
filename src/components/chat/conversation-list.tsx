@@ -26,7 +26,7 @@ import { useState, useEffect, useMemo, useRef, useCallback, memo } from 'react'
 import { Search, Pin, Archive, ArchiveRestore, Trash2, ChevronLeft, ChevronRight, Bot, User, Star, CheckCircle2, MessageSquare } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
-import { ConversationSummary } from '@/types/chat'
+import type { ConversationStatus, ConversationSummary } from '@/types/chat'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { StatusPill } from '@/components/design-system/status-pill'
 import { EmptyState } from '@/components/empty-states/empty-state'
@@ -151,7 +151,7 @@ interface ConversationListProps {
   onRetry: () => void
   onFilterChange: (filters: ConversationFilterChange) => void
   onSelect: (id: string) => void
-  onConversationUpdated: () => void
+  onConversationUpdated: (id: string, status: ConversationStatus) => void
   onConversationDeleted: (id: string) => void
   /** Optimistic pin/unpin handled by parent; updates apply on realtime echo. */
   onPin?: (id: string, pinned: boolean) => void
@@ -721,7 +721,7 @@ interface ConversationCardProps {
   selected: boolean
   onSelect: (id: string) => void
   onPin?: (id: string, pinned: boolean) => void
-  onArchive: () => void
+  onArchive: (id: string, status: ConversationStatus) => void
   onDelete: (id: string) => void
 }
 
@@ -755,12 +755,17 @@ function ConversationCardBase({
   const handleArchiveClick = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation()
-      await fetch(`/api/chat/conversations/${conversation.id}/status`, {
+      const nextStatus: ConversationStatus = isArchived ? 'open' : 'closed'
+      const response = await fetch(`/api/chat/conversations/${conversation.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: isArchived ? 'open' : 'closed' }),
+        body: JSON.stringify({ status: nextStatus }),
       })
-      onArchive()
+      if (!response.ok) {
+        toast.error(isArchived ? 'Could not restore conversation' : 'Could not archive conversation')
+        return
+      }
+      onArchive(conversation.id, nextStatus)
     },
     [conversation.id, isArchived, onArchive],
   )
@@ -894,14 +899,9 @@ function ConversationCardBase({
           )}
         </p>
 
-        {(isArchived || conversation.assignedUserId) && (
+        {isArchived && (
           <div className="mt-0.5 flex flex-wrap items-center gap-1">
-            {isArchived && (
-              <StatusPill tone="idle" className="!py-0 !text-[10px]">Archived</StatusPill>
-            )}
-            {conversation.contactId && (
-              <StatusPill tone="info" className="!py-0 !text-[10px]">Contact linked</StatusPill>
-            )}
+            <StatusPill tone="idle" className="!py-0 !text-[10px]">Archived</StatusPill>
           </div>
         )}
       </div>

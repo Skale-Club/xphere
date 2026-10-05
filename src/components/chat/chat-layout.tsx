@@ -66,6 +66,7 @@ import { PushPermissionBanner } from '@/components/chat/push-permission-banner'
 import { cn } from '@/lib/utils'
 import { conversationChannelToAgentChannel } from '@/lib/agents/channel-map'
 import { InboxTemplate } from '@/components/crm/entity-template'
+import { matchesInboxStatusFilter } from '@/lib/chat/conversation-visibility'
 
 const INBOX_MIN_WIDTH = 260
 const INBOX_DEFAULT_WIDTH = 300
@@ -217,6 +218,11 @@ export function ChatLayout({
     assigned: null,
     channel: null,
   })
+  const statusFilterRef = useRef<string | null>(filters.status)
+
+  useEffect(() => {
+    statusFilterRef.current = filters.status
+  }, [filters.status])
 
   // Stable filter setter | the list calls this from an effect, so we want to
   // ignore identical updates to prevent refetch loops.
@@ -582,6 +588,7 @@ export function ChatLayout({
         { event: 'INSERT', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
         (payload) => {
           const newConv = mapConversationRow(payload.new)
+          if (!matchesInboxStatusFilter(newConv.status, statusFilterRef.current)) return
           const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
           lastMessageAtMapRef.current.set(newConv.id, newLastMessageAt)
           prependConversation(newConv)
@@ -595,6 +602,15 @@ export function ChatLayout({
           const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
           const prevLastMessageAt = lastMessageAtMapRef.current.get(updated.id) ?? null
           lastMessageAtMapRef.current.set(updated.id, newLastMessageAt)
+
+          // Realtime rows bypass the filtered inbox_entries RPC. Reapply its
+          // default status contract here so archiving from this tab (or another
+          // operator's tab) removes the row immediately instead of leaving a
+          // stale "Archived" card in the default Inbox.
+          if (!matchesInboxStatusFilter(updated.status, statusFilterRef.current)) {
+            removeConversation(updated.id)
+            return
+          }
 
           // New inbound in a non-selected conversation → mark unread + browser notification
           const isOtherConversation = updated.id !== selectedIdRef.current
@@ -650,6 +666,17 @@ export function ChatLayout({
       supabase.removeChannel(channel)
     }
   }, [currentOrgId, prependConversation, upsertConversation, removeConversation])
+
+  const handleConversationStatusChanged = useCallback(
+    (id: string, nextStatus: ConversationStatus) => {
+      if (!matchesInboxStatusFilter(nextStatus, filters.status)) {
+        removeConversation(id)
+        return
+      }
+      refreshConversations()
+    },
+    [filters.status, refreshConversations, removeConversation],
+  )
 
   // ───────────────────────── Realtime: messages ─────────────────────────
 
@@ -1164,7 +1191,7 @@ export function ChatLayout({
               }
               void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
             }}
-            onConversationUpdated={refreshConversations}
+            onConversationUpdated={handleConversationStatusChanged}
             onConversationDeleted={(id) => {
               if (selectedId === id) {
                 setSelectedId(null)
@@ -1321,7 +1348,7 @@ export function ChatLayout({
                 // SEED-035: mark as read when conversation opens
                 void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
               }}
-              onConversationUpdated={refreshConversations}
+              onConversationUpdated={handleConversationStatusChanged}
               onConversationDeleted={(id) => {
                 if (selectedId === id) {
                   setSelectedId(null)
