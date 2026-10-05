@@ -161,7 +161,9 @@ async function snapshotAdsets(ctx: AdapterContext, cmd: AdsetsCommand): Promise<
     case 'meta.adset.set_lifetime_budget':
     case 'meta.adset.update_settings':
     case 'meta.adset.replace_targeting': {
-      const [node, currency] = await Promise.all([readNode<MetaAdSetNode>(cmd.adset_id, ADSET_FIELDS, ctx), currencyOf(ctx)])
+      const advancedKeys = cmd.type === 'meta.adset.update_settings' ? Object.keys(cmd.extra_params ?? {}) : []
+      const fields = advancedKeys.length > 0 ? `${ADSET_FIELDS},${advancedKeys.join(',')}` : ADSET_FIELDS
+      const [node, currency] = await Promise.all([readNode<MetaAdSetNode & Record<string, unknown>>(cmd.adset_id, fields, ctx), currencyOf(ctx)])
       if (!node || !sameAccount(node.account_id, ctx.adAccountId)) return null
       const base = {
         resourceType: 'adset' as const,
@@ -194,6 +196,7 @@ async function snapshotAdsets(ctx: AdapterContext, cmd: AdsetsCommand): Promise<
               regional_regulated_categories: node.regional_regulated_categories ?? [],
               regional_regulation_identities: node.regional_regulation_identities ?? {},
               attribution_spec: node.attribution_spec ?? [],
+              ...Object.fromEntries(advancedKeys.map((key) => [key, node[key] ?? null])),
             },
           }
         case 'meta.adset.replace_targeting':
@@ -339,6 +342,13 @@ function planAdsets(cmd: AdsetsCommand, before: ResourceSnapshot): PlanResult {
         if (value === undefined) continue
         intended[key] = value
         diff.push(diffField(key, labels[key], f[key], value))
+      }
+      for (const [key, value] of Object.entries(cmd.extra_params ?? {})) {
+        intended[key] = value
+        diff.push(diffField(key, `Advanced: ${key}`, f[key], value))
+      }
+      if (cmd.extra_params && Object.keys(cmd.extra_params).length > 0) {
+        warnings.push('Advanced parameters are passed directly to Meta and remain subject to account, objective, and API-version eligibility.')
       }
       if (cmd.optimization_goal !== undefined && f.status === 'ACTIVE') {
         warnings.push('Changing optimization_goal on a delivering (ACTIVE) ad set resets its learning phase; Meta may reject the change for an active ad set.')
@@ -512,6 +522,13 @@ function planAdsets(cmd: AdsetsCommand, before: ResourceSnapshot): PlanResult {
         intended.regional_regulation_identities = cmd.regional_regulation_identities
         diff.push(diffField('regional_regulation_identities', 'Regional regulation identities', null, cmd.regional_regulation_identities))
       }
+      for (const [key, value] of Object.entries(cmd.extra_params ?? {})) {
+        intended[key] = value
+        diff.push(diffField(key, `Advanced: ${key}`, null, value))
+      }
+      if (cmd.extra_params && Object.keys(cmd.extra_params).length > 0) {
+        warnings.push('Advanced parameters are passed directly to Meta and remain subject to account, objective, and API-version eligibility.')
+      }
 
       const countries = extractCountries(cmd.targeting)
       if (!hasGeoLocations(cmd.targeting)) {
@@ -557,6 +574,7 @@ function buildUpdate(cmd: Exclude<AdsetsCommand, CommandOf<'meta.adset.create'>>
       if (cmd.regional_regulated_categories !== undefined) fields.regional_regulated_categories = cmd.regional_regulated_categories
       if (cmd.regional_regulation_identities !== undefined) fields.regional_regulation_identities = cmd.regional_regulation_identities
       if (cmd.attribution_spec !== undefined) fields.attribution_spec = cmd.attribution_spec
+      Object.assign(fields, cmd.extra_params ?? {})
       return { id: cmd.adset_id, fields }
     }
     case 'meta.adset.replace_targeting':
@@ -591,6 +609,7 @@ function buildAdsetCreateBody(cmd: CommandOf<'meta.adset.create'>, before: Resou
   if (cmd.dsa_payor) body.dsa_payor = cmd.dsa_payor
   if (cmd.regional_regulated_categories) body.regional_regulated_categories = cmd.regional_regulated_categories
   if (cmd.regional_regulation_identities) body.regional_regulation_identities = cmd.regional_regulation_identities
+  Object.assign(body, cmd.extra_params ?? {})
   return { edgePath: `${cmd.ad_account_id}/adsets`, body }
 }
 
@@ -657,6 +676,13 @@ function buildAdsetsRollback(command: AdsetsCommand, before: ResourceSnapshot): 
       if (command.attribution_spec !== undefined) {
         back.attribution_spec = Array.isArray(f.attribution_spec) ? f.attribution_spec : []
       }
+      const extraRollback: Record<string, unknown> = {}
+      for (const key of Object.keys(command.extra_params ?? {})) {
+        // Some Meta fields cannot express an explicit null reset. Only offer
+        // rollback when a concrete prior value was observable.
+        if (f[key] !== null && f[key] !== undefined) extraRollback[key] = f[key]
+      }
+      if (Object.keys(extraRollback).length > 0) back.extra_params = extraRollback
       if (Object.keys(back).length === 0) return null
       return { ...base, type: command.type, adset_id: command.adset_id, ...back } as AdsCommand
     }

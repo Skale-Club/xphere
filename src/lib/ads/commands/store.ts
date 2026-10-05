@@ -115,7 +115,7 @@ export async function transition(params: {
 
 export type ChangeFilters = {
   status?: ChangeStatus[]
-  platform?: 'meta' | 'google'
+  platform?: 'meta' | 'google' | 'google_business'
   adAccountId?: string
   campaignId?: string
   batchId?: string

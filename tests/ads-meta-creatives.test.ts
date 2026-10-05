@@ -62,9 +62,18 @@ beforeEach(() => {
 })
 
 describe('creativesHandler.types', () => {
-  it('advertises exactly the six round-4 creative commands', () => {
+  it('advertises all creative and media commands', () => {
     expect([...creativesHandler.types].sort()).toEqual(
-      ['meta.ad.create_with_creative', 'meta.ad.set_welcome_message', 'meta.ad.update_creative', 'meta.media.upload_image', 'meta.media.upload_video', 'meta.post.boost'].sort(),
+      [
+        'meta.ad.create_from_spec',
+        'meta.ad.create_with_creative',
+        'meta.ad.set_welcome_message',
+        'meta.ad.update_creative',
+        'meta.media.upload_image',
+        'meta.media.upload_images',
+        'meta.media.upload_video',
+        'meta.post.boost',
+      ].sort(),
     )
   })
 })
@@ -168,6 +177,41 @@ describe('meta.media.upload_image', () => {
   it('buildRollback returns null — a library upload has no inverse', async () => {
     const before = await creativesHandler.snapshot(ctx, cmd)
     expect(creativesHandler.buildRollback(cmd, before!, 'h1')).toBeNull()
+  })
+})
+
+// ─── meta.media.upload_images ───────────────────────────────────────────────
+
+describe('meta.media.upload_images', () => {
+  const cmd = {
+    platform: 'meta' as const,
+    ad_account_id: 'act_123456789',
+    type: 'meta.media.upload_images' as const,
+    images: [
+      { image_url: 'https://cdn.example.com/a.png', name: 'A' },
+      { image_url: 'https://cdn.example.com/b.png', name: 'B' },
+    ],
+  }
+
+  it('validates every image and enforces the aggregate batch cap', async () => {
+    safeFetchBytesMock
+      .mockResolvedValueOnce({ bytes: { byteLength: 60 * 1024 * 1024 }, contentType: 'image/png', finalUrl: cmd.images[0].image_url })
+      .mockResolvedValueOnce({ bytes: { byteLength: 41 * 1024 * 1024 }, contentType: 'image/png', finalUrl: cmd.images[1].image_url })
+    const before = await creativesHandler.snapshot(ctx, cmd)
+    await expect(creativesHandler.validate(ctx, cmd, before!)).rejects.toThrow(/100 MB/)
+  })
+
+  it('uploads every image and returns all hashes', async () => {
+    safeFetchBytesMock
+      .mockResolvedValueOnce({ bytes: Buffer.from('a'), contentType: 'image/png', finalUrl: cmd.images[0].image_url })
+      .mockResolvedValueOnce({ bytes: Buffer.from('b'), contentType: 'image/png', finalUrl: cmd.images[1].image_url })
+    createObjectMock
+      .mockResolvedValueOnce({ images: { a: { hash: 'hash-a' } } })
+      .mockResolvedValueOnce({ images: { b: { hash: 'hash-b' } } })
+    const before = await creativesHandler.snapshot(ctx, cmd)
+    const result = await creativesHandler.execute(ctx, cmd, before!)
+    expect(result.providerRef).toBe('hash-a,hash-b')
+    expect(result.raw).toEqual({ hashes: ['hash-a', 'hash-b'] })
   })
 })
 
@@ -435,6 +479,41 @@ describe('meta.ad.create_with_creative', () => {
   })
 })
 
+// ─── meta.ad.create_from_spec ───────────────────────────────────────────────
+
+describe('meta.ad.create_from_spec', () => {
+  const cmd = {
+    platform: 'meta' as const,
+    ad_account_id: 'act_123456789',
+    type: 'meta.ad.create_from_spec' as const,
+    adset_id: 'as1',
+    name: 'Advanced Ad',
+    creative: { creative_id: 'cr-existing', degrees_of_freedom_spec: { creative_features_spec: {} } },
+  }
+  const adset = { id: 'as1', name: 'AdSet', status: 'ACTIVE', account_id: 'act_123456789', campaign_id: 'c1' }
+
+  it('validate() sends the full spec to Meta as a paused ad', async () => {
+    getObjectMock.mockResolvedValueOnce(adset)
+    const before = await creativesHandler.snapshot(ctx, cmd)
+    await creativesHandler.validate(ctx, cmd, before!)
+    expect(createObjectMock).toHaveBeenCalledWith(
+      'act_123456789/ads',
+      { name: 'Advanced Ad', adset_id: 'as1', creative: cmd.creative, status: 'PAUSED' },
+      'token',
+      { validateOnly: true },
+    )
+  })
+
+  it('execute() creates the ad PAUSED and returns its id', async () => {
+    getObjectMock.mockResolvedValueOnce(adset)
+    createObjectMock.mockResolvedValueOnce({ id: 'ad-new' })
+    const before = await creativesHandler.snapshot(ctx, cmd)
+    const result = await creativesHandler.execute(ctx, cmd, before!)
+    expect(result.providerRef).toBe('ad-new')
+    expect(creativesHandler.buildRollback(cmd, before!, 'ad-new')).toBeNull()
+  })
+})
+
 // ─── meta.ad.update_creative ─────────────────────────────────────────────────
 
 describe('meta.ad.update_creative', () => {
@@ -534,6 +613,20 @@ describe('meta.ad.update_creative', () => {
     const before = await creativesHandler.snapshot(ctx, cmd)
     const plan = creativesHandler.plan(cmd, before!)
     expect(plan.ok).toBe(true)
+  })
+
+  it('passes degrees_of_freedom_spec through to the replacement creative', async () => {
+    getObjectMock.mockResolvedValueOnce(adWithLinkCreative)
+    const degrees = { creative_features_spec: { standard_enhancements: { enroll_status: 'OPT_OUT' } } }
+    const cmd = { ...baseCmd, ad_id: 'ad1', degrees_of_freedom_spec: degrees }
+    const before = await creativesHandler.snapshot(ctx, cmd)
+    await creativesHandler.validate(ctx, cmd, before!)
+    expect(createObjectMock).toHaveBeenCalledWith(
+      'act_123456789/adcreatives',
+      expect.objectContaining({ degrees_of_freedom_spec: degrees }),
+      'token',
+      { validateOnly: true },
+    )
   })
 
   it('refuses to edit content fields on a boosted-post creative (object_story_id)', async () => {
@@ -797,6 +890,19 @@ describe('meta.ad.set_welcome_message', () => {
       const spec = plan.intended.object_story_spec as { link_data: { page_welcome_message: string } }
       const payload = JSON.parse(spec.link_data.page_welcome_message)
       expect(payload.text_format.message.text).toBe('Hi! How can we help?')
+    }
+  })
+
+  it('accepts a complete welcome_message_spec without rewriting it', async () => {
+    getObjectMock.mockResolvedValueOnce(adClickToMessage)
+    const welcomeSpec = { type: 'VISUAL_EDITOR', version: 2, text_format: { customer_action_type: 'quick_replies', message: { text: 'Choose', quick_replies: ['Sales'] } } }
+    const richCmd = { ...cmd, welcome_message: undefined, welcome_message_spec: welcomeSpec }
+    const before = await creativesHandler.snapshot(ctx, richCmd)
+    const plan = creativesHandler.plan(richCmd, before!)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) {
+      const spec = plan.intended.object_story_spec as { link_data: { page_welcome_message: string } }
+      expect(JSON.parse(spec.link_data.page_welcome_message)).toEqual(welcomeSpec)
     }
   })
 

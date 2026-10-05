@@ -485,6 +485,37 @@ describe('buildRollback — bid strategy', () => {
   })
 })
 
+// ─── Advanced ad settings ────────────────────────────────────────────────────
+
+describe('snapshot + plan — meta.ad.update_settings', () => {
+  const command = {
+    platform: 'meta' as const,
+    ad_account_id: 'act_123456789',
+    type: 'meta.ad.update_settings' as const,
+    ad_id: 'ad1',
+    conversion_domain: 'shop.example.com',
+    display_sequence: 2,
+  }
+
+  it('diffs, validates and writes the advanced ad fields', async () => {
+    getObjectMock.mockResolvedValueOnce({
+      id: 'ad1', name: 'Ad', status: 'PAUSED', account_id: 'act_123456789', campaign_id: 'c1',
+      conversion_domain: 'old.example.com', display_sequence: 1,
+    })
+    const before = await metaAdapter.snapshot(ctx, command)
+    const plan = metaAdapter.plan(command, before!)
+    expect(plan.ok).toBe(true)
+    if (plan.ok) expect(plan.intended).toEqual({ conversion_domain: 'shop.example.com', display_sequence: 2 })
+    await metaAdapter.validate(ctx, command, before!)
+    expect(updateObjectMock).toHaveBeenCalledWith(
+      'ad1',
+      { conversion_domain: 'shop.example.com', display_sequence: 2 },
+      'token',
+      { validateOnly: true },
+    )
+  })
+})
+
 // ─── Creative swap ──────────────────────────────────────────────────────────────
 
 describe('snapshot + plan — meta.ad.set_creative', () => {

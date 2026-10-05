@@ -142,6 +142,22 @@ describe('Customer Match hashing', () => {
     expect(rejected).toBe(1)
   })
 
+  it('normalises and hashes Customer Match postal addresses', () => {
+    const { hashed_addresses, rejected } = hashContacts({
+      addresses: [
+        { first_name: '  ÁNA ', last_name: 'SILVA ', country_code: 'br', postal_code: ' 01310-100 ' },
+        { first_name: '', last_name: 'Missing', country_code: 'BR', postal_code: '1' },
+      ],
+    })
+    expect(hashed_addresses).toEqual([{
+      hashed_first_name: sha256Hex('ána'),
+      hashed_last_name: sha256Hex('silva'),
+      country_code: 'BR',
+      postal_code: '01310-100',
+    }])
+    expect(rejected).toBe(1)
+  })
+
   it('returns digests only — nothing that looks like the input', () => {
     const out = hashContacts({ emails: ['ana@example.com'], phones: ['+351912345678'] })
     const all = [...out.hashed_emails, ...out.hashed_phones]

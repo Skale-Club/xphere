@@ -152,11 +152,13 @@ type ProximityRow = {
   longitude_micro: number | null
   radius: number | null
   radius_units: string | null
+  bid_modifier?: number
 }
 
 type RawProximityRow = {
   campaignCriterion: {
     criterionId: string
+    bidModifier?: number
     proximity?: { geoPoint?: { latitudeInMicroDegrees?: number; longitudeInMicroDegrees?: number }; radius?: number; radiusUnits?: string }
   }
 }
@@ -172,7 +174,8 @@ export async function listCampaignProximities(ctx: AdapterContext, campaignId: s
   const rows = await runGaqlQuery<RawProximityRow>(
     ctx.adAccountId,
     refreshToken(ctx),
-    `SELECT campaign_criterion.criterion_id, campaign_criterion.proximity.geo_point.latitude_in_micro_degrees,
+    `SELECT campaign_criterion.criterion_id, campaign_criterion.bid_modifier,
+            campaign_criterion.proximity.geo_point.latitude_in_micro_degrees,
             campaign_criterion.proximity.geo_point.longitude_in_micro_degrees, campaign_criterion.proximity.radius,
             campaign_criterion.proximity.radius_units
      FROM campaign_criterion
@@ -184,6 +187,7 @@ export async function listCampaignProximities(ctx: AdapterContext, campaignId: s
     longitude_micro: r.campaignCriterion.proximity?.geoPoint?.longitudeInMicroDegrees ?? null,
     radius: r.campaignCriterion.proximity?.radius ?? null,
     radius_units: r.campaignCriterion.proximity?.radiusUnits ?? null,
+    ...(r.campaignCriterion.bidModifier != null ? { bid_modifier: r.campaignCriterion.bidModifier } : {}),
   }))
 }
 
@@ -362,7 +366,7 @@ async function snapshot(ctx: AdapterContext, command: AdsCommand): Promise<Resou
         resourceName: `Radius ${command.radius} ${command.radius_units} @ (${command.latitude}, ${command.longitude}) → ${campaign.campaign.name}`,
         campaignId: campaign.campaign.id,
         currency: campaign.customer?.currencyCode ?? 'USD',
-        fields: { campaign_status: campaign.campaign.status, existing_criterion_id: existing?.criterion_id ?? null },
+        fields: { campaign_status: campaign.campaign.status, existing_criterion_id: existing?.criterion_id ?? null, existing_bid_modifier: existing?.bid_modifier ?? null },
       }
     }
 
@@ -381,6 +385,7 @@ async function snapshot(ctx: AdapterContext, command: AdsCommand): Promise<Resou
           longitude: found.longitude_micro !== null ? found.longitude_micro / MICRO_DEGREES : null,
           radius: found.radius,
           radius_units: found.radius_units,
+          bid_modifier: found.bid_modifier,
         },
       }
     }
@@ -547,7 +552,13 @@ function plan(command: AdsCommand, before: ResourceSnapshot): PlanResult {
       const roundedLng = microDegrees(command.longitude) / MICRO_DEGREES
       return {
         ok: true,
-        intended: { latitude: roundedLat, longitude: roundedLng, radius: command.radius, radius_units: command.radius_units },
+        intended: {
+          latitude: roundedLat,
+          longitude: roundedLng,
+          radius: command.radius,
+          radius_units: command.radius_units,
+          ...(command.bid_modifier !== undefined ? { bid_modifier: command.bid_modifier } : {}),
+        },
         diff: [diffField('proximity', 'Radius targeting', null, `${command.radius} ${command.radius_units} @ (${roundedLat}, ${roundedLng})`)],
         warnings: [],
         facts: {},
@@ -702,6 +713,7 @@ function buildOperation(
               radius: command.radius,
               radiusUnits: command.radius_units,
             },
+            ...(command.bid_modifier !== undefined ? { bidModifier: command.bid_modifier } : {}),
           },
         },
       }
@@ -774,7 +786,9 @@ function buildCreateDisplayOperations(command: CommandOf<'google.campaign.create
           status: 'PAUSED',
           advertisingChannelType: 'DISPLAY',
           campaignBudget: budgetResourceName,
-          containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+          containsEuPoliticalAdvertising: command.contains_eu_political_advertising
+            ? 'CONTAINS_EU_POLITICAL_ADVERTISING'
+            : 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
           ...(command.start_date_time ? { startDateTime: command.start_date_time } : {}),
           ...(command.end_date_time ? { endDateTime: command.end_date_time } : {}),
           ...bidding,
@@ -868,7 +882,13 @@ export const biddingHandler: CommandHandler = {
         const proximities = criterionId ? await listCampaignProximities(ctx, command.campaign_id) : []
         const found = proximities.find((p) => p.criterion_id === criterionId)
         observed = found
-          ? { latitude: (found.latitude_micro ?? 0) / MICRO_DEGREES, longitude: (found.longitude_micro ?? 0) / MICRO_DEGREES, radius: found.radius, radius_units: found.radius_units }
+          ? {
+              latitude: (found.latitude_micro ?? 0) / MICRO_DEGREES,
+              longitude: (found.longitude_micro ?? 0) / MICRO_DEGREES,
+              radius: found.radius,
+              radius_units: found.radius_units,
+              ...(command.bid_modifier !== undefined ? { bid_modifier: found.bid_modifier } : {}),
+            }
           : null
         break
       }
@@ -975,6 +995,7 @@ export const biddingHandler: CommandHandler = {
               longitude: f.longitude,
               radius: f.radius,
               radius_units: f.radius_units as 'KILOMETERS' | 'MILES',
+              ...(typeof f.bid_modifier === 'number' ? { bid_modifier: f.bid_modifier } : {}),
             }
           : null
 

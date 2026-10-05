@@ -20,6 +20,7 @@ import { noOp, type CommandHandler } from '../handlers'
 import type { AdapterContext, ExecuteResult, VerifyResult } from '../types'
 
 const MAX_IMAGE_BYTES = 30 * 1024 * 1024
+const MAX_IMAGE_BATCH_BYTES = 100 * 1024 * 1024
 const IMAGE_CONTENT_TYPES = /^image\/(jpeg|png|gif)$/
 const VIDEO_POLL_INTERVAL_MS = 3_000
 const VIDEO_POLL_MAX_MS = 90_000
@@ -155,6 +156,75 @@ async function verifyUploadImage(ctx: AdapterContext, cmd: CommandOf<'meta.media
   const status = info.status ?? 'ACTIVE'
   const ok = status === 'ACTIVE'
   return { ok, mismatches: ok ? [] : [{ field: 'status', expected: 'ACTIVE', actual: status }], observed: { hash: providerRef, status } }
+}
+
+// ─── meta.media.upload_images ───────────────────────────────────────────────
+
+async function snapshotUploadImages(ctx: AdapterContext, cmd: CommandOf<'meta.media.upload_images'>): Promise<ResourceSnapshot> {
+  const currency = await currencyOf(ctx)
+  return {
+    resourceType: 'media',
+    resourceId: null,
+    resourceName: `${cmd.images.length} images`,
+    campaignId: null,
+    currency,
+    fields: { images: cmd.images },
+  }
+}
+
+function planUploadImages(cmd: CommandOf<'meta.media.upload_images'>): PlanResult {
+  return {
+    ok: true,
+    intended: { image_count: cmd.images.length },
+    diff: [diffField('images', 'Images', null, `${cmd.images.length} image(s)`) ],
+    warnings: [],
+    facts: {},
+  }
+}
+
+async function validateUploadImages(cmd: CommandOf<'meta.media.upload_images'>): Promise<void> {
+  let totalBytes = 0
+  for (const image of cmd.images) {
+    const fetched = await safeFetchBytes(image.image_url, { maxBytes: MAX_IMAGE_BYTES, accept: IMAGE_CONTENT_TYPES }).catch(rethrowAsValidation)
+    totalBytes += fetched.bytes.byteLength
+    if (totalBytes > MAX_IMAGE_BATCH_BYTES) {
+      throw new AdsValidationError('The image batch is larger than 100 MB; split it into smaller uploads.')
+    }
+  }
+}
+
+async function executeUploadImages(ctx: AdapterContext, cmd: CommandOf<'meta.media.upload_images'>): Promise<ExecuteResult> {
+  const hashes: string[] = []
+  for (const image of cmd.images) {
+    const result = await executeUploadImage(ctx, {
+      platform: 'meta',
+      type: 'meta.media.upload_image',
+      ad_account_id: cmd.ad_account_id,
+      image_url: image.image_url,
+      ...(image.name ? { name: image.name } : {}),
+    })
+    if (!result.providerRef) throw new MetaAdsError('Meta did not return an image hash for one of the uploaded images')
+    hashes.push(result.providerRef)
+  }
+  return { providerRef: hashes.join(','), raw: { hashes } }
+}
+
+async function verifyUploadImages(
+  ctx: AdapterContext,
+  cmd: CommandOf<'meta.media.upload_images'>,
+  providerRef: string | null,
+): Promise<VerifyResult> {
+  const hashes = providerRef?.split(',').filter(Boolean) ?? []
+  if (hashes.length !== cmd.images.length) {
+    return { ok: false, mismatches: [{ field: 'image_count', expected: cmd.images.length, actual: hashes.length }], observed: { hashes } }
+  }
+  const records = await Promise.all(hashes.map((hash) => findAdImage(ctx, cmd.ad_account_id, hash)))
+  const inactive = records.flatMap((record, index) => (record?.status && record.status !== 'ACTIVE' ? [{ hash: hashes[index], status: record.status }] : []))
+  return {
+    ok: inactive.length === 0,
+    mismatches: inactive.map((entry) => ({ field: `image.${entry.hash}.status`, expected: 'ACTIVE', actual: entry.status })),
+    observed: { hashes, statuses: records.map((record) => record?.status ?? 'unknown') },
+  }
 }
 
 // ─── meta.media.upload_video ─────────────────────────────────────────────────
@@ -387,6 +457,60 @@ async function verifyCreateWithCreative(ctx: AdapterContext, providerRef: string
   return { ok: mismatches.length === 0, mismatches, observed: { id: node.id, status: node.status, creative_id: node.creative?.id ?? null } }
 }
 
+// ─── meta.ad.create_from_spec ───────────────────────────────────────────────
+
+async function snapshotCreateFromSpec(ctx: AdapterContext, cmd: CommandOf<'meta.ad.create_from_spec'>): Promise<ResourceSnapshot | null> {
+  const [adset, currency] = await Promise.all([
+    readNode<AdsetForCreate>(cmd.adset_id, 'id,name,status,account_id,campaign_id', ctx),
+    currencyOf(ctx),
+  ])
+  if (!adset || !sameAccount(adset.account_id, ctx.adAccountId)) return null
+  return {
+    resourceType: 'ad',
+    resourceId: null,
+    resourceName: cmd.name,
+    campaignId: adset.campaign_id ?? null,
+    currency,
+    fields: { adset_status: adset.status, adset_name: adset.name },
+  }
+}
+
+function planCreateFromSpec(cmd: CommandOf<'meta.ad.create_from_spec'>, before: ResourceSnapshot): PlanResult {
+  if (before.fields.adset_status === 'DELETED' || before.fields.adset_status === 'ARCHIVED') {
+    return { ok: false, code: 'resource_archived', message: `The ad set is ${before.fields.adset_status} in Meta and cannot receive new ads.` }
+  }
+  return {
+    ok: true,
+    intended: { name: cmd.name, adset_id: cmd.adset_id, creative: cmd.creative, status: 'PAUSED' },
+    diff: [
+      diffField('name', 'Name', null, cmd.name),
+      diffField('adset_id', 'Ad set', null, before.fields.adset_name ?? cmd.adset_id),
+      diffField('creative', 'Creative spec', null, cmd.creative),
+      diffField('status', 'Status', null, 'PAUSED'),
+    ],
+    warnings: ['Meta validates the complete creative specification; unsupported or account-ineligible fields are rejected before execution.'],
+    facts: {},
+  }
+}
+
+function createFromSpecBody(cmd: CommandOf<'meta.ad.create_from_spec'>): Record<string, unknown> {
+  return { name: cmd.name, adset_id: cmd.adset_id, creative: cmd.creative, status: 'PAUSED' }
+}
+
+async function validateCreateFromSpec(ctx: AdapterContext, cmd: CommandOf<'meta.ad.create_from_spec'>, before: ResourceSnapshot): Promise<void> {
+  const plan = planCreateFromSpec(cmd, before)
+  if (!plan.ok) throw new AdsValidationError(plan.message)
+  await createObject(`${cmd.ad_account_id}/ads`, createFromSpecBody(cmd), ctx.credential, { validateOnly: true })
+}
+
+async function executeCreateFromSpec(ctx: AdapterContext, cmd: CommandOf<'meta.ad.create_from_spec'>, before: ResourceSnapshot): Promise<ExecuteResult> {
+  const plan = planCreateFromSpec(cmd, before)
+  if (!plan.ok) throw new AdsValidationError(plan.message)
+  const ad = await createObject(`${cmd.ad_account_id}/ads`, createFromSpecBody(cmd), ctx.credential)
+  if (!ad.id) throw new MetaAdsError('Meta did not return an id for the created ad')
+  return { providerRef: ad.id, raw: ad }
+}
+
 // ─── Shared: reading and rewriting an ad's creative ─────────────────────────
 // (meta.ad.update_creative and meta.ad.set_welcome_message both read the ad's
 // current creative, build a modified object_story_spec, create a new creative
@@ -452,6 +576,9 @@ async function snapshotAdCreative(ctx: AdapterContext, adId: string): Promise<Re
       creative_name: creative?.name ?? null,
       object_story_spec: spec,
       url_tags: creative?.url_tags ?? null,
+      degrees_of_freedom_spec: creative?.degrees_of_freedom_spec ?? null,
+      asset_feed_spec: creative?.asset_feed_spec ?? null,
+      object_story_id: creative?.object_story_id ?? null,
       // Dynamic/Advantage+ creatives carry their content in asset_feed_spec
       // (or a degrees_of_freedom_spec), not object_story_spec — this module
       // can't safely edit that shape.
@@ -464,13 +591,25 @@ async function snapshotAdCreative(ctx: AdapterContext, adId: string): Promise<Re
   }
 }
 
-function creativeBody(before: ResourceSnapshot, adId: string, objectStorySpec: Record<string, unknown>, urlTagsOverride?: string): Record<string, unknown> {
+function creativeBody(
+  before: ResourceSnapshot,
+  adId: string,
+  objectStorySpec: Record<string, unknown>,
+  urlTagsOverride?: string,
+  degreesOfFreedomOverride?: Record<string, unknown>,
+): Record<string, unknown> {
   const body: Record<string, unknown> = {
     name: (before.fields.creative_name as string | null) ?? `Creative for ad ${adId}`,
-    object_story_spec: objectStorySpec,
   }
+  if (Object.keys(objectStorySpec).length > 0) body.object_story_spec = objectStorySpec
+  else if (before.fields.asset_feed_spec) body.asset_feed_spec = before.fields.asset_feed_spec
+  else if (before.fields.object_story_id) body.object_story_id = before.fields.object_story_id
   const tags = urlTagsOverride !== undefined ? urlTagsOverride : (before.fields.url_tags as string | null)
   if (tags) body.url_tags = tags
+  const degrees = degreesOfFreedomOverride !== undefined
+    ? degreesOfFreedomOverride
+    : (before.fields.degrees_of_freedom_spec as Record<string, unknown> | null)
+  if (degrees) body.degrees_of_freedom_spec = degrees
   return body
 }
 
@@ -579,22 +718,35 @@ function planUpdateCreative(cmd: CommandOf<'meta.ad.update_creative'>, before: R
 
   const diff = [...result.diff]
   if (cmd.url_tags !== undefined) diff.push(diffField('url_tags', 'URL tags', f.url_tags, cmd.url_tags))
+  if (cmd.degrees_of_freedom_spec !== undefined) {
+    diff.push(diffField('degrees_of_freedom_spec', 'Advantage+ creative enhancements', f.degrees_of_freedom_spec, cmd.degrees_of_freedom_spec))
+  }
   const changes = effective(diff)
   if (changes.length === 0) return noOp()
-  return { ok: true, intended: { object_story_spec: result.nextSpec, url_tags: cmd.url_tags ?? (f.url_tags as string | null) ?? null }, diff: changes, warnings: [], facts: {} }
+  return {
+    ok: true,
+    intended: {
+      object_story_spec: result.nextSpec,
+      url_tags: cmd.url_tags ?? (f.url_tags as string | null) ?? null,
+      degrees_of_freedom_spec: cmd.degrees_of_freedom_spec ?? f.degrees_of_freedom_spec ?? null,
+    },
+    diff: changes,
+    warnings: [],
+    facts: {},
+  }
 }
 
 async function validateUpdateCreative(ctx: AdapterContext, cmd: CommandOf<'meta.ad.update_creative'>, before: ResourceSnapshot): Promise<void> {
   const plan = planUpdateCreative(cmd, before)
   if (!plan.ok) throw new AdsValidationError(plan.message)
-  const body = creativeBody(before, cmd.ad_id, plan.intended.object_story_spec as Record<string, unknown>, cmd.url_tags)
+  const body = creativeBody(before, cmd.ad_id, plan.intended.object_story_spec as Record<string, unknown>, cmd.url_tags, cmd.degrees_of_freedom_spec)
   await createObject(`${cmd.ad_account_id}/adcreatives`, body, ctx.credential, { validateOnly: true })
 }
 
 async function executeUpdateCreative(ctx: AdapterContext, cmd: CommandOf<'meta.ad.update_creative'>, before: ResourceSnapshot): Promise<ExecuteResult> {
   const plan = planUpdateCreative(cmd, before)
   if (!plan.ok) throw new AdsValidationError(plan.message)
-  const body = creativeBody(before, cmd.ad_id, plan.intended.object_story_spec as Record<string, unknown>, cmd.url_tags)
+  const body = creativeBody(before, cmd.ad_id, plan.intended.object_story_spec as Record<string, unknown>, cmd.url_tags, cmd.degrees_of_freedom_spec)
   const creative = await createObject(`${cmd.ad_account_id}/adcreatives`, body, ctx.credential)
   if (!creative.id) throw new MetaAdsError('Meta did not return an id for the new creative')
   const res = await updateObject(cmd.ad_id, { creative: { creative_id: creative.id } }, ctx.credential)
@@ -610,6 +762,16 @@ async function verifyUpdateCreative(ctx: AdapterContext, cmd: CommandOf<'meta.ad
   if (snap.fields.creative_id !== providerRef) mismatches.push({ field: 'creative_id', expected: providerRef, actual: snap.fields.creative_id })
   if (intended.url_tags !== undefined && (snap.fields.url_tags ?? null) !== (intended.url_tags ?? null)) {
     mismatches.push({ field: 'url_tags', expected: intended.url_tags, actual: snap.fields.url_tags })
+  }
+  if (
+    intended.degrees_of_freedom_spec !== undefined
+    && JSON.stringify(snap.fields.degrees_of_freedom_spec ?? null) !== JSON.stringify(intended.degrees_of_freedom_spec ?? null)
+  ) {
+    mismatches.push({
+      field: 'degrees_of_freedom_spec',
+      expected: intended.degrees_of_freedom_spec,
+      actual: snap.fields.degrees_of_freedom_spec,
+    })
   }
   return { ok: mismatches.length === 0, mismatches, observed: snap.fields }
 }
@@ -653,7 +815,9 @@ function planWelcomeMessage(cmd: CommandOf<'meta.ad.set_welcome_message'>, befor
   const target = isVideo ? spec.video_data : spec.link_data
   if (!target) return { ok: false, code: 'unsupported_creative_shape', message: 'This creative has neither link_data nor video_data to edit.' }
 
-  const payload = buildWelcomeMessagePayload(cmd.welcome_message)
+  const payload = cmd.welcome_message_spec
+    ? JSON.stringify(cmd.welcome_message_spec)
+    : buildWelcomeMessagePayload(cmd.welcome_message as string)
   const beforeValue = target.page_welcome_message ?? null
   target.page_welcome_message = payload
   const diff = effective([diffField('welcome_message', 'Welcome message', beforeValue, payload)])
@@ -786,16 +950,29 @@ async function verifyBoost(ctx: AdapterContext, cmd: CommandOf<'meta.post.boost'
 
 export const creativesHandler: CommandHandler = {
   platform: 'meta',
-  types: ['meta.media.upload_image', 'meta.media.upload_video', 'meta.ad.create_with_creative', 'meta.ad.update_creative', 'meta.post.boost', 'meta.ad.set_welcome_message'],
+  types: [
+    'meta.media.upload_image',
+    'meta.media.upload_images',
+    'meta.media.upload_video',
+    'meta.ad.create_with_creative',
+    'meta.ad.create_from_spec',
+    'meta.ad.update_creative',
+    'meta.post.boost',
+    'meta.ad.set_welcome_message',
+  ],
 
   async snapshot(ctx, command) {
     switch (command.type) {
       case 'meta.media.upload_image':
         return snapshotUploadImage(ctx, command)
+      case 'meta.media.upload_images':
+        return snapshotUploadImages(ctx, command)
       case 'meta.media.upload_video':
         return snapshotUploadVideo(ctx, command)
       case 'meta.ad.create_with_creative':
         return snapshotCreateWithCreative(ctx, command)
+      case 'meta.ad.create_from_spec':
+        return snapshotCreateFromSpec(ctx, command)
       case 'meta.ad.update_creative':
         return snapshotAdCreative(ctx, command.ad_id)
       case 'meta.post.boost':
@@ -811,10 +988,14 @@ export const creativesHandler: CommandHandler = {
     switch (command.type) {
       case 'meta.media.upload_image':
         return planUploadImage(command)
+      case 'meta.media.upload_images':
+        return planUploadImages(command)
       case 'meta.media.upload_video':
         return planUploadVideo(command)
       case 'meta.ad.create_with_creative':
         return planCreateWithCreative(command, before)
+      case 'meta.ad.create_from_spec':
+        return planCreateFromSpec(command, before)
       case 'meta.ad.update_creative':
         return planUpdateCreative(command, before)
       case 'meta.post.boost':
@@ -830,10 +1011,14 @@ export const creativesHandler: CommandHandler = {
     switch (command.type) {
       case 'meta.media.upload_image':
         return validateUploadImage(command)
+      case 'meta.media.upload_images':
+        return validateUploadImages(command)
       case 'meta.media.upload_video':
         return validateUploadVideo(command)
       case 'meta.ad.create_with_creative':
         return validateCreateWithCreative(ctx, command, before)
+      case 'meta.ad.create_from_spec':
+        return validateCreateFromSpec(ctx, command, before)
       case 'meta.ad.update_creative':
         return validateUpdateCreative(ctx, command, before)
       case 'meta.post.boost':
@@ -849,10 +1034,14 @@ export const creativesHandler: CommandHandler = {
     switch (command.type) {
       case 'meta.media.upload_image':
         return executeUploadImage(ctx, command)
+      case 'meta.media.upload_images':
+        return executeUploadImages(ctx, command)
       case 'meta.media.upload_video':
         return executeUploadVideo(ctx, command)
       case 'meta.ad.create_with_creative':
         return executeCreateWithCreative(ctx, command, before)
+      case 'meta.ad.create_from_spec':
+        return executeCreateFromSpec(ctx, command, before)
       case 'meta.ad.update_creative':
         return executeUpdateCreative(ctx, command, before)
       case 'meta.post.boost':
@@ -868,9 +1057,13 @@ export const creativesHandler: CommandHandler = {
     switch (command.type) {
       case 'meta.media.upload_image':
         return verifyUploadImage(ctx, command, providerRef)
+      case 'meta.media.upload_images':
+        return verifyUploadImages(ctx, command, providerRef)
       case 'meta.media.upload_video':
         return verifyUploadVideo(ctx, providerRef)
       case 'meta.ad.create_with_creative':
+        return verifyCreateWithCreative(ctx, providerRef)
+      case 'meta.ad.create_from_spec':
         return verifyCreateWithCreative(ctx, providerRef)
       case 'meta.ad.update_creative':
         return verifyUpdateCreative(ctx, command, intended, providerRef)
@@ -888,7 +1081,8 @@ export const creativesHandler: CommandHandler = {
       case 'meta.ad.update_creative':
       case 'meta.ad.set_welcome_message':
         return rollbackToPreviousCreative(command, before)
-      // Media uploads and creates (create_with_creative, post.boost) have no
+      // Media uploads and creates (create_with_creative, create_from_spec,
+      // post.boost) have no
       // automatic inverse — see catalog.ts's note on creates.
       default:
         return null

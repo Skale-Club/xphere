@@ -69,11 +69,11 @@ export function ChangesView({
   canAdmin,
 }: {
   initialChanges: ChangeView[]
-  accounts: { platform: 'meta' | 'google'; adAccountId: string; adAccountName: string | null }[]
+  accounts: { platform: 'meta' | 'google' | 'google_business'; adAccountId: string; adAccountName: string | null }[]
   canAdmin: boolean
 }) {
   const [tab, setTab] = useState<Tab>('pending')
-  const [platformFilter, setPlatformFilter] = useState<'all' | 'meta' | 'google'>('all')
+  const [platformFilter, setPlatformFilter] = useState<'all' | 'meta' | 'google' | 'google_business'>('all')
   const [changes, setChanges] = useState<ChangeView[]>(initialChanges)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,7 +83,7 @@ export function ChangesView({
   const [approveTarget, setApproveTarget] = useState<ChangeView | null>(null)
   const [cancelTarget, setCancelTarget] = useState<ChangeView | null>(null)
 
-  const fetchChanges = useCallback(async (nextTab: Tab, nextPlatform: 'all' | 'meta' | 'google') => {
+  const fetchChanges = useCallback(async (nextTab: Tab, nextPlatform: 'all' | 'meta' | 'google' | 'google_business') => {
     setLoading(true)
     setError(null)
     try {
@@ -164,7 +164,7 @@ export function ChangesView({
         <div>
           <h1 className="text-[18px] font-semibold text-text-primary">Changes</h1>
           <p className="text-[12.5px] text-text-secondary">
-            Every write to Google Ads or Meta Ads — from the dashboard, workflows or an AI client — passes through here.
+            Every write to Google Ads, Meta Ads or Google Business Profile — from the dashboard, workflows or an AI client — passes through here.
           </p>
         </div>
         <PoliciesPanel accounts={accounts} canAdmin={canAdmin} />
@@ -179,12 +179,13 @@ export function ChangesView({
           </TabsList>
         </Tabs>
 
-        <Select value={platformFilter} onValueChange={(v) => setPlatformFilter(v as 'all' | 'meta' | 'google')}>
+        <Select value={platformFilter} onValueChange={(v) => setPlatformFilter(v as 'all' | 'meta' | 'google' | 'google_business')}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All platforms</SelectItem>
             <SelectItem value="meta">Meta Ads</SelectItem>
             <SelectItem value="google">Google Ads</SelectItem>
+            <SelectItem value="google_business">Google Business</SelectItem>
           </SelectContent>
         </Select>
       </div>

@@ -4,18 +4,16 @@
 // command types end to end — snapshot, plan, validate, execute, verify,
 // rollback — and is composed over the base google adapter in ../index.ts.
 //
-// Uploads never see raw PII: the MCP tool / dashboard hash emails and phones
-// server-side (src/lib/ads/customer-match.ts) before a command reaches the
-// engine, so only SHA-256 digests ever land in the command payload. Nothing
-// in this module — diff, warnings, verification observed state — echoes a
-// hash count as anything but a count; the digests themselves are never put
-// in a diff entry (Google receives them directly in the upload request, not
-// through a value this module logs).
+// Uploads never see raw names/emails/phones: the MCP tool / dashboard hashes
+// them server-side (src/lib/ads/customer-match.ts) before a command reaches
+// the engine. Google requires country + postal code unhashed for address
+// matching, but diffs and responses expose only aggregate counts; digests and
+// postal identifiers are sent directly in the provider request.
 
 import { AdsValidationError } from '../../validation'
 import type { AdsCommand, CommandOf } from '../../commands/catalog'
 import type { DiffEntry, PlanResult, ResourceSnapshot } from '../../commands/types'
-import { googleAdsRequest, mutateResources, parseTokens, runGaqlQuery, type GAdsMutateService } from '../../google-api'
+import { googleAdsMutate, googleAdsRequest, mutateResources, parseTokens, runGaqlQuery, type GAdsMutateService } from '../../google-api'
 import { criterionIdFromResourceName } from '../google-adapter'
 import { diffField, effective, compareFields } from '../diff'
 import type { AdapterContext, ExecuteResult, VerifyResult } from '../types'
@@ -99,13 +97,19 @@ async function countUserListAttachments(ctx: AdapterContext, userListId: string)
   return rows.length
 }
 
-type AdGroupRow = { adGroup: { id: string; name: string }; campaign: { id: string }; customer?: { currencyCode?: string } }
+type TargetRestriction = { targetingDimension?: string; bidOnly?: boolean }
+type AdGroupRow = {
+  adGroup: { id: string; name: string; targetingSetting?: { targetRestrictions?: TargetRestriction[] } }
+  campaign: { id: string }
+  customer?: { currencyCode?: string }
+}
 
 async function readAdGroup(ctx: AdapterContext, adGroupId: string): Promise<AdGroupRow | null> {
   const rows = await runGaqlQuery<AdGroupRow>(
     ctx.adAccountId,
     refreshToken(ctx),
-    `SELECT ad_group.id, ad_group.name, campaign.id, customer.currency_code
+    `SELECT ad_group.id, ad_group.name, ad_group.targeting_setting.target_restrictions,
+            campaign.id, customer.currency_code
      FROM ad_group WHERE ad_group.id = ${adGroupId} LIMIT 1`,
   )
   return rows[0] ?? null
@@ -160,6 +164,16 @@ type OfflineJobStatusRow = { offlineUserDataJob: { status: string; failureReason
 
 function isOfflineJobResourceName(value: string): boolean {
   return /^customers\/\d+\/offlineUserDataJobs\/\d+$/.test(value)
+}
+
+function audienceTargetingMode(restrictions: TargetRestriction[] | undefined): 'TARGETING' | 'OBSERVATION' | 'UNSET' {
+  const audience = restrictions?.find((r) => r.targetingDimension === 'AUDIENCE')
+  if (!audience) return 'UNSET'
+  return audience.bidOnly ? 'OBSERVATION' : 'TARGETING'
+}
+
+function requestedTargetingMode(cmd: CommandOf<'google.user_list.attach'>): 'UNCHANGED' | 'TARGETING' | 'OBSERVATION' {
+  return cmd.targeting_mode ?? 'UNCHANGED'
 }
 
 // ─── Snapshot ─────────────────────────────────────────────────────────────────
@@ -233,6 +247,8 @@ async function snapshotCustomerMatch(ctx: AdapterContext, cmd: CustomerMatchComm
         fields: {
           existing_criterion_id: existing?.adGroupCriterion.criterionId ?? null,
           existing_negative: existing ? Boolean(existing.adGroupCriterion.negative) : null,
+          targeting_mode: audienceTargetingMode(group.adGroup.targetingSetting?.targetRestrictions),
+          target_restrictions: group.adGroup.targetingSetting?.targetRestrictions ?? [],
         },
       }
     }
@@ -311,14 +327,21 @@ function planCustomerMatch(cmd: CustomerMatchCommand, before: ResourceSnapshot):
       const intended: Record<string, unknown> = {
         hashed_email_count: cmd.hashed_emails.length,
         hashed_phone_count: cmd.hashed_phones.length,
+        hashed_address_count: (cmd.hashed_addresses ?? []).length,
+        operation_type: cmd.operation_type ?? 'ADD',
         consent_ad_user_data: cmd.consent_ad_user_data,
         consent_ad_personalization: cmd.consent_ad_personalization,
       }
       // Counts only — never the digests themselves.
       const diff: DiffEntry[] = [
-        diffField('hashed_emails', 'Hashed emails to upload', null, cmd.hashed_emails.length),
-        diffField('hashed_phones', 'Hashed phones to upload', null, cmd.hashed_phones.length),
+        diffField('hashed_emails', `Hashed emails to ${cmd.operation_type === 'REMOVE' ? 'remove' : 'upload'}`, null, cmd.hashed_emails.length),
+        diffField('hashed_phones', `Hashed phones to ${cmd.operation_type === 'REMOVE' ? 'remove' : 'upload'}`, null, cmd.hashed_phones.length),
       ]
+      if ((cmd.hashed_addresses ?? []).length > 0) {
+        diff.push(
+          diffField('hashed_addresses', `Hashed addresses to ${cmd.operation_type === 'REMOVE' ? 'remove' : 'upload'}`, null, (cmd.hashed_addresses ?? []).length),
+        )
+      }
       return done(intended, diff)
     }
 
@@ -337,10 +360,15 @@ function planCustomerMatch(cmd: CustomerMatchCommand, before: ResourceSnapshot):
           message: `This list is already attached to this ad group as ${f.existing_negative ? 'an exclusion' : 'a target'} (criterion ${f.existing_criterion_id}) — detach it first before attaching it with the opposite setting.`,
         }
       }
-      return done(
-        { user_list_id: cmd.user_list_id, negative: cmd.exclude, status: 'ENABLED' },
-        [diffField('user_list', cmd.exclude ? 'Excluded Customer Match list' : 'Targeted Customer Match list', null, cmd.user_list_id)],
-      )
+      const intended: Record<string, unknown> = { user_list_id: cmd.user_list_id, negative: cmd.exclude, status: 'ENABLED' }
+      const diff = [diffField('user_list', cmd.exclude ? 'Excluded Customer Match list' : 'Targeted Customer Match list', null, cmd.user_list_id)]
+      const targetingMode = requestedTargetingMode(cmd)
+      if (targetingMode !== 'UNCHANGED') {
+        intended.targeting_mode = targetingMode
+        diff.push(diffField('targeting_mode', 'Audience targeting mode', f.targeting_mode, targetingMode))
+        warnings.push('Audience targeting mode is ad-group-wide and affects every audience criterion in this ad group, not only this Customer Match list.')
+      }
+      return done(intended, diff)
     }
 
     case 'google.user_list.detach':
@@ -398,6 +426,34 @@ function buildOperation(cmd: CustomerMatchCommand, customerId: string): { servic
   }
 }
 
+function buildAttachBatch(
+  cmd: CommandOf<'google.user_list.attach'>,
+  before: ResourceSnapshot,
+  customerId: string,
+): unknown[] {
+  const c = `customers/${customerId}`
+  const current = Array.isArray(before.fields.target_restrictions)
+    ? (before.fields.target_restrictions as TargetRestriction[])
+    : []
+  const restrictions = [
+    ...current.filter((r) => r.targetingDimension !== 'AUDIENCE'),
+    { targetingDimension: 'AUDIENCE', bidOnly: requestedTargetingMode(cmd) === 'OBSERVATION' },
+  ]
+  const criterion = buildOperation(cmd, customerId).operation
+  return [
+    {
+      adGroupOperation: {
+        update: {
+          resourceName: `${c}/adGroups/${cmd.ad_group_id}`,
+          targetingSetting: { targetRestrictions: restrictions },
+        },
+        updateMask: 'targetingSetting.targetRestrictions',
+      },
+    },
+    { adGroupCriterionOperation: criterion },
+  ]
+}
+
 /** Pure removes: existence (already proven by snapshot) is the only thing to validate. */
 const SKIP_VALIDATE: ReadonlySet<CustomerMatchCommand['type']> = new Set(['google.user_list.remove', 'google.user_list.detach'])
 
@@ -423,9 +479,22 @@ async function executeUpload(ctx: AdapterContext, cmd: CommandOf<'google.user_li
   )
   const jobResourceName = createRes.resourceName
 
+  const operationKey = cmd.operation_type === 'REMOVE' ? 'remove' : 'create'
   const operations = [
-    ...cmd.hashed_emails.map((hashedEmail) => ({ create: { userIdentifiers: [{ hashedEmail }] } })),
-    ...cmd.hashed_phones.map((hashedPhoneNumber) => ({ create: { userIdentifiers: [{ hashedPhoneNumber }] } })),
+    ...cmd.hashed_emails.map((hashedEmail) => ({ [operationKey]: { userIdentifiers: [{ hashedEmail }] } })),
+    ...cmd.hashed_phones.map((hashedPhoneNumber) => ({ [operationKey]: { userIdentifiers: [{ hashedPhoneNumber }] } })),
+    ...(cmd.hashed_addresses ?? []).map((address) => ({
+      [operationKey]: {
+        userIdentifiers: [{
+          addressInfo: {
+            hashedFirstName: address.hashed_first_name,
+            hashedLastName: address.hashed_last_name,
+            countryCode: address.country_code,
+            postalCode: address.postal_code,
+          },
+        }],
+      },
+    })),
   ]
   for (let i = 0; i < operations.length; i += UPLOAD_CHUNK_SIZE) {
     const chunk = operations.slice(i, i + UPLOAD_CHUNK_SIZE)
@@ -486,7 +555,7 @@ export const customerMatchHandler: CommandHandler = {
     return planCustomerMatch(command as CustomerMatchCommand, before)
   },
 
-  async validate(ctx, command) {
+  async validate(ctx, command, before) {
     const cmd = command as CustomerMatchCommand
     if (cmd.type === 'google.user_list.upload') {
       // Google has no validate-only for offline user data jobs. The
@@ -496,16 +565,25 @@ export const customerMatchHandler: CommandHandler = {
       // real job, which plan() warns about instead.
       return
     }
+    if (cmd.type === 'google.user_list.attach' && requestedTargetingMode(cmd) !== 'UNCHANGED') {
+      await googleAdsMutate(ctx.adAccountId, refreshToken(ctx), buildAttachBatch(cmd, before, ctx.adAccountId), { validateOnly: true })
+      return
+    }
     if (SKIP_VALIDATE.has(cmd.type)) return
     const { service, operation } = buildOperation(cmd, ctx.adAccountId)
     await mutateResources(ctx.adAccountId, refreshToken(ctx), service, [operation], { validateOnly: true })
   },
 
-  async execute(ctx, command): Promise<ExecuteResult> {
+  async execute(ctx, command, before): Promise<ExecuteResult> {
     const cmd = command as CustomerMatchCommand
     if (cmd.type === 'google.user_list.upload') {
       const jobResourceName = await executeUpload(ctx, cmd)
       return { providerRef: jobResourceName, raw: { jobResourceName } }
+    }
+    if (cmd.type === 'google.user_list.attach' && requestedTargetingMode(cmd) !== 'UNCHANGED') {
+      const res = await googleAdsMutate(ctx.adAccountId, refreshToken(ctx), buildAttachBatch(cmd, before, ctx.adAccountId))
+      const providerRef = res.mutateOperationResponses?.find((item) => item.adGroupCriterionResult?.resourceName)?.adGroupCriterionResult?.resourceName ?? null
+      return { providerRef, raw: res }
     }
     const { service, operation } = buildOperation(cmd, ctx.adAccountId)
     const res = await mutateResources(ctx.adAccountId, refreshToken(ctx), service, [operation])
@@ -557,11 +635,21 @@ export const customerMatchHandler: CommandHandler = {
     const criteria = criterionId ? await listUserListCriteria(ctx, cmd.ad_group_id) : []
     const found = criteria.find((c) => c.adGroupCriterion.criterionId === criterionId)
     if (!found) return { ok: false, mismatches: [{ field: '*', expected: intended, actual: null }], observed: null }
+    const targetingMode = requestedTargetingMode(cmd)
+    const group = targetingMode !== 'UNCHANGED' ? await readAdGroup(ctx, cmd.ad_group_id) : null
     const observed = {
       user_list_id: userListIdFromResourceName(found.adGroupCriterion.userList?.userList),
       negative: Boolean(found.adGroupCriterion.negative),
+      ...(targetingMode !== 'UNCHANGED'
+        ? { targeting_mode: audienceTargetingMode(group?.adGroup.targetingSetting?.targetRestrictions) }
+        : {}),
     }
-    const mismatches = compareFields({ user_list_id: intended.user_list_id, negative: intended.negative }, observed)
+    const expected = {
+      user_list_id: intended.user_list_id,
+      negative: intended.negative,
+      ...(targetingMode !== 'UNCHANGED' ? { targeting_mode: intended.targeting_mode } : {}),
+    }
+    const mismatches = compareFields(expected, observed)
     return { ok: mismatches.length === 0, mismatches, observed }
   },
 
@@ -581,19 +669,38 @@ export const customerMatchHandler: CommandHandler = {
 
       case 'google.user_list.detach':
         return typeof f.user_list_id === 'string'
-          ? { ...base, type: 'google.user_list.attach', ad_group_id: cmd.ad_group_id, user_list_id: f.user_list_id, exclude: Boolean(f.exclude) }
+          ? {
+              ...base,
+              type: 'google.user_list.attach',
+              ad_group_id: cmd.ad_group_id,
+              user_list_id: f.user_list_id,
+              exclude: Boolean(f.exclude),
+              targeting_mode: 'UNCHANGED',
+            }
           : null
 
       // create: rollback is intentionally null. Undoing a create means
       // deleting the list, which is itself risk 4 (google.user_list.remove)
       // and detaches every ad group/campaign using it — never automatic.
       case 'google.user_list.create':
+        return null
       // remove: the list (and its membership) is gone; nothing to restore.
       case 'google.user_list.remove':
-      // upload: Google has no "remove these uploaded members" job type
-      // reachable through this flow, so there is no safe inverse.
-      case 'google.user_list.upload':
         return null
+      // Customer Match supports symmetric ADD and REMOVE jobs, so reversing
+      // the submitted identifiers is safe and does not affect other members.
+      case 'google.user_list.upload':
+        return {
+          ...base,
+          type: cmd.type,
+          user_list_id: cmd.user_list_id,
+          hashed_emails: cmd.hashed_emails,
+          hashed_phones: cmd.hashed_phones,
+          hashed_addresses: cmd.hashed_addresses ?? [],
+          operation_type: (cmd.operation_type ?? 'ADD') === 'ADD' ? 'REMOVE' : 'ADD',
+          consent_ad_user_data: cmd.consent_ad_user_data,
+          consent_ad_personalization: cmd.consent_ad_personalization,
+        }
 
       default:
         return null

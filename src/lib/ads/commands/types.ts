@@ -5,7 +5,13 @@
 // or a workflow — is expressed as a command and runs through engine.ts, which
 // is the only module allowed to call a provider adapter's execute().
 
-export type AdsPlatform = 'meta' | 'google'
+/**
+ * External surfaces governed by the mutation ledger. `google_business` is
+ * intentionally included here even though it is not an ad network: Business
+ * Profile writes need the same preview/approval/verification guarantees as
+ * campaign writes.
+ */
+export type AdsPlatform = 'meta' | 'google' | 'google_business'
 
 export type ChangeStatus =
   | 'draft'
@@ -67,6 +73,11 @@ export type ResourceType =
   | 'asset'
   | 'user_list'
   | 'media'
+  | 'location'
+  | 'local_post'
+  | 'review'
+  | 'service_item'
+  | 'attribute'
 
 /** The provider's view of a resource right before a change. */
 export type ResourceSnapshot = {

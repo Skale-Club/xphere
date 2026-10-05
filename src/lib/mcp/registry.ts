@@ -35,6 +35,7 @@ import { prospectsTools } from './tools/prospects'
 import { prospectSendMessageTools } from './tools/prospect-send-message'
 import { emailVerificationTools } from './tools/email-verification'
 import { metaAudienceTools } from './tools/meta-audiences'
+import { googleBusinessTools } from './tools/google-business'
 
 export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...projectsTools,
@@ -69,6 +70,7 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...prospectSendMessageTools,
   ...emailVerificationTools,
   ...metaAudienceTools,
+  ...googleBusinessTools,
 ]
 
 const TOOLS_BY_NAME = new Map(ALL_MCP_TOOLS.map((t) => [t.name, t]))

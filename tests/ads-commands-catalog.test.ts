@@ -247,6 +247,59 @@ describe('parseCommand — meta.adset.update_targeting coherence', () => {
   })
 })
 
+describe('parseCommand — advanced Ads parity fields', () => {
+  it('accepts Google rotation, EU-political declaration and bid modifiers', () => {
+    expect(parseCommand({
+      platform: 'google', ad_account_id: '1234567890', type: 'google.ad_group.set_rotation_mode', ad_group_id: '42', rotation_mode: 'ROTATE_INDEFINITELY',
+    }).ok).toBe(true)
+    expect(parseCommand({
+      platform: 'google', ad_account_id: '1234567890', type: 'google.campaign.add_location', campaign_id: '42', geo_target_constant_id: '1023191', bid_modifier: 1.25,
+    }).ok).toBe(true)
+  })
+
+  it('rejects a bid modifier on an excluded Google location', () => {
+    const result = parseCommand({
+      platform: 'google', ad_account_id: '1234567890', type: 'google.campaign.add_location', campaign_id: '42', geo_target_constant_id: '1023191', negative: true, bid_modifier: 1.25,
+    })
+    expect(result.ok).toBe(false)
+  })
+
+  it('accepts postal-address removal for Customer Match', () => {
+    const result = parseCommand({
+      platform: 'google',
+      ad_account_id: '1234567890',
+      type: 'google.user_list.upload',
+      user_list_id: '55',
+      hashed_emails: [],
+      hashed_phones: [],
+      hashed_addresses: [{ hashed_first_name: 'a'.repeat(64), hashed_last_name: 'b'.repeat(64), country_code: 'US', postal_code: '10001' }],
+      operation_type: 'REMOVE',
+      consent_ad_user_data: 'GRANTED',
+      consent_ad_personalization: 'GRANTED',
+    })
+    expect(result.ok).toBe(true)
+  })
+
+  it('guards Meta extra_params against reserved and unsafe field names', () => {
+    const base = { platform: 'meta' as const, ad_account_id: 'act_123456789', type: 'meta.adset.update_settings' as const, adset_id: '88' }
+    expect(parseCommand({ ...base, extra_params: { frequency_control_specs: [] } }).ok).toBe(true)
+    expect(parseCommand({ ...base, extra_params: { targeting: {} } }).ok).toBe(false)
+    expect(parseCommand({ ...base, extra_params: { 'fields,name': true } }).ok).toBe(false)
+  })
+
+  it('accepts a full Meta creative spec and enforces one welcome-message representation', () => {
+    expect(parseCommand({
+      platform: 'meta', ad_account_id: 'act_123456789', type: 'meta.ad.create_from_spec', adset_id: '88', name: 'Ad', creative: { creative_id: '99' },
+    }).ok).toBe(true)
+    expect(parseCommand({
+      platform: 'meta', ad_account_id: 'act_123456789', type: 'meta.ad.set_welcome_message', ad_id: '77', welcome_message_spec: { type: 'VISUAL_EDITOR' },
+    }).ok).toBe(true)
+    expect(parseCommand({
+      platform: 'meta', ad_account_id: 'act_123456789', type: 'meta.ad.set_welcome_message', ad_id: '77', welcome_message: 'Hi', welcome_message_spec: { type: 'VISUAL_EDITOR' },
+    }).ok).toBe(false)
+  })
+})
+
 // ─── Strict mode ────────────────────────────────────────────────────────────────
 // Every command schema is built with z.object(...).strict() — an extra field
 // (a typo, or a client sending a field from a different command type) must be

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   const adAccountId = request.nextUrl.searchParams.get('ad_account_id')
   const policies = await listPolicyRows(orgId)
   const effective =
-    (platform === 'meta' || platform === 'google') && adAccountId
+    (platform === 'meta' || platform === 'google' || platform === 'google_business') && adAccountId
       ? await effectivePolicyFor(orgId, platform, adAccountId)
       : undefined
 

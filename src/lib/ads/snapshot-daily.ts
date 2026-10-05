@@ -193,6 +193,7 @@ export async function captureDailyInsights(options: {
     .from('ads_connections')
     .select('org_id, platform, ad_account_id, encrypted_access_token')
     .eq('usable', true)
+    .in('platform', ['meta', 'google'])
   if (options.orgId) query = query.eq('org_id', options.orgId)
 
   const { data: connections, error } = await query

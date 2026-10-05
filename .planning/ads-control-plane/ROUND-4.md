@@ -1,7 +1,7 @@
 # Ads Control Plane — Round 4: Windsor parity
 
 Goal: every write action Windsor.ai exposes for Google Ads and Meta Ads
-(checked live via `list_actions` on 2026-09-27) exists in Xphere, through the
+(checked live via `list_actions` and parameter schemas on 2026-10-05) exists in Xphere, through the
 Command Engine (preview → policy → validate-only → approval → write →
 read-back → ledger). Creates stay PAUSED; no autonomous mode.
 
@@ -36,6 +36,8 @@ first; existing commands stay where they are.
 | upload_customer_match_list | `google.user_list.upload` (SHA-256 hashes only — raw PII never enters the ledger) | 3 | google/customer-match |
 | attach/detach_user_list | `google.user_list.attach`, `google.user_list.detach` | 2 | google/customer-match |
 | get_customer_match_upload_status | MCP read `ads_google_user_list_upload_status` | — | google/customer-match |
+| advanced ad-group / geo / political parameters | `google.ad_group.set_rotation_mode`; location/proximity `bid_modifier`; create Search/Display `contains_eu_political_advertising` | 1–4 | google/advanced + base/bidding |
+| advanced Customer Match parameters | list membership life span (including no-expiration `10000`), postal identifiers, ADD/REMOVE jobs, TARGETING/OBSERVATION attach mode | 1–3 | google/customer-match |
 
 ### Meta (vs Windsor)
 | Windsor action | Xphere command | Risk | Module |
@@ -50,14 +52,33 @@ first; existing commands stay where they are.
 | update_ad_creative | `meta.ad.update_creative` (copy, headline, description, link, image, CTA, url_tags, carousel card) — rollback repoints to the old creative | 3 | meta/creatives |
 | boost_post | `meta.post.boost` | 4 | meta/creatives |
 | set_page_welcome_message | `meta.ad.set_welcome_message` | 2 | meta/creatives |
+| advanced campaign/ad parameters | lifetime campaign budget, ad-set budget sharing, ad `conversion_domain` / `display_sequence` | 2–4 | base adapter |
+| full advanced ad/ad-set payloads | `meta.ad.create_from_spec`; guarded `extra_params` on ad-set create/update; `degrees_of_freedom_spec`; rich `welcome_message_spec` | 2–4 | meta/adsets + meta/creatives |
+| create_ad_images | `meta.media.upload_images` (1–20 images, 100 MB aggregate) | 1 | meta/creatives |
 
 ## Cross-cutting (coordinator)
 - `src/lib/ads/safe-fetch.ts`: https-only, public-IP-only, size-capped fetch
   for media uploads (the URL comes from an AI client).
-- Customer Match: MCP tool accepts raw emails/phones or an Xphere CRM tag,
-  normalizes + hashes server-side, and submits hashes only.
+- Customer Match: MCP tool accepts raw emails/phones/postal identifiers or an
+  Xphere CRM tag, normalizes + hashes names/emails/phones server-side, and
+  never returns raw input. Country and postal code follow Google's required
+  unhashed address format inside the protected change payload.
 - Catalog entries, MCP reads, docs, capabilities test, workflow allowlist
   (all new commands except risk ≤ 2 stay out of workflows automatically).
+
+## Advanced-parameter parity addendum (2026-10-05)
+
+The MCP does not need one bespoke tool per mutation. `ads_get_capabilities`
+publishes the catalog schemas, while `ads_preview_change(s)` and
+`ads_approve_change(s)` accept every implemented command above. The only
+special write helper remains Customer Match, because it must hash raw PII
+before the command enters the ledger.
+
+Meta's rapidly changing ad-set fields are exposed through `extra_params`, but
+only safe Graph field names are accepted and core fields cannot be overridden.
+The change still receives a diff, Meta `validate_only`, approval, read-back,
+and ledger entry. This is the compatibility path for advanced Windsor fields
+that do not warrant a permanent first-class Xphere command.
 
 ## Verification
 - Unit tests per module (wire payloads, snapshots, rollback, errors).

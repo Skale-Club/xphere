@@ -333,6 +333,16 @@ describe('snapshot + plan — campaign.add_location', () => {
     ])
   })
 
+  it('forwards an optional location bid modifier', async () => {
+    mutateResourcesMock.mockResolvedValueOnce({ results: [{ resourceName: 'customers/1234567890/campaignCriteria/111~9999' }] })
+    const command = g('google.campaign.add_location', { campaign_id: '111', geo_target_constant_id: '2620', negative: false, bid_modifier: 1.3 })
+    const before: ResourceSnapshot = { resourceType: 'campaign_criterion', resourceId: null, resourceName: 'L', campaignId: '111', currency: 'USD', fields: {} }
+    await googleAdapter.execute(ctx, command, before)
+    expect(mutateResourcesMock.mock.calls[0][3]).toEqual([
+      { create: { campaign: 'customers/1234567890/campaigns/111', negative: false, bidModifier: 1.3, location: { geoTargetConstant: 'geoTargetConstants/2620' } } },
+    ])
+  })
+
   it('verifies a created location by re-listing targeting and matching the parsed criterion id', async () => {
     runGaqlQueryMock.mockResolvedValueOnce([
       { campaignCriterion: { criterionId: '9999', type: 'LOCATION', negative: false, location: { geoTargetConstant: 'geoTargetConstants/2620' } } },

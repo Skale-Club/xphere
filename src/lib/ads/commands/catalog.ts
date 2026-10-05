@@ -48,6 +48,12 @@ const Url = () => z.string().url().max(2048).refine((v) => /^https?:\/\//.test(v
 const Minute = () => z.enum(['ZERO', 'FIFTEEN', 'THIRTY', 'FORTY_FIVE'])
 const Day = () => z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])
 const Sha256 = () => z.string().regex(/^[a-f0-9]{64}$/, 'Must be a lowercase hex SHA-256 digest')
+const HashedAddress = () => z.object({
+  hashed_first_name: Sha256(),
+  hashed_last_name: Sha256(),
+  country_code: z.string().regex(/^[A-Z]{2}$/),
+  postal_code: z.string().trim().min(1).max(20),
+}).strict()
 const Consent = () => z.enum(['GRANTED', 'DENIED', 'UNSPECIFIED'])
 const Level = () => z.enum(['campaign', 'ad_group'])
 const UpperSnake = () => z.string().regex(/^[A-Z][A-Z0-9_]*$/, 'Use the platform enum value, e.g. LEAD_GENERATION')
@@ -56,12 +62,22 @@ const MetaRegionalCategory = () =>
   z.enum(['TAIWAN_FINSERV', 'AUSTRALIA_FINSERV', 'INDIA_FINSERV', 'TAIWAN_UNIVERSAL', 'SINGAPORE_UNIVERSAL', 'THAILAND_UNIVERSAL', 'BRAZIL_REGULATION'])
 const MetaBidStrategy = () =>
   z.enum(['LOWEST_COST_WITHOUT_CAP', 'LOWEST_COST_WITH_BID_CAP', 'COST_CAP', 'LOWEST_COST_WITH_MIN_ROAS'])
+const GoogleBusinessTarget = () =>
+  z.string().regex(/^accounts\/[^/]+\/locations\/[^/]+$/, 'Use accounts/{account_id}/locations/{location_id}')
+const GoogleBusinessCategory = () =>
+  z.string().trim().min(1).max(255).transform((value) => value.replace(/^categories\//, ''))
+const GoogleBusinessTime = () =>
+  z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$|^24:00$/, 'Use HH:MM (or 24:00)')
+const GoogleBusinessDay = () => z.enum(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'])
 
 const google = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
   z.object({ platform: z.literal('google'), ad_account_id: GId(), type: z.literal(type), ...shape }).strict()
 
 const meta = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
   z.object({ platform: z.literal('meta'), ad_account_id: MetaAccount(), type: z.literal(type), ...shape }).strict()
+
+const googleBusiness = <K extends string, T extends z.ZodRawShape>(type: K, shape: T) =>
+  z.object({ platform: z.literal('google_business'), ad_account_id: GoogleBusinessTarget(), type: z.literal(type), ...shape }).strict()
 
 export const AdsCommandSchema = z.discriminatedUnion('type', [
   // ─── Google Ads ─────────────────────────────────────────────────────────────
@@ -71,6 +87,10 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
   google('google.ad_group.set_status', { ad_group_id: GId(), status: GoogleStatus() }),
   google('google.ad_group.rename', { ad_group_id: GId(), name: Name() }),
   google('google.ad_group.set_cpc_bid', { ad_group_id: GId(), cpc_bid: Money() }),
+  google('google.ad_group.set_rotation_mode', {
+    ad_group_id: GId(),
+    rotation_mode: z.enum(['OPTIMIZE', 'ROTATE_INDEFINITELY']),
+  }),
   google('google.ad.set_status', { ad_group_id: GId(), ad_id: GId(), status: GoogleStatus() }),
   google('google.keyword.add', {
     ad_group_id: GId(),
@@ -114,6 +134,8 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     geo_target_constant_id: GId(),
     /** true = exclude this location. */
     negative: z.boolean().default(false),
+    /** 1.2 = +20%; not allowed on exclusions. */
+    bid_modifier: z.number().min(0.1).max(10).optional(),
   }),
   google('google.campaign.remove_location', { campaign_id: GId(), criterion_id: GId() }),
   google('google.campaign.add_language', {
@@ -164,6 +186,7 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     location_ids: z.array(GId()).min(1).max(50),
     /** Language constant ids, e.g. 1014 Portuguese, 1000 English. */
     language_ids: z.array(GId()).max(20).default([]),
+    contains_eu_political_advertising: z.boolean().default(false),
   }),
   google('google.ad_group.create', {
     campaign_id: GId(),
@@ -201,6 +224,7 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     longitude: z.number().min(-180).max(180),
     radius: z.number().positive().max(800),
     radius_units: z.enum(['KILOMETERS', 'MILES']).default('KILOMETERS'),
+    bid_modifier: z.number().min(0.1).max(10).optional(),
   }),
   google('google.campaign.remove_proximity', { campaign_id: GId(), criterion_id: GId() }),
   /** Irreversible in Google Ads; rollback re-adds a keyword with the same text and match type (new id). */
@@ -214,6 +238,7 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     end_date_time: GoogleDateTime().optional(),
     location_ids: z.array(GId()).min(1).max(50),
     language_ids: z.array(GId()).max(20).default([]),
+    contains_eu_political_advertising: z.boolean().default(false),
   }),
   google('google.ad_group.create_display', { campaign_id: GId(), name: Name(), cpc_bid: Money().optional() }),
 
@@ -260,7 +285,9 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
   google('google.user_list.create', {
     name: Name(),
     description: z.string().trim().max(500).optional(),
-    membership_life_span_days: z.number().int().min(1).max(540).default(540),
+    membership_life_span_days: z.number().int().refine((v) => (v >= 1 && v <= 540) || v === 10_000, {
+      message: 'Use 1-540 days, or 10000 for no expiration',
+    }).default(540),
   }),
   google('google.user_list.rename', { user_list_id: GId(), name: Name() }),
   /** Permanent. Detaches the list from every ad group/campaign using it. */
@@ -274,11 +301,101 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     user_list_id: GId(),
     hashed_emails: z.array(Sha256()).max(10_000).default([]),
     hashed_phones: z.array(Sha256()).max(10_000).default([]),
+    hashed_addresses: z.array(HashedAddress()).max(10_000).default([]),
+    operation_type: z.enum(['ADD', 'REMOVE']).default('ADD'),
     consent_ad_user_data: Consent().default('UNSPECIFIED'),
     consent_ad_personalization: Consent().default('UNSPECIFIED'),
   }),
-  google('google.user_list.attach', { ad_group_id: GId(), user_list_id: GId(), exclude: z.boolean().default(false) }),
+  google('google.user_list.attach', {
+    ad_group_id: GId(),
+    user_list_id: GId(),
+    exclude: z.boolean().default(false),
+    targeting_mode: z.enum(['UNCHANGED', 'TARGETING', 'OBSERVATION']).default('UNCHANGED'),
+  }),
   google('google.user_list.detach', { ad_group_id: GId(), criterion_id: GId() }),
+
+  // ─── Google Business Profile ──────────────────────────────────────────────
+  // These mirror the complete Windsor google_my_business write surface. The
+  // composite target keeps both ids required by the legacy v4 Posts/Reviews/
+  // Media endpoints while remaining one tenant-scoped connection key.
+  googleBusiness('google_business.local_post.create', {
+    summary: z.string().trim().min(1).max(1500),
+    language_code: z.string().trim().min(2).max(35).default('en'),
+    photo_url: Url().optional(),
+    cta_type: z.enum(['BOOK', 'ORDER', 'SHOP', 'LEARN_MORE', 'SIGN_UP', 'CALL']).optional(),
+    cta_url: Url().optional(),
+  }),
+  googleBusiness('google_business.local_post.update', {
+    post_id: z.string().trim().min(1).max(500),
+    summary: z.string().trim().min(1).max(1500).optional(),
+    photo_url: Url().optional(),
+    cta_type: z.enum(['BOOK', 'ORDER', 'SHOP', 'LEARN_MORE', 'SIGN_UP', 'CALL']).optional(),
+    cta_url: Url().optional(),
+  }),
+  googleBusiness('google_business.review.reply', {
+    review_id: z.string().trim().min(1).max(500),
+    comment: z.string().trim().min(1).max(4096),
+  }),
+  googleBusiness('google_business.media.upload', {
+    photo_url: Url(),
+    category: z.enum(['ADDITIONAL', 'COVER', 'PROFILE', 'LOGO', 'EXTERIOR', 'INTERIOR', 'PRODUCT', 'AT_WORK', 'FOOD_AND_DRINK', 'MENU', 'COMMON_AREA', 'ROOMS', 'TEAMS']).default('ADDITIONAL'),
+  }),
+  googleBusiness('google_business.location.update_info', {
+    description: z.string().trim().min(1).max(750).optional(),
+    primary_phone: z.string().trim().min(1).max(40).optional(),
+    website_url: Url().optional(),
+  }),
+  googleBusiness('google_business.location.update_service_items', {
+    service_items: z.array(z.object({
+      service_type_id: z.string().trim().min(1).optional(),
+      category_id: GoogleBusinessCategory().optional(),
+      display_name: z.string().trim().min(1).max(140).optional(),
+      description: z.string().trim().min(1).max(300).optional(),
+      language_code: z.string().trim().min(2).max(35).optional(),
+      price: z.object({ currency_code: z.string().regex(/^[A-Z]{3}$/), amount: z.union([z.number().nonnegative(), z.string().regex(/^\d+(?:\.\d{1,9})?$/)]) }).strict().optional(),
+    }).strict()).min(1).max(100),
+  }),
+  googleBusiness('google_business.location.update_categories', {
+    primary_category_id: GoogleBusinessCategory(),
+    additional_category_ids: z.array(GoogleBusinessCategory()).max(9).default([]),
+  }),
+  googleBusiness('google_business.location.update_service_area', {
+    business_type: z.enum(['CUSTOMER_LOCATION_ONLY', 'CUSTOMER_AND_BUSINESS_LOCATION']),
+    places: z.array(z.object({ place_name: z.string().trim().min(1).max(255), place_id: z.string().trim().min(1).max(255) }).strict()).min(1).max(20),
+  }),
+  googleBusiness('google_business.location.update_attributes', {
+    attributes: z.array(z.object({
+      attribute_id: z.string().trim().min(1).max(255),
+      values: z.array(z.union([z.boolean(), z.string()])).min(1).optional(),
+      uri_values: z.array(Url()).min(1).optional(),
+      set_enum_values: z.array(z.string().trim().min(1)).min(1).optional(),
+      unset_enum_values: z.array(z.string().trim().min(1)).min(1).optional(),
+    }).strict()).max(100).default([]),
+    unset_attribute_ids: z.array(z.string().trim().min(1).max(255)).max(100).default([]),
+  }),
+  googleBusiness('google_business.location.update_address', {
+    region_code: z.string().regex(/^[A-Z]{2}$/),
+    address_lines: z.array(z.string().trim().min(1).max(200)).min(1).max(5),
+    administrative_area: z.string().trim().min(1).max(100).optional(),
+    locality: z.string().trim().min(1).max(100).optional(),
+    postal_code: z.string().trim().min(1).max(30).optional(),
+    acknowledge_reverification_risk: z.literal(true),
+  }),
+  googleBusiness('google_business.location.set_regular_hours', {
+    periods: z.array(z.object({
+      open_day: GoogleBusinessDay(), open_time: GoogleBusinessTime(),
+      close_day: GoogleBusinessDay().optional(), close_time: GoogleBusinessTime(),
+    }).strict()).min(1).max(70),
+  }),
+  googleBusiness('google_business.location.set_special_hours', {
+    periods: z.array(z.object({
+      date: z.string().date(), closed: z.boolean().default(false),
+      open_time: GoogleBusinessTime().optional(), close_time: GoogleBusinessTime().optional(),
+    }).strict()).min(1).max(100),
+  }),
+  googleBusiness('google_business.location.set_open_status', {
+    status: z.enum(['OPEN', 'CLOSED_TEMPORARILY']),
+  }),
 
   // ─── Meta Ads ───────────────────────────────────────────────────────────────
   meta('meta.campaign.set_status', { campaign_id: MId(), status: MetaStatus() }),
@@ -346,6 +463,8 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     special_ad_categories: z.array(z.enum(['HOUSING', 'EMPLOYMENT', 'CREDIT', 'ISSUES_ELECTIONS_POLITICS', 'FINANCIAL_PRODUCTS_SERVICES'])).default([]),
     /** Set to use an Advantage campaign budget (CBO); omit for ad set budgets. */
     daily_budget: Money().optional(),
+    lifetime_budget: Money().optional(),
+    is_adset_budget_sharing_enabled: z.boolean().optional(),
     bid_strategy: MetaBidStrategy().optional(),
   }),
   meta('meta.ad.create', {
@@ -353,6 +472,18 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     name: Name(),
     /** An existing creative of the same ad account (see ads_meta_list_creatives). */
     creative_id: MId(),
+  }),
+  /** Create a paused ad from a complete Meta creative reference/spec. */
+  meta('meta.ad.create_from_spec', {
+    adset_id: MId(),
+    name: Name(),
+    creative: JsonObject(),
+  }),
+  meta('meta.ad.update_settings', {
+    ad_id: MId(),
+    name: Name().optional(),
+    conversion_domain: z.string().trim().min(1).max(255).optional(),
+    display_sequence: z.number().int().min(0).optional(),
   }),
 
   // ─── Round 4: ad sets, lifetime budgets, settings ───────────────────────────
@@ -380,6 +511,8 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     dsa_payor: z.string().trim().max(512).optional(),
     regional_regulated_categories: z.array(MetaRegionalCategory()).optional(),
     regional_regulation_identities: z.record(z.string(), z.string()).optional(),
+    /** Unmodelled Meta fields. Reserved/core keys are rejected by checkCommandShape. */
+    extra_params: JsonObject().optional(),
   }),
   meta('meta.campaign.set_lifetime_budget', { campaign_id: MId(), lifetime_budget: Money() }),
   meta('meta.adset.set_lifetime_budget', { adset_id: MId(), lifetime_budget: Money(), end_time: IsoDateTime().optional() }),
@@ -393,6 +526,8 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     regional_regulation_identities: z.record(z.string(), z.string()).optional(),
     /** e.g. [{"event_type":"CLICK_THROUGH","window_days":7}]. */
     attribution_spec: z.array(JsonObject()).max(10).optional(),
+    /** Unmodelled Meta fields. Reserved/core keys are rejected by checkCommandShape. */
+    extra_params: JsonObject().optional(),
   }),
   /** Replaces the whole targeting spec (interests, locations, languages, audiences...). */
   meta('meta.adset.replace_targeting', { adset_id: MId(), targeting: JsonObject() }),
@@ -404,6 +539,9 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
   // ─── Round 4: media, creatives, boosts ──────────────────────────────────────
   /** Fetched server-side (https, public hosts only, ≤ 30 MB) and uploaded to the ad account's image library. */
   meta('meta.media.upload_image', { image_url: Url(), name: z.string().trim().max(100).optional() }),
+  meta('meta.media.upload_images', {
+    images: z.array(z.object({ image_url: Url(), name: z.string().trim().max(100).optional() }).strict()).min(1).max(20),
+  }),
   /** Meta fetches the file itself; the command waits until the video is ready. */
   meta('meta.media.upload_video', { video_url: Url(), name: Name() }),
   meta('meta.ad.create_with_creative', {
@@ -437,6 +575,8 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     url_tags: z.string().max(1024).optional(),
     /** Carousel: which card (0-based) headline/description/link/image apply to. */
     card_index: z.number().int().min(0).max(9).optional(),
+    /** Advantage+ creative enhancements; {} resets to Meta defaults. */
+    degrees_of_freedom_spec: JsonObject().optional(),
   }),
   /** Promote an existing organic post ("{page_id}_{post_id}") as an ad in an engagement ad set. */
   meta('meta.post.boost', {
@@ -446,7 +586,11 @@ export const AdsCommandSchema = z.discriminatedUnion('type', [
     call_to_action_type: UpperSnake().optional(),
   }),
   /** Click-to-message ads: greeting shown when the conversation opens. */
-  meta('meta.ad.set_welcome_message', { ad_id: MId(), welcome_message: z.string().trim().min(1).max(300) }),
+  meta('meta.ad.set_welcome_message', {
+    ad_id: MId(),
+    welcome_message: z.string().trim().min(1).max(300).optional(),
+    welcome_message_spec: JsonObject().optional(),
+  }),
   meta('meta.ad.duplicate', {
     ad_id: MId(),
     target_adset_id: MId().optional(),
@@ -473,12 +617,26 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'google.ad_group.set_status': { platform: 'google', resourceType: 'ad_group', risk: 1, label: 'Set ad group status' },
   'google.ad_group.rename': { platform: 'google', resourceType: 'ad_group', risk: 1, label: 'Rename ad group' },
   'google.ad_group.set_cpc_bid': { platform: 'google', resourceType: 'ad_group', risk: 3, label: 'Set ad group max CPC' },
+  'google.ad_group.set_rotation_mode': { platform: 'google', resourceType: 'ad_group', risk: 1, label: 'Set ad group rotation mode' },
   'google.ad.set_status': { platform: 'google', resourceType: 'ad', risk: 1, label: 'Set ad status' },
   'google.keyword.add': { platform: 'google', resourceType: 'keyword', risk: 2, label: 'Add keyword' },
   'google.keyword.set_status': { platform: 'google', resourceType: 'keyword', risk: 2, label: 'Set keyword status' },
   'google.keyword.set_cpc_bid': { platform: 'google', resourceType: 'keyword', risk: 3, label: 'Set keyword max CPC' },
   'google.negative_keyword.add': { platform: 'google', resourceType: 'negative_keyword', risk: 2, label: 'Add negative keyword' },
   'google.negative_keyword.remove': { platform: 'google', resourceType: 'negative_keyword', risk: 2, label: 'Remove negative keyword' },
+  'google_business.local_post.create': { platform: 'google_business', resourceType: 'local_post', risk: 4, label: 'Publish Google Business Profile post' },
+  'google_business.local_post.update': { platform: 'google_business', resourceType: 'local_post', risk: 2, label: 'Update Google Business Profile post' },
+  'google_business.review.reply': { platform: 'google_business', resourceType: 'review', risk: 3, label: 'Reply to Google review' },
+  'google_business.media.upload': { platform: 'google_business', resourceType: 'media', risk: 4, label: 'Upload Google Business Profile photo' },
+  'google_business.location.update_info': { platform: 'google_business', resourceType: 'location', risk: 2, label: 'Update Google Business Profile information' },
+  'google_business.location.update_service_items': { platform: 'google_business', resourceType: 'service_item', risk: 2, label: 'Replace Google Business Profile services' },
+  'google_business.location.update_categories': { platform: 'google_business', resourceType: 'location', risk: 4, label: 'Replace Google Business Profile categories' },
+  'google_business.location.update_service_area': { platform: 'google_business', resourceType: 'location', risk: 3, label: 'Replace Google Business Profile service area' },
+  'google_business.location.update_attributes': { platform: 'google_business', resourceType: 'attribute', risk: 2, label: 'Update Google Business Profile attributes' },
+  'google_business.location.update_address': { platform: 'google_business', resourceType: 'location', risk: 4, label: 'Replace Google Business Profile address' },
+  'google_business.location.set_regular_hours': { platform: 'google_business', resourceType: 'location', risk: 2, label: 'Replace Google Business Profile regular hours' },
+  'google_business.location.set_special_hours': { platform: 'google_business', resourceType: 'location', risk: 2, label: 'Replace Google Business Profile special hours' },
+  'google_business.location.set_open_status': { platform: 'google_business', resourceType: 'location', risk: 4, label: 'Set Google Business Profile open status' },
   'meta.campaign.set_status': { platform: 'meta', resourceType: 'campaign', risk: 1, label: 'Set campaign status' },
   'meta.campaign.set_daily_budget': { platform: 'meta', resourceType: 'campaign', risk: 1, label: 'Set campaign daily budget (CBO)' },
   'meta.campaign.rename': { platform: 'meta', resourceType: 'campaign', risk: 1, label: 'Rename campaign' },
@@ -515,6 +673,8 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'google.ad.create_responsive_search': { platform: 'google', resourceType: 'ad', risk: 4, label: 'Create responsive search ad (paused)' },
   'meta.campaign.create': { platform: 'meta', resourceType: 'campaign', risk: 4, label: 'Create campaign (paused)' },
   'meta.ad.create': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad from creative (paused)' },
+  'meta.ad.create_from_spec': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad from full creative spec (paused)' },
+  'meta.ad.update_settings': { platform: 'meta', resourceType: 'ad', risk: 2, label: 'Update ad settings' },
   'google.campaign.set_bidding_strategy': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Change campaign bidding strategy' },
   'google.campaign.set_cpc_bid_ceiling': { platform: 'google', resourceType: 'campaign', risk: 3, label: 'Set Maximize Clicks CPC ceiling' },
   'google.campaign.set_total_budget': { platform: 'google', resourceType: 'campaign', risk: 2, label: 'Set campaign total budget' },
@@ -541,6 +701,7 @@ export const COMMAND_CATALOG: Record<AdsCommandType, CatalogEntry> = {
   'meta.adset.replace_targeting': { platform: 'meta', resourceType: 'adset', risk: 3, label: 'Replace ad set targeting' },
   'meta.campaign.update_settings': { platform: 'meta', resourceType: 'campaign', risk: 2, label: 'Update campaign special ad categories' },
   'meta.media.upload_image': { platform: 'meta', resourceType: 'media', risk: 1, label: 'Upload ad image' },
+  'meta.media.upload_images': { platform: 'meta', resourceType: 'media', risk: 1, label: 'Upload multiple ad images' },
   'meta.media.upload_video': { platform: 'meta', resourceType: 'media', risk: 1, label: 'Upload ad video' },
   'meta.ad.create_with_creative': { platform: 'meta', resourceType: 'ad', risk: 4, label: 'Create ad with new creative (paused)' },
   'meta.ad.update_creative': { platform: 'meta', resourceType: 'ad', risk: 3, label: 'Edit ad creative' },
@@ -580,6 +741,9 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
     const end = cmd.end_hour * 60 + MINUTES[cmd.end_minute]
     if (end <= start) return 'The ad schedule must end after it starts (same day)'
   }
+  if (cmd.type === 'google.campaign.add_location' && cmd.negative && cmd.bid_modifier !== undefined) {
+    return 'bid_modifier is not allowed on an excluded location'
+  }
   if (cmd.type === 'google.campaign.create_search') {
     if (cmd.target_cpa !== undefined && cmd.bidding !== 'MAXIMIZE_CONVERSIONS') return 'target_cpa only applies to MAXIMIZE_CONVERSIONS'
     if (cmd.start_date_time && cmd.end_date_time && cmd.start_date_time >= cmd.end_date_time) return 'end_date_time must be after start_date_time'
@@ -606,8 +770,57 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
     if (cmd.target_cpa !== undefined && cmd.bidding !== 'MAXIMIZE_CONVERSIONS') return 'target_cpa only applies to MAXIMIZE_CONVERSIONS'
     if (cmd.start_date_time && cmd.end_date_time && cmd.start_date_time >= cmd.end_date_time) return 'end_date_time must be after start_date_time'
   }
-  if (cmd.type === 'google.user_list.upload' && cmd.hashed_emails.length + cmd.hashed_phones.length === 0) {
-    return 'Provide hashed_emails and/or hashed_phones'
+  if (
+    cmd.type === 'google.user_list.upload' &&
+    cmd.hashed_emails.length + cmd.hashed_phones.length + cmd.hashed_addresses.length === 0
+  ) {
+    return 'Provide hashed_emails, hashed_phones and/or hashed_addresses'
+  }
+  if (cmd.type === 'google_business.local_post.create' || cmd.type === 'google_business.local_post.update') {
+    if (cmd.cta_type && cmd.cta_type !== 'CALL' && !cmd.cta_url) return `${cmd.cta_type} requires cta_url`
+    if (cmd.cta_type === 'CALL' && cmd.cta_url) return 'CALL uses the profile phone number and does not accept cta_url'
+    if (cmd.type === 'google_business.local_post.update' && [cmd.summary, cmd.photo_url, cmd.cta_type].every((value) => value === undefined)) {
+      return 'Provide summary, photo_url and/or cta_type'
+    }
+  }
+  if (cmd.type === 'google_business.location.update_info') {
+    if ([cmd.description, cmd.primary_phone, cmd.website_url].every((value) => value === undefined)) {
+      return 'Provide description, primary_phone and/or website_url'
+    }
+  }
+  if (cmd.type === 'google_business.location.update_service_items') {
+    for (const [index, item] of cmd.service_items.entries()) {
+      const structured = Boolean(item.service_type_id)
+      const freeForm = Boolean(item.category_id && item.display_name)
+      if (structured === freeForm) return `service_items.${index}: provide service_type_id, or category_id + display_name`
+    }
+  }
+  if (cmd.type === 'google_business.location.update_attributes') {
+    if (cmd.attributes.length === 0 && cmd.unset_attribute_ids.length === 0) return 'Provide attributes and/or unset_attribute_ids'
+    for (const [index, attribute] of cmd.attributes.entries()) {
+      const valueSets = [attribute.values, attribute.uri_values, attribute.set_enum_values, attribute.unset_enum_values]
+      if (valueSets.every((value) => value === undefined)) return `attributes.${index}: provide at least one value field`
+    }
+  }
+  if (cmd.type === 'google_business.location.set_regular_hours') {
+    for (const [index, period] of cmd.periods.entries()) {
+      if (period.open_time === '24:00') return `periods.${index}.open_time cannot be 24:00`
+    }
+  }
+  if (cmd.type === 'google_business.location.set_special_hours') {
+    for (const [index, period] of cmd.periods.entries()) {
+      if (period.closed && (period.open_time || period.close_time)) return `periods.${index}: a closed date cannot have times`
+      if (!period.closed && (!period.open_time || !period.close_time)) return `periods.${index}: open_time and close_time are required when not closed`
+    }
+  }
+  if (cmd.type === 'meta.campaign.create') {
+    if (cmd.daily_budget !== undefined && cmd.lifetime_budget !== undefined) return 'Provide daily_budget or lifetime_budget, not both'
+    if (cmd.bid_strategy !== undefined && cmd.daily_budget === undefined && cmd.lifetime_budget === undefined) {
+      return 'bid_strategy requires a campaign budget'
+    }
+    if (cmd.is_adset_budget_sharing_enabled === true && (cmd.daily_budget !== undefined || cmd.lifetime_budget !== undefined)) {
+      return 'is_adset_budget_sharing_enabled only applies when the campaign has no campaign budget'
+    }
   }
   if (cmd.type === 'meta.adset.create') {
     if (cmd.daily_budget !== undefined && cmd.lifetime_budget !== undefined) return 'Provide daily_budget or lifetime_budget, not both'
@@ -616,19 +829,57 @@ export function checkCommandShape(cmd: AdsCommand): string | null {
       return `${cmd.bid_strategy} requires bid_amount`
     }
     if (cmd.start_time && cmd.end_time && cmd.start_time >= cmd.end_time) return 'end_time must be after start_time'
+    if (cmd.extra_params) {
+      const unsafe = Object.keys(cmd.extra_params).find((key) => !/^[a-z][a-z0-9_]*$/.test(key))
+      if (unsafe) return `extra_params key ${unsafe} is not a valid Meta field name`
+      const reserved = new Set([
+        'campaign_id', 'name', 'optimization_goal', 'billing_event', 'targeting', 'daily_budget', 'lifetime_budget',
+        'start_time', 'end_time', 'bid_strategy', 'bid_amount', 'promoted_object', 'destination_type', 'status',
+        'dsa_beneficiary', 'dsa_payor', 'regional_regulated_categories', 'regional_regulation_identities',
+      ])
+      const collision = Object.keys(cmd.extra_params).find((key) => reserved.has(key))
+      if (collision) return `extra_params cannot override ${collision}; use the named field instead`
+    }
   }
   if (cmd.type === 'meta.adset.update_settings') {
-    const { adset_id: _id, platform: _p, ad_account_id: _a, type: _t, ...fields } = cmd
-    if (Object.values(fields).every((v) => v === undefined)) return 'Provide at least one setting to change'
+    const settingKeys = [
+      'optimization_goal', 'destination_type', 'dsa_beneficiary', 'dsa_payor', 'regional_regulated_categories',
+      'regional_regulation_identities', 'attribution_spec', 'extra_params',
+    ] as const
+    if (settingKeys.every((key) => cmd[key] === undefined)) return 'Provide at least one setting to change'
+    if (cmd.extra_params) {
+      const unsafe = Object.keys(cmd.extra_params).find((key) => !/^[a-z][a-z0-9_]*$/.test(key))
+      if (unsafe) return `extra_params key ${unsafe} is not a valid Meta field name`
+      const reserved = new Set([
+        'optimization_goal', 'destination_type', 'dsa_beneficiary', 'dsa_payor', 'regional_regulated_categories',
+        'regional_regulation_identities', 'attribution_spec', 'status', 'name', 'targeting', 'daily_budget',
+        'lifetime_budget', 'bid_amount', 'bid_strategy', 'end_time',
+      ])
+      const collision = Object.keys(cmd.extra_params).find((key) => reserved.has(key))
+      if (collision) return `extra_params cannot override ${collision}; use the dedicated command or named field instead`
+    }
+  }
+  if (cmd.type === 'meta.ad.update_settings') {
+    if ([cmd.name, cmd.conversion_domain, cmd.display_sequence].every((value) => value === undefined)) return 'Provide at least one ad setting to change'
   }
   if (cmd.type === 'meta.ad.update_creative') {
-    const { ad_id: _id, platform: _p, ad_account_id: _a, type: _t, card_index: _c, ...fields } = cmd
-    if (Object.values(fields).every((v) => v === undefined)) return 'Provide at least one creative field to change'
+    const creativeValues = [
+      cmd.message, cmd.headline, cmd.description, cmd.link, cmd.image_hash, cmd.call_to_action_type,
+      cmd.url_tags, cmd.degrees_of_freedom_spec,
+    ]
+    if (creativeValues.every((value) => value === undefined)) return 'Provide at least one creative field to change'
   }
   if (cmd.type === 'meta.ad.create_with_creative') {
     if (!cmd.link && !cmd.messaging_destination) return 'Provide link, or messaging_destination for a click-to-message ad'
     if (cmd.video_id && !cmd.image_hash) return 'A video ad needs image_hash as its thumbnail'
     if (!cmd.video_id && !cmd.image_hash && !cmd.messaging_destination) return 'Provide image_hash (or video_id + image_hash)'
+  }
+  if (cmd.type === 'meta.ad.create_from_spec' && Object.keys(cmd.creative).length === 0) {
+    return 'creative must not be empty'
+  }
+  if (cmd.type === 'meta.ad.set_welcome_message') {
+    if (!cmd.welcome_message && !cmd.welcome_message_spec) return 'Provide welcome_message or welcome_message_spec'
+    if (cmd.welcome_message && cmd.welcome_message_spec) return 'Provide welcome_message or welcome_message_spec, not both'
   }
   if (cmd.type === 'meta.adset.set_bid_strategy') {
     if ((cmd.bid_strategy === 'LOWEST_COST_WITH_BID_CAP' || cmd.bid_strategy === 'COST_CAP') && cmd.bid_amount === undefined) {

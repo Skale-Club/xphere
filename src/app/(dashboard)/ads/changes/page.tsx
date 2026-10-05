@@ -24,7 +24,8 @@ export default async function AdsChangesPage() {
   ])
 
   const accounts = (accountRows ?? [])
-    .filter((r): r is typeof r & { platform: 'meta' | 'google' } => r.platform === 'meta' || r.platform === 'google')
+    .filter((r): r is typeof r & { platform: 'meta' | 'google' | 'google_business' } =>
+      r.platform === 'meta' || r.platform === 'google' || r.platform === 'google_business')
     .map((r) => ({
       platform: r.platform,
       adAccountId: r.ad_account_id,

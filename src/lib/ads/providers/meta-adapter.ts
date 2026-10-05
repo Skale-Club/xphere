@@ -93,6 +93,8 @@ type MetaAdNode = {
   adset_id?: string
   campaign_id?: string
   creative?: { id?: string }
+  conversion_domain?: string
+  display_sequence?: number
 }
 
 type MetaAudienceRef = {
@@ -108,7 +110,7 @@ const SMALL_AUDIENCE_THRESHOLD = 1000
 const CAMPAIGN_FIELDS = 'id,name,status,account_id,objective,daily_budget,lifetime_budget,spend_cap,bid_strategy'
 const ADSET_FIELDS =
   'id,name,status,account_id,campaign_id,daily_budget,lifetime_budget,bid_amount,bid_strategy,bid_constraints,end_time,targeting,campaign{id,name,daily_budget,lifetime_budget,bid_strategy}'
-const AD_FIELDS = 'id,name,status,account_id,adset_id,campaign_id,creative{id}'
+const AD_FIELDS = 'id,name,status,account_id,adset_id,campaign_id,creative{id},conversion_domain,display_sequence'
 
 async function currencyOf(ctx: AdapterContext): Promise<string> {
   const info = await getAdAccountInfo(ctx.adAccountId, ctx.credential)
@@ -259,12 +261,23 @@ async function snapshotMeta(ctx: AdapterContext, cmd: MetaCommand): Promise<Reso
 
     case 'meta.ad.set_status':
     case 'meta.ad.rename':
+    case 'meta.ad.update_settings':
     case 'meta.ad.set_creative': {
       const [node, currency] = await Promise.all([readNode<MetaAdNode>(cmd.ad_id, AD_FIELDS, ctx), currencyOf(ctx)])
       if (!node || !sameAccount(node.account_id, ctx.adAccountId)) return null
       const base = { resourceType: 'ad' as const, resourceId: node.id, resourceName: node.name, campaignId: node.campaign_id ?? null, currency }
       if (cmd.type === 'meta.ad.set_status') return { ...base, fields: { status: node.status } }
       if (cmd.type === 'meta.ad.rename') return { ...base, fields: { name: node.name } }
+      if (cmd.type === 'meta.ad.update_settings') {
+        return {
+          ...base,
+          fields: {
+            name: node.name,
+            conversion_domain: node.conversion_domain ?? null,
+            display_sequence: node.display_sequence ?? null,
+          },
+        }
+      }
       // meta.ad.set_creative: also read the target creative so plan() can
       // reject an unknown or cross-account creative_id without another round
       // trip.
@@ -414,6 +427,24 @@ function planMeta(cmd: MetaCommand, before: ResourceSnapshot): PlanResult {
     case 'meta.adset.rename':
     case 'meta.ad.rename':
       return done({ name: cmd.name }, [diffField('name', 'Name', f.name, cmd.name)])
+
+    case 'meta.ad.update_settings': {
+      const intended: Record<string, unknown> = {}
+      const diff: DiffEntry[] = []
+      if (cmd.name !== undefined) {
+        intended.name = cmd.name
+        diff.push(diffField('name', 'Name', f.name, cmd.name))
+      }
+      if (cmd.conversion_domain !== undefined) {
+        intended.conversion_domain = cmd.conversion_domain
+        diff.push(diffField('conversion_domain', 'Conversion domain', f.conversion_domain, cmd.conversion_domain))
+      }
+      if (cmd.display_sequence !== undefined) {
+        intended.display_sequence = cmd.display_sequence
+        diff.push(diffField('display_sequence', 'Display sequence', f.display_sequence, cmd.display_sequence))
+      }
+      return done(intended, diff)
+    }
 
     case 'meta.campaign.set_daily_budget': {
       if (f.lifetime_budget) return { ok: false, code: 'lifetime_budget', message: 'This campaign uses a lifetime budget; a daily budget cannot be set on it.' }
@@ -623,11 +654,11 @@ function planMeta(cmd: MetaCommand, before: ResourceSnapshot): PlanResult {
       // Bid strategy on the campaign object only applies when the campaign
       // itself carries the budget (Advantage campaign budget / CBO) — same
       // rule enforced for an existing campaign in meta.campaign.set_bid_strategy.
-      if (cmd.bid_strategy !== undefined && cmd.daily_budget === undefined) {
+      if (cmd.bid_strategy !== undefined && cmd.daily_budget === undefined && cmd.lifetime_budget === undefined) {
         return {
           ok: false,
           code: 'bid_strategy_requires_budget',
-          message: 'bid_strategy only applies with a campaign budget; set daily_budget or omit bid_strategy (ad sets can carry their own budget and bid strategy instead).',
+          message: 'bid_strategy only applies with a campaign budget; set daily_budget/lifetime_budget or omit bid_strategy (ad sets can carry their own budget and bid strategy instead).',
         }
       }
       const intended: Record<string, unknown> = {
@@ -647,6 +678,15 @@ function planMeta(cmd: MetaCommand, before: ResourceSnapshot): PlanResult {
         budgetAfter = toMetaMinorUnits(cmd.daily_budget, before.currency) / minorUnitsPerMajor(before.currency)
         intended.daily_budget = budgetAfter
         diff.push(diffMoney('daily_budget', 'Daily budget', null, budgetAfter, before.currency))
+      }
+      if (cmd.lifetime_budget !== undefined) {
+        budgetAfter = toMetaMinorUnits(cmd.lifetime_budget, before.currency) / minorUnitsPerMajor(before.currency)
+        intended.lifetime_budget = budgetAfter
+        diff.push(diffMoney('lifetime_budget', 'Lifetime budget', null, budgetAfter, before.currency))
+      }
+      if (cmd.is_adset_budget_sharing_enabled !== undefined) {
+        intended.is_adset_budget_sharing_enabled = cmd.is_adset_budget_sharing_enabled
+        diff.push(diffField('is_adset_budget_sharing_enabled', 'Ad set budget sharing', null, cmd.is_adset_budget_sharing_enabled))
       }
       if (cmd.bid_strategy !== undefined) {
         intended.bid_strategy = cmd.bid_strategy
@@ -716,6 +756,13 @@ function buildUpdate(cmd: MetaCommand, before: ResourceSnapshot): { id: string; 
       return { id: cmd.ad_id, fields: { status: cmd.status } }
     case 'meta.ad.rename':
       return { id: cmd.ad_id, fields: { name: cmd.name } }
+    case 'meta.ad.update_settings': {
+      const fields: Record<string, unknown> = {}
+      if (cmd.name !== undefined) fields.name = cmd.name
+      if (cmd.conversion_domain !== undefined) fields.conversion_domain = cmd.conversion_domain
+      if (cmd.display_sequence !== undefined) fields.display_sequence = cmd.display_sequence
+      return { id: cmd.ad_id, fields }
+    }
     case 'meta.campaign.set_bid_strategy':
       return { id: cmd.campaign_id, fields: { bid_strategy: cmd.bid_strategy } }
     case 'meta.adset.set_bid_strategy': {
@@ -759,11 +806,12 @@ function buildCreateBody(cmd: MetaCommand, before: ResourceSnapshot): { edgePath
         special_ad_categories: cmd.special_ad_categories,
       }
       if (cmd.daily_budget !== undefined) body.daily_budget = String(toMetaMinorUnits(cmd.daily_budget, before.currency))
+      else if (cmd.lifetime_budget !== undefined) body.lifetime_budget = String(toMetaMinorUnits(cmd.lifetime_budget, before.currency))
       // Graph v26 rejects a campaign without a campaign budget (code 100 /
       // 4834011) unless it states whether its ad sets may share budget. They
       // may not: each ad set's budget is its own ceiling, which is what the
       // per-change budget policy reasons about.
-      else body.is_adset_budget_sharing_enabled = false
+      else body.is_adset_budget_sharing_enabled = cmd.is_adset_budget_sharing_enabled ?? false
       if (cmd.bid_strategy !== undefined) body.bid_strategy = cmd.bid_strategy
       return { edgePath: `${cmd.ad_account_id}/campaigns`, body }
     }
@@ -908,6 +956,7 @@ const IMPLEMENTED_META_COMMANDS = new Set<AdsCommand['type']>([
   'meta.adset.duplicate',
   'meta.ad.set_status',
   'meta.ad.rename',
+  'meta.ad.update_settings',
   'meta.ad.set_creative',
   'meta.ad.duplicate',
   'meta.campaign.create',
@@ -999,6 +1048,13 @@ export const metaAdapter: AdsProviderAdapter = {
         return typeof f.name === 'string' ? { ...base, type: command.type, adset_id: command.adset_id, name: f.name } : null
       case 'meta.ad.rename':
         return typeof f.name === 'string' ? { ...base, type: command.type, ad_id: command.ad_id, name: f.name } : null
+      case 'meta.ad.update_settings': {
+        const back: Record<string, unknown> = {}
+        if (command.name !== undefined && typeof f.name === 'string') back.name = f.name
+        if (command.conversion_domain !== undefined && typeof f.conversion_domain === 'string') back.conversion_domain = f.conversion_domain
+        if (command.display_sequence !== undefined && typeof f.display_sequence === 'number') back.display_sequence = f.display_sequence
+        return Object.keys(back).length ? { ...base, type: command.type, ad_id: command.ad_id, ...back } as AdsCommand : null
+      }
       case 'meta.campaign.set_daily_budget': {
         const v = money(f.daily_budget)
         return v ? { ...base, type: command.type, campaign_id: command.campaign_id, daily_budget: v } : null

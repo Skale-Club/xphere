@@ -14,8 +14,9 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { MetaAdsError } from './meta-api'
 import { GoogleAdsError } from './google-api'
+import { GoogleBusinessError } from '@/lib/google-business/api'
 
-export type AdsPlatform = 'meta' | 'google'
+export type AdsPlatform = 'meta' | 'google' | 'google_business'
 
 export type ConnectionStatus = 'active' | 'available'
 export type ConnectionHealthState = 'ok' | 'error'
@@ -49,6 +50,7 @@ export function isAuthError(error: unknown): boolean {
     if (error.code === 'UNAUTHENTICATED' || error.code === 'PERMISSION_DENIED') return true
     return /invalid_grant|invalid_client|unauthorized|token has been expired or revoked/i.test(error.message)
   }
+  if (error instanceof GoogleBusinessError) return error.status === 401 || error.status === 403
   if (error instanceof Error) {
     return /invalid_grant|token has been expired or revoked|did not return a refresh_token/i.test(error.message)
   }

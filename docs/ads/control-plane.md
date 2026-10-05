@@ -124,7 +124,9 @@ the wrong platform, fails at module load.
 | `google.campaign.create_display`, `google.ad_group.create_display` | 4 | `meta.media.upload_image` (server fetch, https + public hosts only), `meta.media.upload_video` | 1 |
 | `google.asset.add_sitelink` / `add_callout` / `add_structured_snippet` / `add_call`, `google.asset.unlink` | 2 | `meta.ad.create_with_creative` (link / video / click-to-message) | 4 |
 | `google.user_list.create` / `rename` / `remove` (4) / `upload` (3) / `attach` / `detach` | 1–4 | `meta.ad.update_creative` (copy, headline, description, link, image, CTA, url_tags, carousel card; rollback repoints to the old creative) | 3 |
-| | | `meta.post.boost`, `meta.ad.set_welcome_message` | 4 / 2 |
+| `google.ad_group.set_rotation_mode`; location/proximity `bid_modifier`; EU-political declaration on Search/Display creates | 1–4 | `meta.post.boost`, `meta.ad.set_welcome_message` (text or full spec) | 4 / 2 |
+| Customer Match membership lifetime, postal identifiers, ADD/REMOVE and TARGETING/OBSERVATION | 1–3 | `meta.ad.create_from_spec`, `meta.ad.update_settings`, ad-set `extra_params`, creative `degrees_of_freedom_spec` | 2–4 |
+| | | `meta.media.upload_images` (1–20, 100 MB aggregate), campaign lifetime budget / ad-set budget sharing | 1–4 |
 
 Pre-checks that turn Meta/Google rejections into clear preview errors:
 lowest-cost CBO campaigns need one optimization goal across ad sets; goals
@@ -134,10 +136,12 @@ copied Meta creatives drop Meta's derived `image_url`/`picture` next to an
 `image_hash` (Meta rejects both).
 
 **Customer Match privacy.** `google.user_list.upload` accepts SHA-256 digests
-only, so raw contacts never reach the ledger. The MCP tool
-`ads_google_prepare_customer_match_upload` takes raw emails/phones or a CRM
-tag, normalises (emails lower-cased, phones strict E.164) and hashes on the
-server, skips contacts with DND `all`, and returns counts only.
+for email, phone and address names, so those raw values never reach the
+ledger. Google's required country and postal-code fields remain unhashed in
+the protected command payload. The MCP tool
+`ads_google_prepare_customer_match_upload` takes raw emails/phones/addresses
+or a CRM tag, normalises and hashes on the server, skips contacts with DND
+`all`, and returns counts only. Upload commands support both ADD and REMOVE.
 
 **Media URLs.** `meta.media.upload_image` fetches through
 `src/lib/ads/safe-fetch.ts`: https only, every redirect hop re-checked,
@@ -210,6 +214,16 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   `ads_get_change_status`, `ads_list_changes`, `ads_cancel_change`,
   `ads_rollback_change`). Every tool accepts `org_id`, so one MCP connection
   serves every client org the token's user belongs to.
+  Every catalog mutation, including advanced parameters, is automatically
+  callable through the generic preview/approve tools; no additional MCP
+  deployment is needed when a command is added to the catalog and adapter.
+- **Google Business Profile MCP** (`src/lib/mcp/tools/google-business.ts`) —
+  `google_business_get_capabilities`, `google_business_list_locations`,
+  `google_business_get_location`, `google_business_list_reviews`,
+  `google_business_list_posts`, and `google_business_list_media`. Writes use
+  the same `ads_preview_change` / `ads_approve_change` lifecycle with platform
+  `google_business`; the location id is the full
+  `accounts/{account}/locations/{location}` value returned by the read tools.
 - **Copilot** — `propose_ads_change` (preview only; the operator approves in
   Ads → Changes) and `list_ads_changes`.
 - **Workflows** — action `ads_propose_change` (`src/lib/action-engine/executors/ads-propose-change.ts`)
@@ -230,7 +244,38 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
 
 ## Not yet built
 
-Everything Windsor.ai exposes as a write action for Google Ads and Meta Ads
-(checked 2026-09-27) has an equivalent here. Not covered by either: Google
+Everything Windsor.ai exposes as a write action and advanced parameter for
+Google Ads, Meta Ads and Google Business Profile (checked 2026-10-05) has an
+equivalent here. Xphere currently exposes 96 audited mutation commands (48
+Google Ads, 35 Meta Ads, 13 Google Business Profile), all through the same
+preview/policy/approval/validation/read-back path. Not
+covered by either: Google
 Performance Max / Demand Gen / Video campaigns, shopping feeds, Meta catalog
 (Advantage+ shopping) and lookalike audience creation.
+
+## Google Business Profile activation
+
+Google Business Profile is a separate OAuth integration from Google Ads and
+from the existing SerpAPI review widget. The widget can continue scraping
+reviews without write access; profile optimization requires Google's
+`business.manage` scope.
+
+1. Request and receive Business Profile API access for the Google Cloud
+   project. Google does not expose these APIs to unapproved projects and does
+   not offer a sandbox: <https://developers.google.com/my-business/content/basic-setup>.
+2. Enable Account Management, Business Information, My Business v4, and the
+   other Business Profile APIs used by the approved project.
+3. Add `https://xphere.app/api/google-business/callback` as an OAuth redirect.
+4. Configure `GOOGLE_BUSINESS_CLIENT_ID` and
+   `GOOGLE_BUSINESS_CLIENT_SECRET`. When omitted, Xphere falls back to the
+   Google Ads OAuth client, provided that same Cloud project has GBP access.
+5. Apply migration `1322_google_business_control_plane.sql`, deploy, then use
+   Integrations → Google Business Profile → Connect. Select which locations
+   are active for agents and MCP.
+
+The complete Windsor parity surface is: create/update a local post, reply to a
+review, upload a photo, update description/website/phone, replace services,
+categories and service area, update or remove attributes, replace the address,
+set regular/special hours, and set open/temporarily-closed status. Address and
+category changes are risk 4; address changes additionally require the caller
+to acknowledge Google's re-verification/unpublishing risk in the command.

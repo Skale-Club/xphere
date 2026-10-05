@@ -13,7 +13,7 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 
-export type AdsPlatform = 'meta' | 'google'
+export type AdsPlatform = 'meta' | 'google' | 'google_business'
 
 export type ResolvedAccount = {
   ok: true
@@ -87,7 +87,7 @@ export async function resolveAdAccount(
       return {
         ok: false,
         error: 'connection_error',
-        detail: `The ${platform} connection needs to be re-authorized: ${broken[0].connection_error ?? 'the stored token was rejected'}. Ask the operator to reconnect it in Ads → Settings.`,
+        detail: `The ${platform} connection needs to be re-authorized: ${broken[0].connection_error ?? 'the stored token was rejected'}. Ask the operator to reconnect it in Xphere integrations.`,
         available: broken.map((b) => ({ ad_account_id: b.ad_account_id, ad_account_name: b.ad_account_name })),
       }
     }

@@ -538,7 +538,7 @@ async function snapshotGoogle(ctx: AdapterContext, cmd: GoogleCommand): Promise<
           resourceType: 'campaign_criterion',
           resourceId: null,
           resourceName: `${cmd.negative ? 'Exclude location' : 'Location'} ${cmd.geo_target_constant_id} → ${campaign.campaign.name}`,
-          fields: { existing_criterion_id: existing?.criterion_id ?? null },
+          fields: { existing_criterion_id: existing?.criterion_id ?? null, existing_bid_modifier: existing?.bid_modifier ?? null },
         }
       }
       const existing = targeting.languages.find((l) => l.language_constant_id === cmd.language_constant_id)
@@ -563,7 +563,7 @@ async function snapshotGoogle(ctx: AdapterContext, cmd: GoogleCommand): Promise<
           resourceName: `${found.negative ? 'Excluded location' : 'Location'} ${found.geo_target_constant_id}`,
           campaignId: cmd.campaign_id,
           currency: 'USD',
-          fields: { geo_target_constant_id: found.geo_target_constant_id, negative: found.negative },
+          fields: { geo_target_constant_id: found.geo_target_constant_id, negative: found.negative, bid_modifier: found.bid_modifier },
         }
       }
       const found = targeting.languages.find((l) => l.criterion_id === cmd.criterion_id)
@@ -898,10 +898,13 @@ function planGoogle(cmd: GoogleCommand, before: ResourceSnapshot): PlanResult {
       if (f.existing_criterion_id) {
         return { ok: false, code: 'already_exists', message: `This location is already targeted the same way (criterion ${f.existing_criterion_id}).` }
       }
-      return done(
-        { geo_target_constant_id: cmd.geo_target_constant_id, negative: cmd.negative },
-        [diffField('location', cmd.negative ? 'Excluded location' : 'Location', null, cmd.geo_target_constant_id)],
-      )
+      const intended: Record<string, unknown> = { geo_target_constant_id: cmd.geo_target_constant_id, negative: cmd.negative }
+      const diff = [diffField('location', cmd.negative ? 'Excluded location' : 'Location', null, cmd.geo_target_constant_id)]
+      if (cmd.bid_modifier !== undefined) {
+        intended.bid_modifier = cmd.bid_modifier
+        diff.push(diffField('bid_modifier', 'Location bid modifier', null, cmd.bid_modifier))
+      }
+      return done(intended, diff)
     }
 
     case 'google.campaign.remove_location':
@@ -1143,6 +1146,7 @@ function buildOperation(cmd: GoogleCommand, before: ResourceSnapshot, customerId
           create: {
             campaign: `${c}/campaigns/${cmd.campaign_id}`,
             negative: cmd.negative,
+            ...(cmd.bid_modifier !== undefined ? { bidModifier: cmd.bid_modifier } : {}),
             location: { geoTargetConstant: `geoTargetConstants/${cmd.geo_target_constant_id}` },
           },
         },
@@ -1285,7 +1289,9 @@ function buildCreateSearchOperations(cmd: CommandOf<'google.campaign.create_sear
             targetContentNetwork: false,
             targetPartnerSearchNetwork: false,
           },
-          containsEuPoliticalAdvertising: 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
+          containsEuPoliticalAdvertising: cmd.contains_eu_political_advertising
+            ? 'CONTAINS_EU_POLITICAL_ADVERTISING'
+            : 'DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING',
           ...(cmd.start_date_time ? { startDateTime: cmd.start_date_time } : {}),
           ...(cmd.end_date_time ? { endDateTime: cmd.end_date_time } : {}),
           ...bidding,
@@ -1443,7 +1449,13 @@ export const googleAdapter: AdsProviderAdapter = {
         : null
       if (command.type === 'google.campaign.add_location') {
         const found = targeting?.locations.find((l) => l.criterion_id === criterionId)
-        observed = found ? { geo_target_constant_id: found.geo_target_constant_id, negative: found.negative } : null
+        observed = found
+          ? {
+              geo_target_constant_id: found.geo_target_constant_id,
+              negative: found.negative,
+              ...(command.bid_modifier !== undefined ? { bid_modifier: found.bid_modifier } : {}),
+            }
+          : null
       } else if (command.type === 'google.campaign.add_language') {
         const found = targeting?.languages.find((l) => l.criterion_id === criterionId)
         observed = found ? { language_constant_id: found.language_constant_id } : null
@@ -1611,7 +1623,14 @@ export const googleAdapter: AdsProviderAdapter = {
 
       case 'google.campaign.remove_location':
         return typeof f.geo_target_constant_id === 'string'
-          ? { ...base, type: 'google.campaign.add_location', campaign_id: command.campaign_id, geo_target_constant_id: f.geo_target_constant_id, negative: Boolean(f.negative) }
+          ? {
+              ...base,
+              type: 'google.campaign.add_location',
+              campaign_id: command.campaign_id,
+              geo_target_constant_id: f.geo_target_constant_id,
+              negative: Boolean(f.negative),
+              ...(typeof f.bid_modifier === 'number' ? { bid_modifier: f.bid_modifier } : {}),
+            }
           : null
 
       case 'google.campaign.add_language': {
