@@ -313,13 +313,20 @@ async function snapshot(ctx: AdapterContext, command: BusinessCommand): Promise<
       return { resourceType: 'attribute', resourceId: ctx.adAccountId, resourceName: String(location.title ?? ctx.adAccountId), campaignId: null, currency: 'USD', fields: { attributes: selected } }
     }
     const location = await getGoogleBusinessLocation(ctx.adAccountId, ctx.credential)
+    const all = locationFields(location)
+    // A location edit snapshots only the fields it writes, so the
+    // optimistic-concurrency hash ignores unrelated edits: approving a
+    // description change must not invalidate a pending hours change.
+    const fields = command.type.startsWith('google_business.location.')
+      ? Object.fromEntries(Object.keys(intended(command)).map((key) => [key, all[key as keyof typeof all] ?? null]))
+      : all
     return {
       resourceType: command.type === 'google_business.media.upload' ? 'media' : command.type === 'google_business.local_post.create' ? 'local_post' : COMMAND_CATALOG[command.type].resourceType,
       resourceId: command.type.includes('.create') || command.type === 'google_business.media.upload' ? null : ctx.adAccountId,
       resourceName: String(location.title ?? ctx.adAccountId),
       campaignId: null,
       currency: 'USD',
-      fields: locationFields(location),
+      fields,
     }
   } catch (error) {
     if (error instanceof GoogleBusinessError && error.status === 404) return null
@@ -383,7 +390,28 @@ function attributePayload(command: CommandOf<'google_business.location.update_at
   return { attrs, mask: attrs.map((attribute) => String(attribute.name).replace(/^attributes\//, '')) }
 }
 
+/**
+ * A create that timed out or hit a 5xx may still have landed on Google; the
+ * engine retries transient errors with the same request, which would publish
+ * a second public post or photo. Fail those instead (429 = rejected, safe).
+ */
 async function execute(ctx: AdapterContext, command: BusinessCommand): Promise<ExecuteResult> {
+  try {
+    return await write(ctx, command)
+  } catch (error) {
+    const create = command.type === 'google_business.local_post.create' || command.type === 'google_business.media.upload'
+    if (create && error instanceof GoogleBusinessError && error.status >= 500) {
+      throw new GoogleBusinessError(
+        `${error.message} Google may have published it anyway: check the profile before trying again.`,
+        409,
+        'AMBIGUOUS_CREATE',
+      )
+    }
+    throw error
+  }
+}
+
+async function write(ctx: AdapterContext, command: BusinessCommand): Promise<ExecuteResult> {
   switch (command.type) {
     case 'google_business.local_post.create': {
       const result = await createGoogleBusinessLocalPost(ctx.adAccountId, ctx.credential, postBody(command))

@@ -49,6 +49,13 @@ COMMENT ON COLUMN public.ads_connections.ad_account_id IS
 ALTER TABLE public.ads_connections
   ADD COLUMN IF NOT EXISTS gbp_connection_id UUID;
 
+-- Targets left by the Round 5 OAuth flow (never shipped; only possible on a
+-- dev database) carry a token copy and no login reference. Relinking the
+-- location in Local SEO recreates them.
+DELETE FROM public.ads_connections
+ WHERE platform = 'google_business'
+   AND gbp_connection_id IS NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ads_connections_gbp_connection_fk') THEN

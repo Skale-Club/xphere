@@ -17,6 +17,7 @@ type Payload = {
   review_id?: string
   comment?: string
   post_id?: string
+  summary?: string
 }
 
 const LOCATION_LABEL: Record<string, string> = {
@@ -59,7 +60,24 @@ export async function onBusinessProfileChangeSettled(row: ChangeRow): Promise<vo
           .update({ reply_comment: command.comment ?? null, reply_update_time: now, reply_state: 'replied', updated_at: now })
           .eq('org_id', row.org_id)
           .eq('review_name', command.review_id!)
-        await admin.from('gbp_reply_drafts').update({ status: 'sent', sent_at: now, error: null }).eq('change_request_id', row.id)
+        const { data: linked } = await admin
+          .from('gbp_reply_drafts')
+          .update({ status: 'sent', sent_at: now, error: null })
+          .eq('change_request_id', row.id)
+          .select('id')
+        if (!linked?.length) {
+          // A retry from Ads → Changes is a new, unlinked change: adopt the
+          // failed draft of the same review.
+          const { data: rev } = await admin.from('gbp_reviews').select('id').eq('org_id', row.org_id).eq('review_name', command.review_id!).maybeSingle()
+          if (rev) {
+            await admin
+              .from('gbp_reply_drafts')
+              .update({ status: 'sent', sent_at: now, error: null, change_request_id: row.id })
+              .eq('org_id', row.org_id)
+              .eq('review_id', rev.id)
+              .eq('status', 'failed')
+          }
+        }
       } else {
         await admin
           .from('gbp_reply_drafts')
@@ -87,10 +105,26 @@ export async function onBusinessProfileChangeSettled(row: ChangeRow): Promise<vo
     }
 
     case 'google_business.local_post.create': {
-      const { data: posts } = await admin
+      let { data: posts } = await admin
         .from('gbp_posts')
         .select('id, summary, location_id')
         .eq('change_request_id', row.id)
+      if (!posts?.length && landed) {
+        // A retry from Ads → Changes is a new, unlinked change: adopt the
+        // failed post with the same text on this profile.
+        const locations = await linkedLocationIds(admin, row.org_id, command.ad_account_id)
+        const { data: orphans } = locations.length
+          ? await admin
+              .from('gbp_posts')
+              .select('id, summary, location_id')
+              .eq('org_id', row.org_id)
+              .in('location_id', locations)
+              .in('status', ['failed', 'publishing'])
+              .eq('summary', command.summary ?? '')
+          : { data: [] }
+        posts = orphans ?? []
+        for (const post of posts) await admin.from('gbp_posts').update({ change_request_id: row.id }).eq('id', post.id)
+      }
       if (landed) {
         for (const post of posts ?? []) {
           await admin

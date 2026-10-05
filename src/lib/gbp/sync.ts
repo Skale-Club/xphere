@@ -305,7 +305,7 @@ export async function publishDuePosts(admin: Admin, now = new Date()): Promise<n
       locationId: post.location_id,
       command: { type: 'post.create', postId: post.id },
       // Scheduling requires local_seo.approve, so the schedule is the approval.
-      actor: { type: 'system', label: 'Scheduled post', canApprove: true, autoApproved: true },
+      actor: { type: 'system', id: post.created_by, label: 'Scheduled post', canApprove: true, autoApproved: true },
       idempotencyKey: `post:${post.id}:${post.scheduled_for}`,
     })
     if (!res.ok || res.change.status === 'failed') {

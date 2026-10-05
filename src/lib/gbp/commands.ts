@@ -19,7 +19,7 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import type { AdsCommand } from '@/lib/ads/commands/catalog'
+import { COMMAND_CATALOG, type AdsCommand } from '@/lib/ads/commands/catalog'
 import {
   approveChange as engineApprove,
   cancelChange as engineCancel,
@@ -28,10 +28,11 @@ import {
   type ChangeView,
   type EngineFailure,
 } from '@/lib/ads/commands/engine'
+import { loadEffectivePolicy } from '@/lib/ads/commands/policies'
 import type { AdsActor, ChangeStatus } from '@/lib/ads/commands/types'
 import type { Database } from '@/types/database'
 
-import { locationTarget, upsertEngineTarget } from './engine-targets'
+import { locationTarget, markEngineTargetsHealthy, upsertEngineTarget } from './engine-targets'
 import { DAYS, EDITABLE_FIELDS, type HoursRow, type ProfilePatch } from './profile'
 
 type Admin = SupabaseClient<Database>
@@ -201,14 +202,21 @@ async function resolve(admin: Admin, orgId: string, locationId: string, command:
   const target = locationTarget(location)
   if (!target || !location.gbp_connection_id) return fail('not_connected', 'Connect this location to Google Business Profile first.')
 
-  // A location linked before the engine target existed gets it now.
+  const { data: login } = await admin.from('gbp_connections').select('status, connection_error').eq('id', location.gbp_connection_id).maybeSingle()
+  if (!login || login.status !== 'active') {
+    return fail('not_connected', `Reconnect the Google account in Local SEO → Settings${login?.connection_error ? `: ${login.connection_error}` : '.'}`)
+  }
+
+  // A location linked before the engine target existed gets it now; a target
+  // the engine flagged after a 401/403 is retried while the login is healthy.
   const { data: engineTarget } = await admin
     .from('ads_connections')
-    .select('id')
+    .select('id, health')
     .eq('org_id', orgId)
     .eq('platform', 'google_business')
     .eq('ad_account_id', target)
     .maybeSingle()
+  if (engineTarget?.health === 'error') await markEngineTargetsHealthy(admin, orgId, location.gbp_connection_id)
   if (!engineTarget) {
     const created = await upsertEngineTarget(admin, {
       orgId,
@@ -288,11 +296,18 @@ export async function proposeChange(
   const resolved = await resolve(admin, orgId, input.locationId, command)
   if ('ok' in resolved) return resolved
 
-  const autoPositive = actor.autoApproved === true && command.type === 'review.reply' && (resolved.rating ?? 0) >= 4
+  let autoPositive = actor.autoApproved === true && command.type === 'review.reply' && (resolved.rating ?? 0) >= 4
+  // An AI-written auto-reply honours an AI read-only lock on the profile.
+  if (autoPositive && (await loadEffectivePolicy(orgId, 'google_business', resolved.target)).aiMode === 'read_only') autoPositive = false
   const delegated = actor.type === 'system' ? actor.canApprove === true : autoPositive
   const engineActor = toAdsActor(actor, delegated)
-  // Approvers (and their automations) publish now; everyone else proposes.
+  // Approvers (and their automations) publish now; everyone else proposes,
+  // and the change keeps that rule wherever it is approved (Local SEO or
+  // Ads → Changes): never by its author, always by an approver.
   const publishNow = engineActor.canApprove
+  const approvalReason = publishNow
+    ? undefined
+    : { code: 'local_seo_approval', message: 'Business Profile changes from Local SEO need someone with approval rights.' }
 
   const results: LedgerChange[] = []
   for (const [i, adsCommand] of resolved.commands.entries()) {
@@ -302,11 +317,22 @@ export async function proposeChange(
       command: adsCommand,
       idempotencyKey: input.idempotencyKey && (resolved.commands.length > 1 ? `${input.idempotencyKey}:${i}` : input.idempotencyKey),
       rollbackOf: input.rollbackOf ?? undefined,
+      approvalReason,
     })
     if (!preview.ok) {
+      if (command.type === 'post.delete' && preview.code === 'resource_not_found') {
+        // Already gone on Google (deleted there by hand): just catch up.
+        await admin.from('gbp_posts').update({ status: 'deleted' }).eq('id', command.postId).eq('org_id', orgId)
+        return fail('no_op', 'The post was already removed from Google.')
+      }
       if (!results.length) return engineFailure(preview)
-      results.push({ id: preview.change?.id ?? '', status: 'failed', error_message: preview.message, command_type: adsCommand.type })
-      break
+      // An earlier part of this edit already went through; say so.
+      const done = results.map((r) => r.command_type.split('.').pop()).join(', ')
+      return {
+        ok: true,
+        change: { ...results[0], status: 'failed', error_message: `Applied ${done}, but ${COMMAND_CATALOG[adsCommand.type].label.toLowerCase()} failed: ${preview.message}` },
+        executed: publishNow,
+      }
     }
     let change = slim(preview.change)
 

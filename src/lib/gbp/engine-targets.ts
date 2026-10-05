@@ -53,6 +53,20 @@ export async function upsertEngineTarget(
 }
 
 /**
+ * Clear the engine's error flag on every target of a login. The engine marks a
+ * target unusable on a 401/403; the login is the thing that gets fixed
+ * (reconnect), so the targets have to follow it.
+ */
+export async function markEngineTargetsHealthy(admin: Admin, orgId: string, connectionId: string): Promise<void> {
+  await admin
+    .from('ads_connections')
+    .update({ health: 'ok', connection_error: null, last_verified_at: new Date().toISOString() })
+    .eq('org_id', orgId)
+    .eq('gbp_connection_id', connectionId)
+    .eq('health', 'error')
+}
+
+/**
  * Drop the engine target of a location being unlinked — unless another Local
  * SEO location of the org still points at the same profile.
  */

@@ -25,6 +25,7 @@ const google = {
   posts: new Map<string, Record<string, unknown>>(),
   writes: 0,
   failNextReply: false,
+  failNextPost: false,
 }
 
 function dropZeros(value: unknown): unknown {
@@ -82,6 +83,10 @@ vi.mock('@/lib/google-business/api', async (orig) => {
       return {}
     },
     createGoogleBusinessLocalPost: async (target: string, _c: string, body: Record<string, unknown>) => {
+      if (google.failNextPost) {
+        google.failNextPost = false
+        throw new actual.GoogleBusinessError('Deadline exceeded', 503, 'TRANSIENT')
+      }
       google.writes++
       const name = `${target}/localPosts/${google.posts.size + 1}`
       google.posts.set(name, { name, ...body })
@@ -100,6 +105,7 @@ vi.mock('@/lib/google-business/api', async (orig) => {
   }
 })
 
+import { approveChange as engineApprove, retryChange } from '@/lib/ads/commands/engine'
 import { approveChange, postCreateCommand, profileCommands, proposeChange, rejectChange, rollbackChange } from '@/lib/gbp/commands'
 
 const ORG = 'org-gbp'
@@ -127,6 +133,7 @@ function seed() {
     gbp_account_name: 'accounts/1',
     gbp_location_name: 'locations/1',
   })
+  db.rows('gbp_connections').push({ id: 'c1', org_id: ORG, status: 'active', connection_error: null })
   db.rows('gbp_reviews').push(
     { id: 'r5', org_id: ORG, location_id: 'loc', review_name: `${TARGET}/reviews/5`, rating: 5, reply_comment: null, reply_state: 'none' },
     { id: 'r2', org_id: ORG, location_id: 'loc', review_name: `${TARGET}/reviews/2`, rating: 2, reply_comment: null, reply_state: 'none' },
@@ -142,6 +149,7 @@ beforeEach(() => {
   google.posts.clear()
   google.writes = 0
   google.failNextReply = false
+  google.failNextPost = false
   google.profile = {
     name: 'locations/1',
     title: 'Bigode',
@@ -374,6 +382,94 @@ describe('posts', () => {
     await rejectChange(asAdmin(db), ORG, res.change.id, approver)
     expect(db.rows('gbp_posts')[0]).toMatchObject({ status: 'draft' })
     expect(google.posts.size).toBe(0)
+  })
+})
+
+describe('review fixes', () => {
+  it('a member proposal needs an approver everywhere, and never its author', async () => {
+    seed()
+    const res = await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'profile.update', patch: { description: 'Mine' } }, actor: member })
+    if (!res.ok) throw new Error(res.message)
+    expect(changes()[0]).toMatchObject({ approval_required: true })
+    // Ads → Changes: someone with ads.manage but not ads.approve cannot release it.
+    const managerOnly = await engineApprove({
+      orgId: ORG,
+      changeId: res.change.id,
+      actor: { type: 'user', id: 'u-member', label: 'user:member', canManage: true, canApprove: false },
+    })
+    expect(managerOnly).toMatchObject({ ok: false, code: 'forbidden' })
+    expect(await approveChange(asAdmin(db), ORG, res.change.id, member)).toMatchObject({ ok: false })
+    expect(google.writes).toBe(0)
+  })
+
+  it('approving a description edit does not invalidate the pending hours edit', async () => {
+    seed()
+    const res = await proposeChange(asAdmin(db), {
+      orgId: ORG,
+      locationId: 'loc',
+      command: { type: 'profile.update', patch: { description: 'New', hours: [{ day: 'TUESDAY', open: '10:00', close: '19:00' }] } },
+      actor: member,
+    })
+    if (!res.ok) throw new Error(res.message)
+    const [info, hours] = changes()
+    expect((await approveChange(asAdmin(db), ORG, info.id as string, approver)).ok).toBe(true)
+    const second = await approveChange(asAdmin(db), ORG, hours.id as string, approver)
+    expect(second.ok && second.change.status).toBe('succeeded')
+  })
+
+  it('a 401/403 on one write does not lock the location: the next proposal retries', async () => {
+    seed()
+    await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'review.reply', reviewId: 'r5', comment: 'Hi' }, actor: member })
+    // The engine flagged the target after a 403; the fake mirrors the generated `usable` column.
+    db.rows('ads_connections')[0].health = 'error'
+    Object.defineProperty(db.rows('ads_connections')[0], 'usable', { get() { return this.health === 'ok' }, enumerable: true, configurable: true })
+    const res = await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'review.reply', reviewId: 'r2', comment: 'Sorry' }, actor: approver })
+    expect(res.ok && res.change.status).toBe('succeeded')
+    expect(db.rows('ads_connections')[0].health).toBe('ok')
+  })
+
+  it('asks to reconnect when the Google login itself is broken', async () => {
+    seed()
+    Object.assign(db.rows('gbp_connections')[0], { status: 'error', connection_error: 'invalid_grant' })
+    const res = await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'review.reply', reviewId: 'r2', comment: 'Sorry' }, actor: approver })
+    expect(res).toMatchObject({ ok: false, code: 'not_connected' })
+  })
+
+  it('never retries a post that may already be public; a retry from Ads → Changes adopts it', async () => {
+    seed()
+    db.rows('gbp_posts').push({ id: 'p3', org_id: ORG, location_id: 'loc', summary: 'Promo', status: 'draft', topic_type: 'STANDARD', cta_type: null, cta_url: null, media_url: null, event: null, offer: null })
+    google.failNextPost = true
+    const res = await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'post.create', postId: 'p3' }, actor: approver })
+    expect(res.ok && res.change.status).toBe('failed')
+    expect(changes()[0].error_code).toBe('AMBIGUOUS_CREATE')
+    expect(db.rows('gbp_posts')[0].status).toBe('failed')
+
+    const ops = { type: 'user' as const, id: 'u-ops', label: 'user:ops', canManage: true, canApprove: true }
+    const retry = await retryChange({ orgId: ORG, changeId: changes()[0].id as string, actor: ops })
+    if (!retry.ok) throw new Error(retry.message)
+    await engineApprove({ orgId: ORG, changeId: retry.change.id, actor: ops })
+    expect(db.rows('gbp_posts')[0]).toMatchObject({ status: 'live', change_request_id: retry.change.id })
+  })
+
+  it('the auto-reply honours an AI read-only lock', async () => {
+    seed()
+    db.rows('ads_account_policies').push({ org_id: ORG, platform: 'google_business', ad_account_id: null, ai_mode: 'read_only' })
+    const res = await proposeChange(asAdmin(db), {
+      orgId: ORG,
+      locationId: 'loc',
+      command: { type: 'review.reply', reviewId: 'r5', comment: 'Thanks!' },
+      actor: { type: 'ai', label: 'Auto-reply (4-5★)', autoApproved: true },
+    })
+    expect(res).toMatchObject({ ok: false, code: 'forbidden' })
+    expect(google.writes).toBe(0)
+  })
+
+  it('deleting a post already removed on Google just catches up', async () => {
+    seed()
+    db.rows('gbp_posts').push({ id: 'p4', org_id: ORG, location_id: 'loc', summary: 'Old', status: 'live', post_name: `${TARGET}/localPosts/77`, topic_type: 'STANDARD' })
+    const res = await proposeChange(asAdmin(db), { orgId: ORG, locationId: 'loc', command: { type: 'post.delete', postId: 'p4' }, actor: approver })
+    expect(res).toMatchObject({ ok: false, code: 'no_op' })
+    expect(db.rows('gbp_posts')[0].status).toBe('deleted')
   })
 })
 

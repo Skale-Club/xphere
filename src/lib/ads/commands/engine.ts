@@ -199,6 +199,12 @@ export type PreviewInput = {
   batchId?: string
   batchSize?: number
   rollbackOf?: string
+  /**
+   * A caller rule on top of the account policy (Local SEO: "needs someone with
+   * local_seo.approve"). Makes the change require an approver even when the
+   * policy alone would not.
+   */
+  approvalReason?: PolicyViolation
 }
 
 export async function previewChange(input: PreviewInput): Promise<PreviewSuccess | EngineFailure> {
@@ -242,6 +248,7 @@ export async function previewChange(input: PreviewInput): Promise<PreviewSuccess
   if (verdict.blocked.length > 0) {
     return fail('policy_blocked', verdict.blocked.map((v) => v.message).join(' '), { violations: verdict.blocked })
   }
+  if (input.approvalReason) verdict.approvalReasons.push(input.approvalReason)
 
   // Let the platform run its own checks (minimum budgets, keyword policy,
   // CBO conflicts...) before anyone is asked to approve a doomed change.

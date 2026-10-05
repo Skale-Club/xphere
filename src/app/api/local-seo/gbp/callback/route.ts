@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { decrypt, encrypt } from '@/lib/crypto'
 import { GBP_SCOPES } from '@/lib/gbp/client'
+import { markEngineTargetsHealthy } from '@/lib/gbp/engine-targets'
 import { exchangeGoogleCode, fetchGoogleEmail } from '@/lib/google/oauth'
 import { can } from '@/lib/rbac/server'
 import { resolveRequestOrigin } from '@/lib/site-url'
@@ -91,6 +92,9 @@ export async function GET(request: NextRequest): Promise<Response> {
       ? await admin.from('gbp_connections').update(row).eq('id', existing.id)
       : await admin.from('gbp_connections').insert(row)
     if (error) return back('save_failed')
+    // A reconnect clears the error the Ads Command Engine recorded on this
+    // login's targets (a 401/403 there makes them unusable until then).
+    if (existing) await markEngineTargetsHealthy(admin, orgId as string, existing.id)
     return back('connected')
   } catch (err) {
     console.error('[gbp-callback] failed', err instanceof Error ? err.message : err)
