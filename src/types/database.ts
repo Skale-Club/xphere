@@ -126,7 +126,7 @@ export interface InboundEmailRouteRow {
   created_at: string
 }
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
@@ -9419,6 +9419,1425 @@ export interface Database {
         }
         Relationships: []
       }
+      local_seo_locations: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          business_name: string
+          place_id: string | null
+          cid: string | null
+          address: string | null
+          lat: number
+          lng: number
+          is_service_area: boolean
+          timezone: string | null
+          primary_category: string | null
+          website_url: string | null
+          phone: string | null
+          rating: number | null
+          reviews_count: number | null
+          language: string
+          country: string
+          default_grid_size: number
+          default_spacing_m: number
+          default_shape: 'square' | 'circle'
+          tenant_location_id: string | null
+          google_business_profile_id: string | null
+          gbp_location_name: string | null
+          gbp_connection_id: string | null
+          gbp_account_name: string | null
+          gbp_reviews_synced_at: string | null
+          gbp_profile_synced_at: string | null
+          gbp_perf_synced_at: string | null
+          gbp_sync_error: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          business_name: string
+          place_id?: string | null
+          cid?: string | null
+          address?: string | null
+          lat: number
+          lng: number
+          is_service_area?: boolean
+          timezone?: string | null
+          primary_category?: string | null
+          website_url?: string | null
+          phone?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          language?: string
+          country?: string
+          default_grid_size?: number
+          default_spacing_m?: number
+          default_shape?: 'square' | 'circle'
+          tenant_location_id?: string | null
+          google_business_profile_id?: string | null
+          gbp_location_name?: string | null
+          gbp_connection_id?: string | null
+          gbp_account_name?: string | null
+          gbp_reviews_synced_at?: string | null
+          gbp_profile_synced_at?: string | null
+          gbp_perf_synced_at?: string | null
+          gbp_sync_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          business_name?: string
+          place_id?: string | null
+          cid?: string | null
+          address?: string | null
+          lat?: number
+          lng?: number
+          is_service_area?: boolean
+          timezone?: string | null
+          primary_category?: string | null
+          website_url?: string | null
+          phone?: string | null
+          rating?: number | null
+          reviews_count?: number | null
+          language?: string
+          country?: string
+          default_grid_size?: number
+          default_spacing_m?: number
+          default_shape?: 'square' | 'circle'
+          tenant_location_id?: string | null
+          google_business_profile_id?: string | null
+          gbp_location_name?: string | null
+          gbp_connection_id?: string | null
+          gbp_account_name?: string | null
+          gbp_reviews_synced_at?: string | null
+          gbp_profile_synced_at?: string | null
+          gbp_perf_synced_at?: string | null
+          gbp_sync_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_keywords: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword: string
+          language: string | null
+          country: string | null
+          tags: string[]
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword: string
+          language?: string | null
+          country?: string | null
+          tags?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword?: string
+          language?: string | null
+          country?: string | null
+          tags?: string[]
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_usage_ledger: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string | null
+          points: number
+          cost_usd: number
+          provider: string
+          billable: boolean
+          period: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id?: string | null
+          points: number
+          cost_usd?: number
+          provider: string
+          billable?: boolean
+          period: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string | null
+          points?: number
+          cost_usd?: number
+          provider?: string
+          billable?: boolean
+          period?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_scans: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_id: string | null
+          keyword: string
+          language: string
+          country: string
+          schedule_id: string | null
+          provider: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode: 'sync' | 'async'
+          grid_size: number
+          spacing_m: number
+          shape: 'square' | 'circle'
+          zoom: number
+          depth: number
+          center_lat: number
+          center_lng: number
+          comparable_key: string
+          status: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total: number
+          points_done: number
+          points_failed: number
+          arp: number | null
+          atrp: number | null
+          solv: number | null
+          found_pct: number | null
+          est_cost_usd: number
+          cost_usd: number | null
+          triggered_by: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user: string | null
+          error: string | null
+          started_at: string | null
+          finished_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_id?: string | null
+          keyword: string
+          language: string
+          country: string
+          schedule_id?: string | null
+          provider: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode: 'sync' | 'async'
+          grid_size: number
+          spacing_m: number
+          shape: 'square' | 'circle'
+          zoom?: number
+          depth?: number
+          center_lat: number
+          center_lng: number
+          comparable_key: string
+          status?: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total?: number
+          points_done?: number
+          points_failed?: number
+          arp?: number | null
+          atrp?: number | null
+          solv?: number | null
+          found_pct?: number | null
+          est_cost_usd?: number
+          cost_usd?: number | null
+          triggered_by: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user?: string | null
+          error?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          keyword?: string
+          language?: string
+          country?: string
+          schedule_id?: string | null
+          provider?: 'dataforseo' | 'serpapi' | 'fake'
+          provider_mode?: 'sync' | 'async'
+          grid_size?: number
+          spacing_m?: number
+          shape?: 'square' | 'circle'
+          zoom?: number
+          depth?: number
+          center_lat?: number
+          center_lng?: number
+          comparable_key?: string
+          status?: 'queued' | 'running' | 'partial' | 'completed' | 'failed' | 'cancelled'
+          points_total?: number
+          points_done?: number
+          points_failed?: number
+          arp?: number | null
+          atrp?: number | null
+          solv?: number | null
+          found_pct?: number | null
+          est_cost_usd?: number
+          cost_usd?: number | null
+          triggered_by?: 'manual' | 'schedule' | 'workflow' | 'mcp'
+          triggered_by_user?: string | null
+          error?: string | null
+          started_at?: string | null
+          finished_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_scan_points: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string
+          row_idx: number
+          col_idx: number
+          lat: number
+          lng: number
+          status: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank: number | null
+          match_method: 'place_id' | 'cid' | 'name' | null
+          top3: Json | null
+          results_count: number | null
+          provider_task_id: string | null
+          attempts: number
+          next_attempt_at: string
+          claimed_at: string | null
+          last_error: string | null
+          cost_usd: number | null
+          fetched_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id: string
+          row_idx: number
+          col_idx: number
+          lat: number
+          lng: number
+          status?: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank?: number | null
+          match_method?: 'place_id' | 'cid' | 'name' | null
+          top3?: Json | null
+          results_count?: number | null
+          provider_task_id?: string | null
+          attempts?: number
+          next_attempt_at?: string
+          claimed_at?: string | null
+          last_error?: string | null
+          cost_usd?: number | null
+          fetched_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string
+          row_idx?: number
+          col_idx?: number
+          lat?: number
+          lng?: number
+          status?: 'queued' | 'in_flight' | 'done' | 'failed'
+          rank?: number | null
+          match_method?: 'place_id' | 'cid' | 'name' | null
+          top3?: Json | null
+          results_count?: number | null
+          provider_task_id?: string | null
+          attempts?: number
+          next_attempt_at?: string
+          claimed_at?: string | null
+          last_error?: string | null
+          cost_usd?: number | null
+          fetched_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_serp_results: {
+        Row: {
+          id: number
+          org_id: string
+          scan_id: string
+          point_id: string
+          position: number
+          place_id: string | null
+          cid: string | null
+          title: string
+          rating: number | null
+          reviews: number | null
+          category: string | null
+          address: string | null
+          is_target: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          org_id: string
+          scan_id: string
+          point_id: string
+          position: number
+          place_id?: string | null
+          cid?: string | null
+          title: string
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          address?: string | null
+          is_target?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          org_id?: string
+          scan_id?: string
+          point_id?: string
+          position?: number
+          place_id?: string | null
+          cid?: string | null
+          title?: string
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          address?: string | null
+          is_target?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_competitor_snapshots: {
+        Row: {
+          id: string
+          org_id: string
+          scan_id: string
+          location_id: string
+          keyword_id: string | null
+          competitor_key: string
+          place_id: string | null
+          title: string
+          is_target: boolean
+          appearances: number
+          avg_rank: number | null
+          solv: number | null
+          rating: number | null
+          reviews: number | null
+          category: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          scan_id: string
+          location_id: string
+          keyword_id?: string | null
+          competitor_key: string
+          place_id?: string | null
+          title: string
+          is_target?: boolean
+          appearances: number
+          avg_rank?: number | null
+          solv?: number | null
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          scan_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          competitor_key?: string
+          place_id?: string | null
+          title?: string
+          is_target?: boolean
+          appearances?: number
+          avg_rank?: number | null
+          solv?: number | null
+          rating?: number | null
+          reviews?: number | null
+          category?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_schedules: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_ids: string[]
+          grid_size: number | null
+          spacing_m: number | null
+          shape: 'square' | 'circle' | null
+          frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday: number
+          day_of_month: number
+          hour_utc: number
+          minute_utc: number
+          next_run_at: string
+          last_run_at: string | null
+          last_error: string | null
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_ids?: string[]
+          grid_size?: number | null
+          spacing_m?: number | null
+          shape?: 'square' | 'circle' | null
+          frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday?: number
+          day_of_month?: number
+          hour_utc?: number
+          minute_utc?: number
+          next_run_at: string
+          last_run_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_ids?: string[]
+          grid_size?: number | null
+          spacing_m?: number | null
+          shape?: 'square' | 'circle' | null
+          frequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly'
+          weekday?: number
+          day_of_month?: number
+          hour_utc?: number
+          minute_utc?: number
+          next_run_at?: string
+          last_run_at?: string | null
+          last_error?: string | null
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_competitors: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          competitor_key: string
+          place_id: string | null
+          title: string
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          competitor_key: string
+          place_id?: string | null
+          title: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          competitor_key?: string
+          place_id?: string | null
+          title?: string
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_alert_rules: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string | null
+          metric: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction: 'worse' | 'better' | 'any'
+          threshold: number
+          channels: string[]
+          is_active: boolean
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id?: string | null
+          metric: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction?: 'worse' | 'better' | 'any'
+          threshold: number
+          channels?: string[]
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string | null
+          metric?: 'solv' | 'arp' | 'atrp' | 'found_pct'
+          direction?: 'worse' | 'better' | 'any'
+          threshold?: number
+          channels?: string[]
+          is_active?: boolean
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_alerts: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          keyword_id: string | null
+          keyword: string
+          scan_id: string
+          previous_scan_id: string | null
+          rule_id: string | null
+          metric: string
+          previous_value: number | null
+          current_value: number | null
+          delta: number
+          is_worse: boolean
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          keyword_id?: string | null
+          keyword: string
+          scan_id: string
+          previous_scan_id?: string | null
+          rule_id?: string | null
+          metric: string
+          previous_value?: number | null
+          current_value?: number | null
+          delta: number
+          is_worse: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          keyword_id?: string | null
+          keyword?: string
+          scan_id?: string
+          previous_scan_id?: string | null
+          rule_id?: string | null
+          metric?: string
+          previous_value?: number | null
+          current_value?: number | null
+          delta?: number
+          is_worse?: boolean
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_annotations: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          occurred_at: string
+          kind: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title: string
+          note: string | null
+          ref_id: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          occurred_at: string
+          kind?: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title: string
+          note?: string | null
+          ref_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          occurred_at?: string
+          kind?: 'manual' | 'post' | 'profile_change' | 'review' | 'website' | 'other'
+          title?: string
+          note?: string | null
+          ref_id?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      gbp_connections: {
+        Row: {
+          id: string
+          org_id: string
+          google_email: string | null
+          encrypted_tokens: string
+          scopes: string[]
+          status: 'active' | 'error' | 'revoked'
+          connection_error: string | null
+          token_expires_at: string | null
+          last_verified_at: string | null
+          connected_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          google_email?: string | null
+          encrypted_tokens: string
+          scopes?: string[]
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          token_expires_at?: string | null
+          last_verified_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          google_email?: string | null
+          encrypted_tokens?: string
+          scopes?: string[]
+          status?: 'active' | 'error' | 'revoked'
+          connection_error?: string | null
+          token_expires_at?: string | null
+          last_verified_at?: string | null
+          connected_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reply_settings: {
+        Row: {
+          org_id: string
+          tone: string
+          signature: string | null
+          instructions: string | null
+          auto_reply_positive: boolean
+          auto_reply_min_rating: number
+          updated_at: string
+        }
+        Insert: {
+          org_id: string
+          tone?: string
+          signature?: string | null
+          instructions?: string | null
+          auto_reply_positive?: boolean
+          auto_reply_min_rating?: number
+          updated_at?: string
+        }
+        Update: {
+          org_id?: string
+          tone?: string
+          signature?: string | null
+          instructions?: string | null
+          auto_reply_positive?: boolean
+          auto_reply_min_rating?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reviews: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          review_name: string
+          reviewer_name: string | null
+          reviewer_photo_url: string | null
+          rating: number | null
+          comment: string | null
+          create_time: string | null
+          update_time: string | null
+          reply_comment: string | null
+          reply_update_time: string | null
+          reply_state: 'none' | 'pending' | 'replied'
+          raw: Json
+          first_seen_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          review_name: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          rating?: number | null
+          comment?: string | null
+          create_time?: string | null
+          update_time?: string | null
+          reply_comment?: string | null
+          reply_update_time?: string | null
+          reply_state?: 'none' | 'pending' | 'replied'
+          raw?: Json
+          first_seen_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          review_name?: string
+          reviewer_name?: string | null
+          reviewer_photo_url?: string | null
+          rating?: number | null
+          comment?: string | null
+          create_time?: string | null
+          update_time?: string | null
+          reply_comment?: string | null
+          reply_update_time?: string | null
+          reply_state?: 'none' | 'pending' | 'replied'
+          raw?: Json
+          first_seen_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_reply_drafts: {
+        Row: {
+          id: string
+          org_id: string
+          review_id: string
+          draft: string
+          model: string | null
+          source: 'ai' | 'human'
+          status: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id: string | null
+          error: string | null
+          created_by: string | null
+          approved_by: string | null
+          approved_at: string | null
+          sent_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          review_id: string
+          draft: string
+          model?: string | null
+          source?: 'ai' | 'human'
+          status?: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id?: string | null
+          error?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          review_id?: string
+          draft?: string
+          model?: string | null
+          source?: 'ai' | 'human'
+          status?: 'draft' | 'approved' | 'sent' | 'rejected' | 'failed'
+          change_request_id?: string | null
+          error?: string | null
+          created_by?: string | null
+          approved_by?: string | null
+          approved_at?: string | null
+          sent_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_posts: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          post_name: string | null
+          topic_type: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary: string
+          media_url: string | null
+          cta_type: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url: string | null
+          event: Json | null
+          offer: Json | null
+          recurrence: 'none' | 'weekly' | 'monthly'
+          status: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for: string | null
+          published_at: string | null
+          search_url: string | null
+          error: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          post_name?: string | null
+          topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary: string
+          media_url?: string | null
+          cta_type?: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url?: string | null
+          event?: Json | null
+          offer?: Json | null
+          recurrence?: 'none' | 'weekly' | 'monthly'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for?: string | null
+          published_at?: string | null
+          search_url?: string | null
+          error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          post_name?: string | null
+          topic_type?: 'STANDARD' | 'EVENT' | 'OFFER' | 'ALERT'
+          summary?: string
+          media_url?: string | null
+          cta_type?: 'BOOK' | 'ORDER' | 'SHOP' | 'LEARN_MORE' | 'SIGN_UP' | 'CALL' | null
+          cta_url?: string | null
+          event?: Json | null
+          offer?: Json | null
+          recurrence?: 'none' | 'weekly' | 'monthly'
+          status?: 'draft' | 'scheduled' | 'publishing' | 'live' | 'failed' | 'deleted'
+          scheduled_for?: string | null
+          published_at?: string | null
+          search_url?: string | null
+          error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_performance_daily: {
+        Row: {
+          org_id: string
+          location_id: string
+          date: string
+          metric: string
+          value: number
+        }
+        Insert: {
+          org_id: string
+          location_id: string
+          date: string
+          metric: string
+          value?: number
+        }
+        Update: {
+          org_id?: string
+          location_id?: string
+          date?: string
+          metric?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      gbp_search_keywords_monthly: {
+        Row: {
+          org_id: string
+          location_id: string
+          month: string
+          keyword: string
+          impressions: number | null
+          threshold: number | null
+        }
+        Insert: {
+          org_id: string
+          location_id: string
+          month: string
+          keyword: string
+          impressions?: number | null
+          threshold?: number | null
+        }
+        Update: {
+          org_id?: string
+          location_id?: string
+          month?: string
+          keyword?: string
+          impressions?: number | null
+          threshold?: number | null
+        }
+        Relationships: []
+      }
+      gbp_profile_snapshots: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          taken_at: string
+          data: Json
+          data_hash: string
+          google_updated: Json | null
+          diff: Json
+          acknowledged_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          taken_at?: string
+          data: Json
+          data_hash: string
+          google_updated?: Json | null
+          diff?: Json
+          acknowledged_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          taken_at?: string
+          data?: Json
+          data_hash?: string
+          google_updated?: Json | null
+          diff?: Json
+          acknowledged_at?: string | null
+        }
+        Relationships: []
+      }
+      gbp_change_requests: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref: string | null
+          payload: Json
+          before_state: Json | null
+          intended_state: Json | null
+          diff: Json
+          risk_level: number
+          status: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id: string | null
+          actor_label: string | null
+          idempotency_key: string
+          approval_required: boolean
+          approved_by: string | null
+          approved_at: string | null
+          attempt_count: number
+          provider_result: Json | null
+          error_message: string | null
+          verification: Json | null
+          rollback_of: string | null
+          executed_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          command_type: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref?: string | null
+          payload: Json
+          before_state?: Json | null
+          intended_state?: Json | null
+          diff?: Json
+          risk_level: number
+          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          idempotency_key: string
+          approval_required?: boolean
+          approved_by?: string | null
+          approved_at?: string | null
+          attempt_count?: number
+          provider_result?: Json | null
+          error_message?: string | null
+          verification?: Json | null
+          rollback_of?: string | null
+          executed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          command_type?: 'review.reply' | 'review.delete_reply' | 'profile.update' | 'post.create' | 'post.delete'
+          target_ref?: string | null
+          payload?: Json
+          before_state?: Json | null
+          intended_state?: Json | null
+          diff?: Json
+          risk_level?: number
+          status?: 'awaiting_approval' | 'queued' | 'executing' | 'succeeded' | 'failed' | 'drifted' | 'cancelled' | 'rejected'
+          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          idempotency_key?: string
+          approval_required?: boolean
+          approved_by?: string | null
+          approved_at?: string | null
+          attempt_count?: number
+          provider_result?: Json | null
+          error_message?: string | null
+          verification?: Json | null
+          rollback_of?: string | null
+          executed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      gbp_change_events: {
+        Row: {
+          id: string
+          org_id: string
+          change_request_id: string
+          event_type: string
+          from_status: string | null
+          to_status: string | null
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id: string | null
+          actor_label: string | null
+          detail: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          change_request_id: string
+          event_type: string
+          from_status?: string | null
+          to_status?: string | null
+          actor_type: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          detail?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          change_request_id?: string
+          event_type?: string
+          from_status?: string | null
+          to_status?: string | null
+          actor_type?: 'user' | 'ai' | 'workflow' | 'system'
+          actor_id?: string | null
+          actor_label?: string | null
+          detail?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_audits: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          score: number
+          pillar_scores: Json
+          checks: Json
+          context: Json
+          created_by: string | null
+          tasks_created_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          score: number
+          pillar_scores?: Json
+          checks?: Json
+          context?: Json
+          created_by?: string | null
+          tasks_created_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          score?: number
+          pillar_scores?: Json
+          checks?: Json
+          context?: Json
+          created_by?: string | null
+          tasks_created_at?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_reports: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          location_ids: string[]
+          period_days: number
+          sections: string[]
+          intro: string | null
+          schedule: 'none' | 'monthly'
+          send_day: number
+          recipients: string[]
+          last_sent_at: string | null
+          last_error: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          location_ids?: string[]
+          period_days?: number
+          sections?: string[]
+          intro?: string | null
+          schedule?: 'none' | 'monthly'
+          send_day?: number
+          recipients?: string[]
+          last_sent_at?: string | null
+          last_error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          location_ids?: string[]
+          period_days?: number
+          sections?: string[]
+          intro?: string | null
+          schedule?: 'none' | 'monthly'
+          send_day?: number
+          recipients?: string[]
+          last_sent_at?: string | null
+          last_error?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_report_shares: {
+        Row: {
+          id: string
+          org_id: string
+          report_id: string
+          token_hash: string
+          token_hint: string
+          expires_at: string | null
+          revoked_at: string | null
+          view_count: number
+          last_viewed_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          report_id: string
+          token_hash: string
+          token_hint: string
+          expires_at?: string | null
+          revoked_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          report_id?: string
+          token_hash?: string
+          token_hint?: string
+          expires_at?: string | null
+          revoked_at?: string | null
+          view_count?: number
+          last_viewed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_citation_checks: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          run_id: string
+          directory: string
+          domain: string
+          found: boolean
+          url: string | null
+          listed_name: string | null
+          snippet: string | null
+          name_match: boolean | null
+          phone_match: boolean | null
+          address_match: boolean | null
+          error: string | null
+          checked_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          run_id: string
+          directory: string
+          domain: string
+          found?: boolean
+          url?: string | null
+          listed_name?: string | null
+          snippet?: string | null
+          name_match?: boolean | null
+          phone_match?: boolean | null
+          address_match?: boolean | null
+          error?: string | null
+          checked_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          run_id?: string
+          directory?: string
+          domain?: string
+          found?: boolean
+          url?: string | null
+          listed_name?: string | null
+          snippet?: string | null
+          name_match?: boolean | null
+          phone_match?: boolean | null
+          address_match?: boolean | null
+          error?: string | null
+          checked_at?: string
+        }
+        Relationships: []
+      }
+      local_seo_ai_checks: {
+        Row: {
+          id: string
+          org_id: string
+          location_id: string
+          run_id: string
+          prompt: string
+          model: string
+          mentioned: boolean
+          position: number | null
+          competitors: string[]
+          excerpt: string | null
+          error: string | null
+          checked_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          location_id: string
+          run_id: string
+          prompt: string
+          model: string
+          mentioned?: boolean
+          position?: number | null
+          competitors?: string[]
+          excerpt?: string | null
+          error?: string | null
+          checked_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          location_id?: string
+          run_id?: string
+          prompt?: string
+          model?: string
+          mentioned?: boolean
+          position?: number | null
+          competitors?: string[]
+          excerpt?: string | null
+          error?: string | null
+          checked_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
@@ -9441,6 +10860,10 @@ export interface Database {
       prune_seo_audit_details: {
         Args: { p_keep?: number; p_batch?: number }
         Returns: number
+      }
+      claim_local_seo_points: {
+        Args: { p_limit: number }
+        Returns: Database['public']['Tables']['local_seo_scan_points']['Row'][]
       }
       record_cron_heartbeat: {
         Args: {

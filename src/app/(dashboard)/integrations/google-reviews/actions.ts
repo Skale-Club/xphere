@@ -33,6 +33,8 @@ export async function saveSerpApiKey(input: { apiKey: string }): Promise<{ error
   const { data: existing } = await ctx.supabase
     .from('google_business_profiles')
     .select('id')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
 
   if (existing) {
@@ -68,6 +70,8 @@ export async function searchBusinesses(input: {
   const { data: profile } = await ctx.supabase
     .from('google_business_profiles')
     .select('serpapi_key_encrypted')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
   if (!profile?.serpapi_key_encrypted) {
     return { error: 'Save your SerpAPI key first.' }
@@ -98,6 +102,8 @@ export async function selectPlaceId(input: {
   const { data: profile } = await ctx.supabase
     .from('google_business_profiles')
     .select('id')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
   if (!profile) return { error: 'Save your SerpAPI key first.' }
 
@@ -117,7 +123,7 @@ export async function selectPlaceId(input: {
   return { success: true }
 }
 
-export async function refreshNow(): Promise<{
+export async function refreshNow(input: { profileId?: string } = {}): Promise<{
   error?: string
   newReviews?: number
   upserted?: number
@@ -128,10 +134,14 @@ export async function refreshNow(): Promise<{
   if ('error' in ctx) return { error: ctx.error }
 
   // Use the same code path as the scrape endpoint but with the org-scoped client.
-  const { data: profile } = await ctx.supabase
+  let profileQuery = ctx.supabase
     .from('google_business_profiles')
     .select('id, place_id, serpapi_key_encrypted')
     .eq('is_active', true)
+  if (input.profileId) profileQuery = profileQuery.eq('id', input.profileId)
+  const { data: profile } = await profileQuery
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
   if (!profile) return { error: 'No active business profile.' }
 
@@ -189,6 +199,8 @@ export async function getKeyHint(): Promise<{ hint: string | null }> {
   const { data } = await ctx.supabase
     .from('google_business_profiles')
     .select('serpapi_key_encrypted')
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle()
   if (!data?.serpapi_key_encrypted) return { hint: null }
   try {

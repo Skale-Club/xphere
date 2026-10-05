@@ -201,6 +201,28 @@ export async function GET(
     .eq('id', profile.org_id)
     .maybeSingle<OrganizationRow>()
 
+  // Local SEO: when this profile's business is connected to Google Business
+  // Profile, serve the official reviews (same output contract).
+  const official = await loadOfficialReviews(supabase, profile.id, { minRating, sort, offset, limit })
+  if (official) {
+    const payload: WidgetPayload = {
+      business: {
+        name: profile.business_name,
+        address: profile.address,
+        placeId: profile.place_id && profile.place_id !== '__pending__' ? profile.place_id : null,
+        averageRating: official.averageRating ?? profile.average_rating,
+        totalReviewsCount: official.totalReviewsCount ?? profile.total_reviews_count,
+        lastScrapedAt: official.syncedAt ?? profile.last_scraped_at,
+      },
+      brand: { accent: resolveAccent(organization?.accent_color) },
+      settings: savedSettings,
+      distribution: official.distribution,
+      reviews: official.reviews,
+      total: official.total,
+    }
+    return Response.json(payload, { headers: { ...CORS_HEADERS, ...CACHE_HEADERS } })
+  }
+
   // Build query
   let query = supabase
     .from('google_reviews')
@@ -295,4 +317,67 @@ export async function GET(
   return Response.json(payload, {
     headers: { ...CORS_HEADERS, ...CACHE_HEADERS },
   })
+}
+
+async function loadOfficialReviews(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  profileId: string,
+  opts: { minRating: number; sort: 'recent' | 'rating_high' | 'helpful'; offset: number; limit: number },
+): Promise<{
+  reviews: WidgetPayload['reviews']
+  distribution: WidgetPayload['distribution']
+  total: number
+  averageRating: number | null
+  totalReviewsCount: number | null
+  syncedAt: string | null
+} | null> {
+  const { data: location } = await supabase
+    .from('local_seo_locations')
+    .select('id, rating, reviews_count, gbp_reviews_synced_at')
+    .eq('google_business_profile_id', profileId)
+    .not('gbp_location_name', 'is', null)
+    .not('gbp_reviews_synced_at', 'is', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  if (!location) return null
+
+  let q = supabase
+    .from('gbp_reviews')
+    .select('id, reviewer_name, reviewer_photo_url, rating, comment, create_time, reply_comment, reply_update_time', { count: 'exact' })
+    .eq('location_id', location.id)
+    .gte('rating', opts.minRating)
+  q = opts.sort === 'rating_high'
+    ? q.order('rating', { ascending: false }).order('create_time', { ascending: false, nullsFirst: false })
+    : q.order('create_time', { ascending: false, nullsFirst: false })
+  const { data: rows, count, error } = await q.range(opts.offset, opts.offset + opts.limit - 1)
+  if (error) return null
+
+  const { data: dist } = await supabase.from('gbp_reviews').select('rating').eq('location_id', location.id)
+  if (!dist?.length) return null
+  const distMap = new Map<number, number>([[5, 0], [4, 0], [3, 0], [2, 0], [1, 0]])
+  for (const r of dist) if (r.rating) distMap.set(r.rating, (distMap.get(r.rating) ?? 0) + 1)
+
+  return {
+    reviews: (rows ?? []).map((r) => ({
+      id: r.id,
+      reviewerName: r.reviewer_name ?? 'Google user',
+      reviewerPhotoUrl: r.reviewer_photo_url,
+      reviewerProfileUrl: null,
+      rating: r.rating ?? 0,
+      text: r.comment,
+      dateText: r.create_time ? new Date(r.create_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null,
+      dateIso: r.create_time,
+      isLocalGuide: false,
+      helpfulCount: 0,
+      ownerResponse: r.reply_comment,
+      ownerResponseDate: r.reply_update_time,
+      photos: [],
+    })),
+    distribution: [5, 4, 3, 2, 1].map((r) => ({ rating: r, count: distMap.get(r) ?? 0 })),
+    total: count ?? 0,
+    averageRating: location.rating === null ? null : Number(location.rating),
+    totalReviewsCount: location.reviews_count,
+    syncedAt: location.gbp_reviews_synced_at,
+  }
 }

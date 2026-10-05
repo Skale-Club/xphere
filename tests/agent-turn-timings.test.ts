@@ -33,8 +33,9 @@ vi.mock('@/lib/integrations/get-provider-key', () => ({
 // run-agent.ts (traceId+orgId, traceId+orgId+channel, ...) — every one of
 // those loggers shares this single `infoMock`/`warnMock` so the test can
 // filter by event name regardless of which call site logged it.
-const infoMock = vi.fn()
-const warnMock = vi.fn()
+// vi.hoisted: modules that create a logger at import time (e.g. gbp/commands)
+// would otherwise hit these before initialization.
+const { infoMock, warnMock } = vi.hoisted(() => ({ infoMock: vi.fn(), warnMock: vi.fn() }))
 vi.mock('@/lib/obs/logger', () => ({
   createLogger: vi.fn(() => ({
     info: infoMock,

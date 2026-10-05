@@ -7,12 +7,12 @@ import { toast } from 'sonner'
 import { refreshNow } from '@/app/(dashboard)/integrations/google-reviews/actions'
 import { Button } from '@/components/ui/button'
 
-export function RefreshButton({ disabled }: { disabled?: boolean }) {
+export function RefreshButton({ disabled, profileId }: { disabled?: boolean; profileId?: string }) {
   const [isPending, startTransition] = useTransition()
 
   function handleClick() {
     startTransition(async () => {
-      const res = await refreshNow()
+      const res = await refreshNow({ profileId })
       if (res.error) {
         toast.error(res.error)
         return

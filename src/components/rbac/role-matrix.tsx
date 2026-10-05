@@ -24,6 +24,7 @@ import {
   Users,
   UserPlus,
   CreditCard,
+  MapPin,
   Info,
   Search,
   SearchCheck,
@@ -77,6 +78,7 @@ const ICONS: Record<string, LucideIcon> = {
   Users,
   UserPlus,
   CreditCard,
+  MapPin,
 }
 
 /** Only org-level groups are configurable here (platform-only excluded). */

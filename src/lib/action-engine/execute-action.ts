@@ -53,6 +53,8 @@ import { getXkeduleServices } from '@/lib/xkedule/actions/get-services'
 import { checkXkeduleAvailability } from '@/lib/xkedule/actions/check-availability'
 import { createXkeduleBooking } from '@/lib/xkedule/actions/create-booking'
 import { emitXkeduleBookingCreatedEvents } from '@/lib/action-engine/executors/xkedule-booking-events'
+import { executeLocalSeoRunScan } from './executors/local-seo-run-scan'
+import { executeGbpDraftReviewReply, executeGbpProposePost, executeGbpProposeProfileChange } from './executors/gbp-actions'
 import { executeAdsProposeChange } from './executors/ads-propose-change'
 import { executeSeoRunAudit } from './executors/seo-run-audit'
 import { cancelXkeduleBooking } from '@/lib/xkedule/actions/cancel-booking'
@@ -277,6 +279,30 @@ async function _executeActionInner(
       throw new Error('seo_run_audit requires ctx.organizationId')
     }
     return executeSeoRunAudit(params, { organizationId: ctx.organizationId, supabase: ctx.supabase })
+  }
+
+  // Local SEO: start geogrid scans (quota-checked). Not in the DB enum either.
+  if ((actionType as string) === 'local_seo_run_scan') {
+    if (!ctx?.organizationId) {
+      throw new Error('local_seo_run_scan requires ctx.organizationId')
+    }
+    return executeLocalSeoRunScan(params, { organizationId: ctx.organizationId })
+  }
+
+  // Google Business Profile: propose-only actions (approval in Local SEO).
+  if (
+    (actionType as string) === 'gbp_draft_review_reply' ||
+    (actionType as string) === 'gbp_propose_post' ||
+    (actionType as string) === 'gbp_propose_profile_change'
+  ) {
+    if (!ctx?.organizationId) throw new Error(`${actionType} requires ctx.organizationId`)
+    const run =
+      (actionType as string) === 'gbp_draft_review_reply'
+        ? executeGbpDraftReviewReply
+        : (actionType as string) === 'gbp_propose_post'
+          ? executeGbpProposePost
+          : executeGbpProposeProfileChange
+    return run(params, { organizationId: ctx.organizationId })
   }
 
   // Native CRM contact create/update | not in the action_type DB enum either.

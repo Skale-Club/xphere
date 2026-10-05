@@ -57,15 +57,17 @@ const nextConfig: NextConfig = {
     // tighten these as part of the CSP enforcement follow-up.
     const cspDirectives = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Google Maps JS (Local SEO geogrid map) loads from maps.googleapis.com
+      // and fetches tiles/fonts from the gstatic hosts.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com",
       // Twilio Voice SDK browser calling opens a signaling WebSocket to
       // chunderw-*.twilio.com and posts insights to eventgw.twilio.com. (WebRTC
       // media itself is exempt from connect-src.) Required once CSP enforces.
-      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com`,
+      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com https://maps.googleapis.com`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline'",
-      "font-src 'self' data:",
+      "font-src 'self' data: https://fonts.gstatic.com",
       "frame-ancestors 'none'",
       "frame-src 'self'",
       "base-uri 'self'",
