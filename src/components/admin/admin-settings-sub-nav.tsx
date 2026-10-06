@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from '@/lib/org/navigation'
-import { BarChart3, BrainCircuit, Mail } from 'lucide-react'
+import { BarChart3, BrainCircuit, Mail, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSubSidebar } from '@/components/layout/sub-sidebar'
 
 const ITEMS = [
   { href: '/admin/settings',       label: 'Overview',      icon: BarChart3,     exact: true },
   { href: '/admin/settings/ai',    label: 'AI Provider',   icon: BrainCircuit               },
+  { href: '/admin/settings/local-seo', label: 'Local SEO', icon: MapPin                     },
   { href: '/admin/settings/email', label: 'Email',         icon: Mail                       },
 ]
 

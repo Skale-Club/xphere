@@ -44,6 +44,8 @@ jobs:
           # See docs/ops/TELEGRAM-ALERTS.md.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          GOOGLE_MAPS_BROWSER_KEY: ${{ secrets.GOOGLE_MAPS_BROWSER_KEY }}
+          LOCAL_SEO_POSTBACK_SECRET: ${{ secrets.LOCAL_SEO_POSTBACK_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${COOLIFY_TOKEN}" ]; then
@@ -96,6 +98,21 @@ jobs:
           upsert NEVERBOUNCE_API_KEY                  "${NEVERBOUNCE_API_KEY}"
           upsert TELEGRAM_BOT_TOKEN                   "${TELEGRAM_BOT_TOKEN}"
           upsert TELEGRAM_ALERT_CHAT_ID               "${TELEGRAM_ALERT_CHAT_ID}"
+
+          # Local SEO values are optional until the provider and Maps key are
+          # provisioned. Do not overwrite an existing production value with an
+          # empty GitHub secret during routine env syncs.
+          upsert_optional() {
+            local key="$1" value="$2"
+            if [ -n "${value}" ]; then
+              upsert "$key" "$value"
+            else
+              echo "==> skipping $key (GitHub secret is not set)"
+            fi
+          }
+
+          upsert_optional GOOGLE_MAPS_BROWSER_KEY "${GOOGLE_MAPS_BROWSER_KEY}"
+          upsert_optional LOCAL_SEO_POSTBACK_SECRET "${LOCAL_SEO_POSTBACK_SECRET}"
 
           echo "==> Triggering redeploy so new env vars take effect"
           curl --fail-with-body -sS --retry 3 --retry-all-errors --request POST \
