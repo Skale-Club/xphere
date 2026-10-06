@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database, FileText,
-  Loader2, RefreshCw, Trash2, Unplug, Upload,
+  AlertTriangle, AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database,
+  ExternalLink, FilePlus, FileText, Loader2, RefreshCw, Trash2, Unplug, Upload,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
+  addGlobalKnowledgeNotionPage,
   addGlobalKnowledgeText,
   addNotionKnowledgeRoot,
   deleteGlobalKnowledgeSource,
@@ -57,6 +58,28 @@ function getSourceType(mime: string, name: string): 'pdf' | 'text' | 'csv' {
   if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf'
   if (mime === 'text/csv' || name.endsWith('.csv')) return 'csv'
   return 'text'
+}
+
+/**
+ * A synced Notion page whose indexed text is (nearly) just its title: one
+ * chunk, or an untitled page. Its real content usually lives in videos,
+ * attachments, images or a database the sync cannot read as text.
+ */
+function isThinNotionSource(source: Source): boolean {
+  if (source.source_type !== 'notion_page' || source.status === 'processing') return false
+  return source.chunk_count <= 1 || source.name.trim() === 'Untitled'
+}
+
+function ThinContentBadge() {
+  return (
+    <Badge
+      variant="outline"
+      className="border-amber-500/30 text-amber-600 dark:text-amber-400"
+      title="Little indexed text — the page content may live in videos, attachments, images or databases."
+    >
+      Thin content
+    </Badge>
+  )
 }
 
 function StatusBadge({ status }: { status: Source['status'] }) {
@@ -110,6 +133,22 @@ export function GlobalKnowledgeManager({
   const [error, setError] = useState<string | null>(null)
   const [textName, setTextName] = useState('')
   const [textBody, setTextBody] = useState('')
+  const writableRoots = useMemo(
+    () => notionState.roots.filter((root) => root.status !== 'disconnected'),
+    [notionState.roots],
+  )
+  const notionWriteMode = notionState.sourceMode === 'notion' && writableRoots.length > 0
+  const [notionPageRootId, setNotionPageRootId] = useState('')
+  const [notionPageTitle, setNotionPageTitle] = useState('')
+  const [notionPageBody, setNotionPageBody] = useState('')
+  const [notionPageCreated, setNotionPageCreated] = useState<{
+    title: string
+    url: string | null
+    rootTitle: string
+  } | null>(null)
+  const effectiveNotionRootId = writableRoots.some((root) => root.id === notionPageRootId)
+    ? notionPageRootId
+    : writableRoots[0]?.id ?? ''
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [selectedNotionPage, setSelectedNotionPage] = useState('')
   const [notionPickerOpen, setNotionPickerOpen] = useState(false)
@@ -125,6 +164,10 @@ export function GlobalKnowledgeManager({
     }
     return grouped
   }, [sources])
+  const thinNotionSourceCount = useMemo(
+    () => sources.filter(isThinNotionSource).length,
+    [sources],
+  )
   const manualSources = useMemo(
     () => sources.filter((source) => source.source_type !== 'notion_page'),
     [sources],
@@ -224,6 +267,29 @@ export function GlobalKnowledgeManager({
         router.refresh()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to add text')
+      }
+    })
+  }
+
+  function handleAddNotionPage(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const title = notionPageTitle.trim()
+    if (!effectiveNotionRootId || !title || !notionPageBody.trim()) return
+    setError(null)
+    setNotionPageCreated(null)
+    startTransition(async () => {
+      try {
+        const result = await addGlobalKnowledgeNotionPage(effectiveNotionRootId, title, notionPageBody)
+        if (!result.ok) {
+          setError(result.detail ? `${result.detail} (${result.error})` : result.error)
+          return
+        }
+        setNotionPageCreated({ title, url: result.url, rootTitle: result.rootTitle })
+        setNotionPageTitle('')
+        setNotionPageBody('')
+        router.refresh()
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create the Notion page')
       }
     })
   }
@@ -365,8 +431,10 @@ export function GlobalKnowledgeManager({
                   <span className="truncate">Upload file</span>
                 </TabsTrigger>
                 <TabsTrigger value="text" className="min-w-0 gap-1.5 px-2 sm:gap-2 sm:px-3">
-                  <AlignLeft className="h-3.5 w-3.5" />
-                  <span className="truncate">Paste text</span>
+                  {notionWriteMode
+                    ? <FilePlus className="h-3.5 w-3.5" />
+                    : <AlignLeft className="h-3.5 w-3.5" />}
+                  <span className="truncate">{notionWriteMode ? 'Add page to Notion' : 'Paste text'}</span>
                 </TabsTrigger>
                 <TabsTrigger value="notion" className="min-w-0 gap-1.5 px-2 sm:gap-2 sm:px-3">
                   <Database className="h-3.5 w-3.5" />
@@ -397,6 +465,91 @@ export function GlobalKnowledgeManager({
               </TabsContent>
 
               <TabsContent value="text" className="mt-4">
+                {notionWriteMode ? (
+                <form onSubmit={handleAddNotionPage} className="space-y-3">
+                  <p className="text-xs text-text-tertiary">
+                    Notion is the source of truth, so new knowledge is written as a page under a
+                    synchronized root and indexed by the next sync. The scope follows the root.
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Notion root</Label>
+                    <Select
+                      value={effectiveNotionRootId}
+                      onValueChange={setNotionPageRootId}
+                      disabled={isPending || disabled}
+                    >
+                      <SelectTrigger className="w-full sm:max-w-sm">
+                        <SelectValue placeholder="Choose a root" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {writableRoots.map((root) => (
+                          <SelectItem key={root.id} value={root.id}>
+                            {root.title} · {PLATFORM_LABEL[root.platform]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="notionPageTitle" className="text-xs font-medium">Page title</Label>
+                    <Input
+                      id="notionPageTitle"
+                      value={notionPageTitle}
+                      onChange={(e) => setNotionPageTitle(e.target.value)}
+                      placeholder="e.g. Meta Ads — Creative testing framework"
+                      className="text-xs"
+                      maxLength={200}
+                      disabled={isPending || disabled}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="notionPageBody" className="text-xs font-medium">Page content</Label>
+                    <Textarea
+                      id="notionPageBody"
+                      value={notionPageBody}
+                      onChange={(e) => setNotionPageBody(e.target.value)}
+                      rows={8}
+                      placeholder="Write or paste the material. Markdown headings, lists, quotes and code blocks are kept."
+                      className="text-xs"
+                      disabled={isPending || disabled}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={
+                      disabled || isPending || !effectiveNotionRootId
+                      || !notionPageTitle.trim() || !notionPageBody.trim()
+                    }
+                  >
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus className="h-4 w-4" />}
+                    {isPending ? 'Creating page…' : 'Create page in Notion'}
+                  </Button>
+                  {notionPageCreated && (
+                    <p
+                      role="status"
+                      className="rounded-md border border-green-500/25 bg-green-500/5 px-3 py-2 text-xs text-green-600 dark:text-green-400"
+                    >
+                      Created “{notionPageCreated.title}” under {notionPageCreated.rootTitle}. It will be
+                      searchable once the sync finishes.
+                      {notionPageCreated.url && (
+                        <>
+                          {' '}
+                          <a
+                            href={notionPageCreated.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
+                          >
+                            Open in Notion
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  )}
+                </form>
+                ) : (
                 <form onSubmit={handleText} className="space-y-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="textName" className="text-xs font-medium">Source name</Label>
@@ -426,6 +579,7 @@ export function GlobalKnowledgeManager({
                     {isPending ? 'Adding…' : 'Add and process'}
                   </Button>
                 </form>
+                )}
               </TabsContent>
 
               <TabsContent value="notion" className="mt-4">
@@ -575,10 +729,21 @@ export function GlobalKnowledgeManager({
                       </p>
                     </div>
 
+                    {notionState.roots.length > 0 && thinNotionSourceCount > 0 && (
+                      <p className="flex items-start gap-2 text-xs text-text-secondary">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        <span>
+                          {thinNotionSourceCount} {thinNotionSourceCount === 1 ? 'page has' : 'pages have'} little
+                          indexed text — their content may live in videos, attachments or databases.
+                        </span>
+                      </p>
+                    )}
+
                     {notionState.roots.length > 0 && (
                       <ul className="space-y-3">
                         {notionState.roots.map((root) => {
                           const rootSources = notionSourcesByRoot.get(root.id) ?? []
+                          const rootThinCount = rootSources.filter(isThinNotionSource).length
                           return (
                           <Collapsible key={root.id} asChild>
                           <li key={root.id} className="overflow-hidden rounded-lg border border-border-subtle">
@@ -599,6 +764,15 @@ export function GlobalKnowledgeManager({
                             </div>
                               <ChevronDown className="h-4 w-4 shrink-0 text-text-tertiary transition-transform group-data-[state=open]:rotate-180" />
                               </CollapsibleTrigger>
+                              {rootThinCount > 0 && (
+                                <Badge
+                                  variant="outline"
+                                  className="hidden border-amber-500/30 text-amber-600 sm:inline-flex dark:text-amber-400"
+                                  title="Pages with little indexed text"
+                                >
+                                  {rootThinCount} thin
+                                </Badge>
+                              )}
                               <Badge variant="outline">{rootSources.length}</Badge>
                               <Button
                               variant="ghost"
@@ -649,6 +823,7 @@ export function GlobalKnowledgeManager({
                                             : ''}
                                         </p>
                                       </div>
+                                      {isThinNotionSource(source) && <ThinContentBadge />}
                                       <StatusBadge status={source.status} />
                                     </li>
                                   ))}

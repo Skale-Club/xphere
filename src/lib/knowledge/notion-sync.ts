@@ -13,8 +13,12 @@ import {
 } from '@/lib/knowledge/global-knowledge'
 import { resolveNotionAccessToken } from '@/lib/notion/connection'
 import {
+  formatNotionPropertiesAsMarkdown,
+  isNotionDatabaseRow,
   NotionApiError,
+  queryNotionDataSourcePages,
   retrieveNotionBlockChildren,
+  retrieveNotionDatabase,
   retrieveNotionPage,
   retrieveNotionPageMarkdown,
 } from '@/lib/notion/client'
@@ -64,7 +68,52 @@ async function retrieveNotionPageTextFallback(
   return output.join('\n\n')
 }
 
-async function discoverChildPages(accessToken: string, pageId: string): Promise<string[]> {
+/**
+ * Row pages of a `child_database` block. The block id is the database id;
+ * since API 2025-09-03 rows live in the database's data sources, so retrieve
+ * the database, then query each data source. Linked databases (a view of a
+ * database that lives elsewhere) and databases the integration cannot read
+ * answer 400/403/404 — those are skipped, not fatal: the source database is
+ * indexed through its own root if it has one.
+ */
+async function discoverDatabaseRows(
+  accessToken: string,
+  databaseId: string,
+  limit: number,
+): Promise<string[]> {
+  let database
+  try {
+    database = await retrieveNotionDatabase(accessToken, databaseId)
+  } catch (error) {
+    if (error instanceof NotionApiError && [400, 403, 404].includes(error.status)) {
+      console.warn(`[notion-sync] skipping unreadable database ${databaseId}: ${error.status}`)
+      return []
+    }
+    throw error
+  }
+  if (database.inTrash) return []
+
+  const rows: string[] = []
+  for (const dataSource of database.dataSources) {
+    try {
+      const pages = await queryNotionDataSourcePages(accessToken, dataSource.id, {
+        limit: Math.max(limit - rows.length, 1),
+      })
+      rows.push(...pages.filter((page) => !page.inTrash).map((page) => page.id))
+    } catch (error) {
+      if (error instanceof NotionApiError && [400, 403, 404].includes(error.status)) {
+        console.warn(`[notion-sync] skipping unreadable data source ${dataSource.id}: ${error.status}`)
+        continue
+      }
+      throw error
+    }
+    if (rows.length >= limit) break
+  }
+  return rows
+}
+
+/** Child pages of a page: `child_page` blocks (at any nesting) plus rows of `child_database` blocks. Exported for tests. */
+export async function discoverChildPages(accessToken: string, pageId: string): Promise<string[]> {
   const childPages: string[] = []
   const blockQueue = [pageId]
   const visitedBlocks = new Set<string>()
@@ -77,6 +126,10 @@ async function discoverChildPages(accessToken: string, pageId: string): Promise<
     for (const block of blocks) {
       if (block.type === 'child_page') {
         childPages.push(block.id)
+      } else if (block.type === 'child_database') {
+        // Ask for one more row than the root budget so an oversized database
+        // trips the MAX_ROOT_PAGES guard instead of being silently truncated.
+        childPages.push(...await discoverDatabaseRows(accessToken, block.id, MAX_ROOT_PAGES + 1))
       } else if (block.has_children) {
         blockQueue.push(block.id)
       }
@@ -118,7 +171,14 @@ async function syncNotionPage(params: {
     ? await retrieveNotionPageTextFallback(params.accessToken, params.pageId)
     : markdownResponse.markdown
 
-  const content = normalizeNotionMarkdown(`# ${page.title}\n\n${markdown}`)
+  // Database rows often keep their substance in properties (a "Summary" or
+  // "Notes" column) rather than in the page body, so index those too.
+  const propertiesSection = isNotionDatabaseRow(page.parent)
+    ? formatNotionPropertiesAsMarkdown(page.properties)
+    : ''
+  const content = normalizeNotionMarkdown(
+    [`# ${page.title}`, propertiesSection, markdown].filter((part) => part.trim()).join('\n\n'),
+  )
   const contentHash = await hashNotionContent(content)
   const { data: existing, error: existingError } = await supabase
     .from('global_knowledge_sources')
@@ -128,7 +188,12 @@ async function syncNotionPage(params: {
   if (existingError) throw new Error(existingError.message)
 
   const current = existing as Source | null
-  if (current?.content_hash === contentHash && current.active_revision_id) {
+  // A page moved under another synchronized root takes that root's platform,
+  // and every chunk carries the platform in its metadata — so a move must
+  // re-embed even when the text is unchanged.
+  const placementChanged = !!current &&
+    (current.notion_root_id !== params.root.id || current.platform !== params.root.platform)
+  if (!placementChanged && current?.content_hash === contentHash && current.active_revision_id) {
     const { error } = await supabase
       .from('global_knowledge_sources')
       .update({
@@ -163,6 +228,45 @@ async function syncNotionPage(params: {
       .single()
     if (error || !inserted) throw new Error(error?.message ?? 'Failed to create Notion source')
     sourceId = inserted.id
+  } else if (placementChanged) {
+    const { error } = await supabase
+      .from('global_knowledge_sources')
+      .update({
+        platform: params.root.platform,
+        notion_root_id: params.root.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sourceId)
+    if (error) throw new Error(error.message)
+  }
+
+  // A page with nothing but its title (an empty module placeholder) would be
+  // indexed as one lone title chunk: it matches searches by name and answers
+  // nothing. Keep the source row for the admin view, but index no chunks.
+  if (!markdown.trim() && !propertiesSection.trim()) {
+    await supabase
+      .from('documents')
+      .delete()
+      .contains('metadata', { global_knowledge_source_id: sourceId })
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('global_knowledge_sources')
+      .update({
+        name: page.title,
+        source_url: page.url,
+        status: 'ready',
+        error_detail: null,
+        chunk_count: 0,
+        content_hash: contentHash,
+        active_revision_id: null,
+        external_last_edited_at: page.lastEditedTime,
+        last_synced_at: now,
+        is_active: true,
+        updated_at: now,
+      })
+      .eq('id', sourceId)
+    if (error) throw new Error(error.message)
+    return
   }
 
   const chunks = chunkText(content, 500, 50)

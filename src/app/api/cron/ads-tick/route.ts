@@ -1,6 +1,6 @@
 // src/app/api/cron/ads-tick/route.ts
 //
-// Nightly maintenance for the Ads module. Two jobs, one tick:
+// Nightly maintenance for the Ads module. Three jobs, one tick:
 //
 // 1. Capture per-campaign daily metrics into ads_insights_daily. Without this
 //    the product has no memory of its own: every chart re-queries the platform
@@ -12,6 +12,13 @@
 //    dashboard, the Copilot and the CAPI fallback token all just started
 //    failing with opaque 502s. Marking the row lets the UI ask for a reconnect
 //    BEFORE the account goes dark.
+//
+// 3. Review the outcome of applied ads changes (src/lib/ads/outcomes.ts):
+//    compare the campaign's 7 days before vs 7 days after each change from the
+//    rows step 1 keeps current, write `outcome` on the ledger and file a
+//    'result' memory. Runs after the snapshot so the AFTER window is complete;
+//    bounded and idempotent, and a failure here never fails the tick.
+//    `skip_outcomes=true` skips it.
 //
 // Auth: Authorization: Bearer <CRON_SECRET>, mandatory. This endpoint writes,
 // and a forged call could mark healthy connections as broken, so it fails
@@ -27,6 +34,7 @@ import type { Database } from '@/types/database'
 import { captureApiError } from '@/lib/api-error'
 import { createLogger } from '@/lib/obs/logger'
 import { captureDailyInsights } from '@/lib/ads/snapshot-daily'
+import { reviewChangeOutcomes, type OutcomeReviewResult } from '@/lib/ads/outcomes'
 import { daysUntilExpiry, EXPIRY_WARNING_DAYS, markConnectionError, type AdsPlatform } from '@/lib/ads/connection-health'
 
 const CRON_SECRET = process.env.CRON_SECRET
@@ -63,6 +71,7 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url)
   const orgId = url.searchParams.get('org_id') ?? undefined
   const skipSnapshot = url.searchParams.get('skip_snapshot') === 'true'
+  const skipOutcomes = url.searchParams.get('skip_outcomes') === 'true'
 
   // ─── 1. Expiry watch ────────────────────────────────────────────────────────
   let expiringSoon = 0
@@ -171,17 +180,34 @@ export async function GET(request: Request): Promise<Response> {
     }
   }
 
+  // ─── 3. Outcome review of applied changes ───────────────────────────────────
+  let outcomes: (OutcomeReviewResult & { error?: string }) | null = null
+  if (!skipOutcomes) {
+    try {
+      outcomes = await reviewChangeOutcomes({ orgId, limit: 20, budgetMs: 45_000 })
+      log.info('ads_outcomes_reviewed', { ...outcomes })
+    } catch (err) {
+      // Learning is a bonus on top of the nightly capture — never fail the tick for it.
+      log.error('ads_tick_outcomes_failed', { error: err })
+      captureApiError(err, { route: 'ads-tick', stage: 'outcomes' })
+      outcomes = { reviewed: 0, memories: 0, noData: 0, skipped: 0, expired: 0, error: 'Outcome review failed' }
+    }
+  }
+
   log.info('ads_tick_complete', {
     expiringSoon,
     expired,
     snapshotAccounts,
     snapshotRows,
     snapshotErrors,
+    outcomesReviewed: outcomes?.reviewed ?? 0,
+    outcomeMemories: outcomes?.memories ?? 0,
   })
 
   return Response.json({
     ok: true,
     expiry: { expiringSoon, expired },
     snapshot: { accounts: snapshotAccounts, rows: snapshotRows, errors: snapshotErrors, skipped: skipSnapshot },
+    outcomes: outcomes ?? { disabled: true },
   })
 }

@@ -30,6 +30,8 @@ Dashboard / MCP / Copilot / cron
 | `ads_change_events` | Append-only transition log. A trigger rejects UPDATE/DELETE (cascade from a deleted request/org still works). |
 | `ads_account_policies` | Guardrails per org (`ad_account_id` NULL), per platform, or per account. |
 | `ads_executions.change_request_id` | The journey timeline row links back to the ledger. |
+| `ads_change_requests.rationale` / `knowledge_refs` / `memory_refs` | Migration 1325. Why the change was proposed, and which Global Knowledge sources (`[{source_id, source_name, url}]`, see `src/lib/knowledge/refs.ts`) and ads memories grounded it. |
+| `ads_change_requests.outcome` / `outcome_reviewed_at` | Migration 1325. What happened after the change was applied — written by the outcome reviewer (below). |
 
 Authenticated clients can only `SELECT` these tables. The server writes them
 with the service-role client **after** it has authenticated the actor and
@@ -74,6 +76,98 @@ large batches; today preview is synchronous and rows start at
 - **Rollback** builds the inverse command from `before_state` and previews it
   as a *new* change with `rollback_of` — history is never rewritten. Adding a
   keyword rolls back to *pausing* it (removal is irreversible in Google Ads).
+  The rollback carries the original change's `knowledge_refs` / `memory_refs`
+  and the rationale `Rollback of change <id>[: <reason>]`; a retry keeps the
+  original rationale and refs.
+
+## Learning loop: what the AI knew → what it changed → what happened
+
+**At preview.** `PreviewInput` takes optional `rationale` (trimmed, capped at
+4000 chars), `knowledgeRefs` (validated, deduped by source, max 20) and
+`memoryRefs` (memory UUIDs, max 20). They are stored on the ledger row and
+returned on every `ChangeView` (`rationale`, `knowledge_refs`, `memory_refs`,
+`outcome`, `outcome_reviewed_at`). None of them is required — dashboard,
+Copilot and workflow callers that don't send them keep working. The MCP tools
+`ads_preview_change` / `ads_preview_changes` accept `rationale` (≤ 2000),
+`knowledge_refs` and `memory_ids` (a batch applies them to every item), and
+`ads_rollback_change` accepts a `rationale`. The tool descriptions tell an AI
+client to call `global_knowledge_search` (and `ads_search_memories`) first and
+cite what it relied on.
+
+**After the change: the outcome reviewer** (`src/lib/ads/outcomes.ts`,
+`reviewChangeOutcomes`), run nightly by `/api/cron/ads-tick` right after the
+daily snapshot:
+
+- **Candidates:** `status = 'succeeded'`, `campaign_id` set, platform `meta` or
+  `google`, `outcome_reviewed_at IS NULL` (index `ads_change_requests_outcome_queue`).
+- **Due** when executed before `today − (windowDays + 1)` 00:00 UTC, i.e. the
+  AFTER window ended at least a full day before the run and the snapshot's
+  trailing re-capture has settled it, even for accounts whose day ends hours
+  after UTC midnight. Changes older than `maxAgeDays` (60) are marked
+  `{status: 'expired'}` without metrics so the backlog never rescans forever.
+- **Groups:** changes sharing a `batch_id` are reviewed once, together,
+  anchored on the earliest `executed_at`.
+- **Windows (UTC calendar days, process-TZ independent):** BEFORE = the
+  `windowDays` (7) days before the change day; AFTER = the 7 days after it. The
+  change day itself is in neither.
+- **Metrics:** `ads_insights_daily` per campaign via
+  `fetchCampaignWindowTotals` in `src/lib/ads/snapshot.ts` (one query, split by
+  window, totalled with `aggregate`): spend, impressions, clicks, conversions,
+  leads, CTR, CPC, CPL, cost per conversion, and signed percent deltas (null
+  when the baseline is zero — never a fabricated −100%).
+- **Confounders:** other applied (`succeeded` / `drifted`) changes on the same
+  campaign inside `[before.since, after.until]` are listed. The memory then
+  says the effect cannot be attributed to this change alone and gets
+  confidence 2 instead of 3. Every memory states the comparison is
+  correlation, not proof.
+- **No data** on either side → `outcome.status = 'no_data'`, no memory.
+- **Measured** → `outcome` on every change of the group and ONE `ads_memories`
+  row: type `result`, source `audit`, status `active`, title
+  `Result: <command label> · <campaign>`, content = what changed (diff), why
+  (rationale), which knowledge was cited (by name), before → after metrics in
+  the account currency, and the caveat; `knowledge_refs` = union of the
+  group's refs; `change_request_id` = first change; metadata
+  `{change_request_ids, batch_id, memory_refs, outcome: {summary, windows, …}}`.
+- **Idempotent and bounded:** a group is claimed with a conditional update on
+  `outcome_reviewed_at IS NULL` (placeholder `{status: 'reviewing'}`) before
+  the memory is created, so two runs never file twice. If the memory fails to
+  save the claim is released for the next run; if writing the outcome fails
+  after the memory exists, the rows stay `reviewing` rather than risk a
+  duplicate. Default 20 groups per run, ~45 s budget.
+
+`outcome` shape (`ChangeOutcome` in `outcomes.ts`):
+
+```jsonc
+{
+  "status": "measured",            // | "no_data" | "expired" | "reviewing"
+  "version": 1,
+  "computed_at": "2026-10-06T05:12:03.000Z",
+  "window_days": 7,
+  "anchor_executed_at": "2026-09-20T15:00:00.000Z",
+  "windows": { "before": { "since": "2026-09-13", "until": "2026-09-19" },
+               "after":  { "since": "2026-09-21", "until": "2026-09-27" } },
+  "change_request_ids": ["…"],
+  "batch_id": null,
+  "rollback_of": [{ "change_id": "…", "rollback_of": "…" }],
+  "campaigns": [{
+    "platform": "google", "ad_account_id": "…", "campaign_id": "…",
+    "campaign_name": "Summer Sale", "currency": "USD", "has_data": true,
+    "before": { "days": 7, "spend": 70, "impressions": 3500, "clicks": 70, "conversions": 7,
+                "leads": 0, "ctr": 2, "cpc": 1, "cpl": null, "cost_per_conversion": 10 },
+    "after":  { "...": "same keys" },
+    "delta_pct": { "spend": 50, "clicks": 100, "cost_per_conversion": -25, "cpl": null, "...": "…" }
+  }],
+  "confounders": [{ "id": "…", "label": "Set campaign status", "command_type": "…",
+                    "campaign_id": "…", "executed_at": "…" }],
+  "memory_id": "…",
+  "summary": "Summer Sale: spend +50.0%, clicks +100.0%, … (7d after vs 7d before)"
+}
+```
+
+The MCP `ads_get_change_status` returns the full outcome; `ads_list_changes`
+and preview responses return a brief (`status`, `summary`, `windows`,
+`memory_id`, confounder count). Ads → Changes shows "Why" and "Outcome" in the
+change detail sheet.
 
 ## Commands (`src/lib/ads/commands/catalog.ts`)
 
@@ -240,6 +334,11 @@ Permissions: `ads.view`, `ads.manage` (request changes), `ads.approve`
   proxied requests at 100 s); schedule it every 1–2 minutes in skale-cron
   against the origin host:
   `tick.sh XPHERE ads-changes-tick https://origin.xphere.app/api/cron/ads-changes-tick 120 90`
+- Outcome reviews: step 3 of the nightly `GET /api/cron/ads-tick`
+  (`.github/workflows/ads-tick.yml`, 05:10 UTC), after the insight snapshot.
+  `?skip_outcomes=true` skips it, `?org_id=` limits it to one org; its counts
+  are in the response's `outcomes` field. A reviewer failure is logged and
+  reported but never fails the tick.
 - Apply the migration with `npx supabase db push` (never the MCP / SQL editor).
 
 ## Not yet built
