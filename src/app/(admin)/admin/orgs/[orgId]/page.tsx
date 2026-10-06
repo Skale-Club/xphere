@@ -1,12 +1,13 @@
 import { getOrgDetail } from '../../_actions/get-org-detail'
+import { getOrgLocalSeoSettings } from '../../_actions/local-seo-actions'
 import { OrgDetailView } from '@/components/admin/org-detail-view'
 
 export default async function AdminOrgDetailPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params
 
-  let org
+  let org, localSeo
   try {
-    org = await getOrgDetail(orgId)
+    ;[org, localSeo] = await Promise.all([getOrgDetail(orgId), getOrgLocalSeoSettings(orgId)])
   } catch {
     return (
       <div className="p-6">
@@ -15,5 +16,5 @@ export default async function AdminOrgDetailPage({ params }: { params: Promise<{
     )
   }
 
-  return <OrgDetailView org={org} />
+  return <OrgDetailView org={org} localSeo={localSeo} />
 }

@@ -167,6 +167,12 @@ export function ScanNowDialog({
                     {estimate.scans} × {estimate.points} = {estimate.totalPoints}
                   </span>
                 </div>
+                {estimate.credentialSource === 'own' && (
+                  <div className="flex justify-between">
+                    <span className="text-text-secondary">Billed to</span>
+                    <span className="font-medium">Your DataForSEO account</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Left this month</span>
                   <span className={overQuota ? 'font-medium text-danger' : 'font-medium tabular-nums'}>

@@ -467,6 +467,35 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     canActivate: true,
     testable: false,
   },
+  {
+    id: 'dataforseo',
+    name: 'DataForSEO',
+    description:
+      'Your own DataForSEO account for Local SEO rank scans. Used only when the platform admin switches this organization to its own account; scans then bill DataForSEO directly and do not use plan points.',
+    category: 'seo',
+    logo: { letter: 'D', color: 'bg-blue-600' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: true,
+    docsUrl: 'https://app.dataforseo.com/api-access',
+    fields: [
+      {
+        key: 'login',
+        label: 'API login',
+        type: 'text',
+        required: true,
+        placeholder: 'you@company.com',
+        hint: 'From DataForSEO → API Access. Usually the account email.',
+      },
+      {
+        key: 'api_key',
+        label: 'API password',
+        type: 'password',
+        required: true,
+        hint: 'The API password from DataForSEO → API Access, not the dashboard password.',
+      },
+    ],
+  },
 ]
 
 export const CATEGORY_ORDER: IntegrationCategory[] = [

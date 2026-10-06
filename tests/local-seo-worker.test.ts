@@ -9,6 +9,9 @@ import type { Database } from '@/types/database'
 
 import { FakeDb } from './helpers/fake-supabase'
 
+// Org DataForSEO passwords are stored encrypted; the tests store them in clear.
+vi.mock('@/lib/crypto', () => ({ decrypt: async (v: string) => v, encrypt: async (v: string) => v }))
+
 const ORG = '00000000-0000-0000-0000-0000000000aa'
 
 function makeDb() {
@@ -113,6 +116,32 @@ describe('createScan', () => {
     const db = makeDb()
     const res = await createScan(asAdmin(db), { orgId: ORG, locationId: 'loc-1', keywordId: 'kw-1', triggeredBy: 'manual' })
     expect(res.ok).toBe(false)
+    expect(db.rows('local_seo_scans')).toHaveLength(0)
+  })
+
+  it("runs on the org's own DataForSEO account without spending plan points", async () => {
+    vi.stubEnv('LOCAL_SEO_PROVIDER', '')
+    vi.stubEnv('DATAFORSEO_LOGIN', 'platform')
+    vi.stubEnv('DATAFORSEO_PASSWORD', 'platform-pw')
+    vi.stubEnv('LOCAL_SEO_UNPLANNED_POINTS_MONTH', '5')
+    const db = makeDb()
+    db.rows('local_seo_org_settings').push({ org_id: ORG, rank_credentials: 'own' })
+    db.rows('integrations').push({ organization_id: ORG, provider: 'dataforseo', is_active: true, encrypted_api_key: 'own-pw', config: { login: 'org@x.com' } })
+    const res = await createScan(asAdmin(db), { orgId: ORG, locationId: 'loc-1', keywordId: 'kw-1', triggeredBy: 'manual' })
+    expect(res).toMatchObject({ ok: true, estimate: { provider: 'dataforseo', credentialSource: 'own', billable: false } })
+    expect(db.rows('local_seo_scans')[0]).toMatchObject({ credential_source: 'own' })
+    expect(db.rows('local_seo_usage_ledger')).toMatchObject([{ points: 9, billable: false }])
+  })
+
+  it("never falls back to the platform account when the org's own is missing", async () => {
+    vi.stubEnv('LOCAL_SEO_PROVIDER', '')
+    vi.stubEnv('DATAFORSEO_LOGIN', 'platform')
+    vi.stubEnv('DATAFORSEO_PASSWORD', 'platform-pw')
+    const db = makeDb()
+    db.rows('local_seo_org_settings').push({ org_id: ORG, rank_credentials: 'own' })
+    db.rows('integrations').push({ organization_id: ORG, provider: 'dataforseo', is_active: false, encrypted_api_key: 'own-pw', config: { login: 'org@x.com' } })
+    const res = await createScan(asAdmin(db), { orgId: ORG, locationId: 'loc-1', keywordId: 'kw-1', triggeredBy: 'manual' })
+    expect(res).toMatchObject({ ok: false, error: expect.stringContaining('Integrations') })
     expect(db.rows('local_seo_scans')).toHaveLength(0)
   })
 

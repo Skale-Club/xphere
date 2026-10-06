@@ -10,13 +10,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 import type { Database } from '@/types/database'
 
-import { pickProviderId, providerProfile } from './credentials'
+import { pickProvider, providerProfile } from './credentials'
 import { buildGrid } from './grid'
 import { checkPointsQuota, periodStart, type QuotaSnapshot } from './quota'
 import {
   DEFAULT_DEPTH,
   DEFAULT_ZOOM,
   GRID_SIZES,
+  type CredentialSource,
   type GridShape,
   type ProviderId,
   type ScanTrigger,
@@ -39,6 +40,8 @@ export type ScanParams = {
 
 export type ScanEstimate = {
   provider: ProviderId
+  /** 'own' = the org's DataForSEO account pays; the points are not billable. */
+  credentialSource: CredentialSource
   points: number
   costUsd: number
   billable: boolean
@@ -76,6 +79,11 @@ export function comparableKey(input: {
     input.provider,
   ])
   return createHash('sha256').update(canonical).digest('hex').slice(0, 32)
+}
+
+/** Points count against the quota only when the platform pays the provider. */
+function isBillable(choice: { id: ProviderId; source: CredentialSource }): boolean {
+  return choice.id !== 'fake' && choice.source === 'platform'
 }
 
 async function loadContext(admin: Admin, p: ScanParams) {
@@ -116,14 +124,22 @@ async function loadContext(admin: Admin, p: ScanParams) {
 export async function estimateScan(admin: Admin, p: ScanParams): Promise<{ ok: true; estimate: ScanEstimate } | { ok: false; error: string }> {
   const ctx = await loadContext(admin, p)
   if ('error' in ctx) return { ok: false, error: ctx.error as string }
-  const provider = await pickProviderId(admin)
-  if (!provider) return { ok: false, error: 'No rank provider is configured. Ask the platform admin to add a DataForSEO or SerpAPI key.' }
+  const choice = await pickProvider(admin, p.orgId)
+  if ('error' in choice) return { ok: false, error: choice.error }
+  const provider = choice.id
   const points = buildGrid({ centerLat: ctx.location.lat, centerLng: ctx.location.lng, size: ctx.gridSize, spacingM: ctx.spacingM, shape: ctx.shape }).length
-  const billable = provider !== 'fake'
+  const billable = isBillable(choice)
   const check = await checkPointsQuota(admin, p.orgId, billable ? points : 0)
   return {
     ok: true,
-    estimate: { provider, points, costUsd: points * providerProfile(provider).costPerPointUsd, billable, quota: check.quota },
+    estimate: {
+      provider,
+      credentialSource: choice.source,
+      points,
+      costUsd: points * providerProfile(provider).costPerPointUsd,
+      billable,
+      quota: check.quota,
+    },
   }
 }
 
@@ -131,10 +147,9 @@ export async function createScan(admin: Admin, p: ScanParams): Promise<CreateSca
   const ctx = await loadContext(admin, p)
   if ('error' in ctx) return { ok: false, error: ctx.error as string }
 
-  const provider = await pickProviderId(admin)
-  if (!provider) {
-    return { ok: false, error: 'No rank provider is configured. Ask the platform admin to add a DataForSEO or SerpAPI key.' }
-  }
+  const choice = await pickProvider(admin, p.orgId)
+  if ('error' in choice) return { ok: false, error: choice.error }
+  const provider = choice.id
   const profile = providerProfile(provider)
   const grid = buildGrid({
     centerLat: ctx.location.lat,
@@ -143,10 +158,11 @@ export async function createScan(admin: Admin, p: ScanParams): Promise<CreateSca
     spacingM: ctx.spacingM,
     shape: ctx.shape,
   })
-  const billable = provider !== 'fake'
+  const billable = isBillable(choice)
   const check = await checkPointsQuota(admin, p.orgId, billable ? grid.length : 0)
   const estimate: ScanEstimate = {
     provider,
+    credentialSource: choice.source,
     points: grid.length,
     costUsd: grid.length * profile.costPerPointUsd,
     billable,
@@ -166,6 +182,7 @@ export async function createScan(admin: Admin, p: ScanParams): Promise<CreateSca
       schedule_id: p.scheduleId ?? null,
       provider,
       provider_mode: profile.mode,
+      credential_source: choice.source,
       grid_size: ctx.gridSize,
       spacing_m: ctx.spacingM,
       shape: ctx.shape,
