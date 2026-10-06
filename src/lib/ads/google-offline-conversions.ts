@@ -326,8 +326,9 @@ export async function uploadBookingConversionIfEligible(params: UploadBookingCon
   if (!clickId) return // nothing to report -- not an error, just no click on this booking
 
   if (params.attribution?.consent_ad_user_data === 'denied') {
-    // The visitor denied ad_user_data: Google's EEA policy forbids sending
-    // this click back. 'granted' / null / absent (tenants with no banner) upload.
+    // Deliberate policy choice: we do not report conversions for visitors who
+    // declined the consent banner, even though the API would accept them
+    // flagged DENIED. 'granted' / null / absent (tenants with no banner) upload.
     await log({
       event_type: EVENT_TYPE,
       source: SOURCE,
@@ -468,8 +469,8 @@ export interface RetractBookingConversionParams {
  * ('ads.google_conversion_retraction'). Never throws.
  */
 export async function retractBookingConversionIfEligible(params: RetractBookingConversionParams): Promise<void> {
-  // Admin-created / pay-on-site bookings never fired the website's online
-  // conversion, so there is nothing to retract (and Google would answer
+  // Admin-created bookings (no attribution bundle) never fired the website's
+  // online conversion, so there is nothing to retract (and Google would answer
   // CONVERSION_NOT_FOUND).
   if (
     !attributionIndicatesWebsiteOrigin(params.storedAttribution) &&
