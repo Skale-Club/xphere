@@ -66,6 +66,11 @@ describe('SerpAPI provider', () => {
     expect(out[1].cid).toBe('1234')
   })
 
+  it('reads the primary category when place_results lists several (array type)', () => {
+    const json = { place_results: { title: 'Skleanings', place_id: 'p', type: ['Carpet cleaning service', 'Cleaning service'] } }
+    expect(parseSerpApiMaps(json, 20)).toMatchObject([{ category: 'Carpet cleaning service' }])
+  })
+
   it('handles a single place_results answer', () => {
     expect(parseSerpApiMaps({ place_results: { title: 'Only One', place_id: 'x' } }, 20)).toMatchObject([{ position: 1, placeId: 'x' }])
   })

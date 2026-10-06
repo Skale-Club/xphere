@@ -14,7 +14,7 @@ import { runAiVisibilityCheck } from '@/lib/local-seo/ai-visibility'
 import { runCitationCheck } from '@/lib/local-seo/citations'
 import { GRID_SIZES } from '@/lib/local-seo/types'
 import { runLocalSeoTick } from '@/lib/local-seo/worker'
-import { SerpApiClient, isSerpApiError } from '@/lib/serpapi/client'
+import { SerpApiClient, isSerpApiError, placeCategory } from '@/lib/serpapi/client'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
 const context = (permission: 'local_seo.view' | 'local_seo.manage') => localSeoContext(permission)
@@ -60,7 +60,7 @@ export async function searchBusinessCandidates(input: {
         lng: p.gps_coordinates!.longitude!,
         rating: p.rating ?? null,
         reviews: p.reviews ?? null,
-        category: p.type ?? p.types?.[0] ?? null,
+        category: placeCategory(p),
       }))
     return { results }
   } catch (err) {
