@@ -443,7 +443,8 @@ export function classifyGlobalKnowledgeSource(
 ): { thin: boolean; searchable: boolean } {
   const thin = (source.chunk_count ?? 0) <= 1 || source.name.trim() === 'Untitled'
   const modeMatches = mode === 'notion' ? source.source_type === 'notion_page' : source.source_type !== 'notion_page'
-  const searchable = source.status === 'ready' && source.is_active === true && modeMatches
+  // An empty Notion page is synced with zero chunks: present, but never returned.
+  const searchable = source.status === 'ready' && source.is_active === true && modeMatches && (source.chunk_count ?? 0) > 0
   return { thin, searchable }
 }
 

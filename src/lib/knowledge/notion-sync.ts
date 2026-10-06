@@ -188,7 +188,12 @@ async function syncNotionPage(params: {
   if (existingError) throw new Error(existingError.message)
 
   const current = existing as Source | null
-  if (current?.content_hash === contentHash && current.active_revision_id) {
+  // A page moved under another synchronized root takes that root's platform,
+  // and every chunk carries the platform in its metadata — so a move must
+  // re-embed even when the text is unchanged.
+  const placementChanged = !!current &&
+    (current.notion_root_id !== params.root.id || current.platform !== params.root.platform)
+  if (!placementChanged && current?.content_hash === contentHash && current.active_revision_id) {
     const { error } = await supabase
       .from('global_knowledge_sources')
       .update({
@@ -223,6 +228,45 @@ async function syncNotionPage(params: {
       .single()
     if (error || !inserted) throw new Error(error?.message ?? 'Failed to create Notion source')
     sourceId = inserted.id
+  } else if (placementChanged) {
+    const { error } = await supabase
+      .from('global_knowledge_sources')
+      .update({
+        platform: params.root.platform,
+        notion_root_id: params.root.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', sourceId)
+    if (error) throw new Error(error.message)
+  }
+
+  // A page with nothing but its title (an empty module placeholder) would be
+  // indexed as one lone title chunk: it matches searches by name and answers
+  // nothing. Keep the source row for the admin view, but index no chunks.
+  if (!markdown.trim() && !propertiesSection.trim()) {
+    await supabase
+      .from('documents')
+      .delete()
+      .contains('metadata', { global_knowledge_source_id: sourceId })
+    const now = new Date().toISOString()
+    const { error } = await supabase
+      .from('global_knowledge_sources')
+      .update({
+        name: page.title,
+        source_url: page.url,
+        status: 'ready',
+        error_detail: null,
+        chunk_count: 0,
+        content_hash: contentHash,
+        active_revision_id: null,
+        external_last_edited_at: page.lastEditedTime,
+        last_synced_at: now,
+        is_active: true,
+        updated_at: now,
+      })
+      .eq('id', sourceId)
+    if (error) throw new Error(error.message)
+    return
   }
 
   const chunks = chunkText(content, 500, 50)
