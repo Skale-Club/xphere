@@ -8,6 +8,8 @@ export type ScanStatus = 'queued' | 'running' | 'partial' | 'completed' | 'faile
 export type PointStatus = 'queued' | 'in_flight' | 'done' | 'failed'
 export type MatchMethod = 'place_id' | 'cid' | 'name'
 export type ProviderId = 'dataforseo' | 'serpapi' | 'fake'
+/** Whose provider account a scan runs on (migration 1323). */
+export type CredentialSource = 'platform' | 'own'
 export type ScanTrigger = 'manual' | 'schedule' | 'workflow' | 'mcp'
 
 /** One business in one point's Maps results, normalised across providers. */

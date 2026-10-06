@@ -5,6 +5,7 @@
 
 import type { SerpResult } from '../types'
 import { RankProviderError, type PointQuery, type SyncRankProvider } from './types'
+import { placeCategory } from '@/lib/serpapi/client'
 
 const SERPAPI_BASE = 'https://serpapi.com/search.json'
 // Developer plan: US$75 / 5,000 searches (Oct 2026). Used for cost tracking.
@@ -18,7 +19,8 @@ type SerpApiLocalResult = {
   data_cid?: string | number
   rating?: number
   reviews?: number
-  type?: string
+  /** A string in local_results; an array of categories in place_results. */
+  type?: string | string[]
   address?: string
   phone?: string
   gps_coordinates?: { latitude?: number; longitude?: number }
@@ -47,7 +49,7 @@ export function parseSerpApiMaps(json: unknown, depth: number): SerpResult[] {
       cid: r.data_cid != null ? String(r.data_cid) : cidFromDataId(r.data_id),
       rating: typeof r.rating === 'number' ? r.rating : null,
       reviews: typeof r.reviews === 'number' ? r.reviews : null,
-      category: r.type ?? null,
+      category: placeCategory(r),
       address: r.address ?? null,
       phone: r.phone ?? null,
       lat: r.gps_coordinates?.latitude ?? null,

@@ -173,7 +173,9 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await fn({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      // cancelBooking additionally reports `transitioned` (the webhook gates the
+      // Google Ads retraction on it); the others keep the bare shape.
+      expect(result).toEqual(fn === cancelBooking ? { ok: true, transitioned: true } : { ok: true })
       expect(state.eventDispatchInserts).toHaveLength(1)
       expect(state.eventDispatchInserts[0]).toMatchObject({
         event_type: event,
@@ -191,7 +193,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await fn({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toEqual(fn === cancelBooking ? { ok: true, transitioned: false } : { ok: true })
       expect(state.eventDispatchInserts).toHaveLength(0)
       expect(state.fromCalls).not.toContain('workflows')
     })

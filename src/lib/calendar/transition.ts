@@ -329,12 +329,16 @@ export async function cancelBooking(
   ctx: TransitionContext,
   bookingId: string,
   orgId: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; transitioned?: boolean }> {
   const result = await runStatusTransition(ctx, bookingId, orgId, 'cancelled', ['confirmed'])
   if (!result.ok) return result
-  if (!result.transitioned) return { ok: true }
+  // `transitioned` is true only for the call whose atomic RPC actually moved
+  // the row -- concurrent duplicate deliveries get false. Callers that need
+  // exactly-once side effects (the xkedule webhook's Google Ads retraction)
+  // gate on it.
+  if (!result.transitioned) return { ok: true, transitioned: false }
   await emitCalendarEvent(ctx, { event: 'meeting.cancelled', booking_id: bookingId, org_id: orgId })
-  return { ok: true }
+  return { ok: true, transitioned: true }
 }
 
 export async function markNoShow(

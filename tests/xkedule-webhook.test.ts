@@ -22,10 +22,21 @@ vi.mock('@/lib/supabase/admin', () => ({
 vi.mock('@/lib/calendar/transition', () => ({
   emitCalendarEvent: vi.fn(async () => ({ dispatched: 0, dispatch_id: null })),
   confirmBooking: vi.fn(async () => ({ ok: true })),
-  cancelBooking: vi.fn(async () => ({ ok: true })),
+  cancelBooking: vi.fn(async (): Promise<{ ok: boolean; error?: string; transitioned?: boolean }> => ({
+    ok: true,
+    transitioned: true,
+  })),
   markNoShow: vi.fn(async () => ({ ok: true })),
   markShowed: vi.fn(async () => ({ ok: true })),
   rescheduleBooking: vi.fn(async () => ({ ok: true })),
+}))
+
+// Google Ads side effects are fire-and-forget and covered by
+// tests/google-offline-conversions.test.ts; here we only assert WHEN the
+// webhook triggers them.
+vi.mock('@/lib/ads/google-offline-conversions', () => ({
+  uploadBookingConversionIfEligible: vi.fn(async () => {}),
+  retractBookingConversionIfEligible: vi.fn(async () => {}),
 }))
 
 // Pass-through stand-in for email — this route's own normalisation
@@ -58,6 +69,10 @@ import {
   markShowed,
   rescheduleBooking,
 } from '@/lib/calendar/transition'
+import {
+  uploadBookingConversionIfEligible,
+  retractBookingConversionIfEligible,
+} from '@/lib/ads/google-offline-conversions'
 import { POST } from '@/app/api/xkedule/webhook/route'
 
 // ─── Test-data fixtures ─────────────────────────────────────────────────────
@@ -204,6 +219,7 @@ function existingOpts(overrides: {
   status?: string
   start_at?: string
   end_at?: string
+  attribution?: Record<string, unknown> | null
   bookingsUpdate?: FakeResp
 } = {}) {
   return {
@@ -214,6 +230,7 @@ function existingOpts(overrides: {
         status: overrides.status ?? 'confirmed',
         start_at: overrides.start_at ?? UNCHANGED_START_AT,
         end_at: overrides.end_at ?? UNCHANGED_END_AT,
+        attribution: overrides.attribution ?? null,
       },
       error: null,
     },
@@ -862,4 +879,92 @@ describe('POST /api/xkedule/webhook - unknown-status guard', () => {
       expect(bookingsInsertMock).not.toHaveBeenCalled()
     },
   )
+})
+
+// ─── Google Ads: retraction of the online conversion on cancel ──────────────
+
+describe('POST /api/xkedule/webhook - Google Ads retraction on cancel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('retracts the online conversion (orderId = Xkedule booking id, not the mirror uuid) when an existing row transitions to cancelled', async () => {
+    const stored = { gclid: 'gc1', captured_at: '2026-07-10T10:00:00.000Z' }
+    const { client } = buildFakeClient(existingOpts({ status: 'confirmed', attribution: stored }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled', bookingId: 4242 })))
+
+    expect(vi.mocked(cancelBooking)).toHaveBeenCalled()
+    expect(vi.mocked(retractBookingConversionIfEligible)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(retractBookingConversionIfEligible)).toHaveBeenCalledWith({
+      orgId: ORG_ID,
+      bookingId: EXISTING_BOOKING_ID,
+      externalBookingId: '4242',
+      cancelledAt: new Date('2026-07-15T10:00:00.000Z'),
+      // the row's attribution as stored BEFORE this delivery; the cancel
+      // payload itself carried none.
+      storedAttribution: stored,
+      incomingAttribution: null,
+    })
+    expect(vi.mocked(uploadBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
+
+  it('does NOT retract when a concurrent duplicate delivery already moved the row (transition reports transitioned=false)', async () => {
+    vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: true, transitioned: false })
+    const { client } = buildFakeClient(existingOpts({ status: 'confirmed', attribution: { gclid: 'gc1' } }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled' })))
+
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
+
+  it('does NOT retract again on a redelivery of an already-cancelled row', async () => {
+    const { client } = buildFakeClient(existingOpts({ status: 'cancelled' }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled' })))
+
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
+
+  it('does NOT retract when the lifecycle transition fails', async () => {
+    vi.mocked(cancelBooking).mockResolvedValueOnce({ ok: false, error: 'boom' })
+    const { client } = buildFakeClient(existingOpts({ status: 'confirmed' }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled' })))
+
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
+
+  it('does NOT retract for a first-seen (INSERT) cancelled booking', async () => {
+    const { client } = buildFakeClient({})
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled' })))
+
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
+
+  it("does NOT retract on 'completed' (showed) -- that path uploads the offline conversion instead", async () => {
+    const { client } = buildFakeClient(existingOpts({ status: 'confirmed' }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    await POST(makeRequest(makePayload({ event: 'booking.updated', status: 'completed' })))
+
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+    expect(vi.mocked(uploadBookingConversionIfEligible)).toHaveBeenCalledTimes(1)
+  })
+
+  it('a showed row can never be cancelled afterwards (terminal guard) -- no retraction', async () => {
+    const { client } = buildFakeClient(existingOpts({ status: 'showed' }))
+    vi.mocked(createServiceRoleClient).mockReturnValue(client as any)
+
+    const res = await POST(makeRequest(makePayload({ event: 'booking.cancelled', status: 'cancelled' })))
+
+    expect(await res.json()).toEqual({ ok: true, skipped: 'terminal_state' })
+    expect(vi.mocked(retractBookingConversionIfEligible)).not.toHaveBeenCalled()
+  })
 })

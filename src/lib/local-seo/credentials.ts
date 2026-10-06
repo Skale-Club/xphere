@@ -7,6 +7,12 @@ import 'server-only'
 // platform SerpAPI key is the fallback. LOCAL_SEO_PROVIDER forces one
 // ('dataforseo' | 'serpapi' | 'fake'); 'fake' runs offline for dev/QA.
 //
+// Per org, the platform admin can switch scans to the org's OWN DataForSEO
+// account (Integrations → DataForSEO; local_seo_org_settings, migration 1323).
+// Those scans are not billable: the org pays DataForSEO directly, so they skip
+// the points quota and the platform daily cap. An org set to 'own' without a
+// connected account gets an error, never a silent fallback to the platform's.
+//
 // An org's own SerpAPI key (saved for Google Reviews) is deliberately NOT used
 // for geogrid scans: the free SerpAPI tier is 100 searches/month and a single
 // 7x7 scan would spend half of it. It is only used for the one-off business
@@ -18,7 +24,7 @@ import { decrypt } from '@/lib/crypto'
 import { getPlatformSetting } from '@/lib/platform-settings'
 import type { Database } from '@/types/database'
 
-import type { ProviderId } from './types'
+import type { CredentialSource, ProviderId } from './types'
 import { createDataForSeoProvider } from './providers/dataforseo'
 import { createFakeProvider } from './providers/fake'
 import { createSerpApiProvider } from './providers/serpapi'
@@ -40,28 +46,65 @@ async function dataForSeoCredentials(admin: Admin) {
   return login && password ? { login, password } : null
 }
 
-export type ProviderTarget = { placeId: string | null; name: string; lat: number; lng: number }
-
-/** The provider new scans should use, or null when none is configured. */
-export async function pickProviderId(admin: Admin): Promise<ProviderId | null> {
-  const forced = process.env.LOCAL_SEO_PROVIDER as ProviderId | undefined
-  if (forced === 'fake') return 'fake'
-  if (forced !== 'serpapi' && (await dataForSeoCredentials(admin))) return 'dataforseo'
-  if (forced !== 'dataforseo' && (await platformCredential(admin, 'SERPAPI_API_KEY'))) return 'serpapi'
-  return null
+/** The org's own DataForSEO account from Integrations, when connected and active. */
+export async function orgDataForSeoCredentials(admin: Admin, orgId: string) {
+  const { data } = await admin
+    .from('integrations')
+    .select('encrypted_api_key, config')
+    .eq('organization_id', orgId)
+    .eq('provider', 'dataforseo')
+    .eq('is_active', true)
+    .limit(1)
+    .maybeSingle()
+  const login = ((data?.config ?? {}) as Record<string, unknown>).login
+  if (typeof login !== 'string' || !login.trim() || !data?.encrypted_api_key) return null
+  try {
+    const password = await decrypt(data.encrypted_api_key)
+    return password ? { login: login.trim(), password } : null
+  } catch {
+    return null
+  }
 }
 
-/** Instantiate the provider a scan was created with. */
+/** Whose DataForSEO account the platform admin set this org's scans to run on. */
+export async function rankCredentialSource(admin: Admin, orgId: string): Promise<CredentialSource> {
+  const { data } = await admin.from('local_seo_org_settings').select('rank_credentials').eq('org_id', orgId).maybeSingle()
+  return data?.rank_credentials === 'own' ? 'own' : 'platform'
+}
+
+export type ProviderTarget = { placeId: string | null; name: string; lat: number; lng: number }
+
+export type ProviderChoice = { id: ProviderId; source: CredentialSource }
+
+/** The provider and account new scans for `orgId` should use. */
+export async function pickProvider(admin: Admin, orgId: string): Promise<ProviderChoice | { error: string }> {
+  const forced = process.env.LOCAL_SEO_PROVIDER as ProviderId | undefined
+  if (forced === 'fake') return { id: 'fake', source: 'platform' }
+  if ((await rankCredentialSource(admin, orgId)) === 'own') {
+    if (forced !== 'serpapi' && (await orgDataForSeoCredentials(admin, orgId))) return { id: 'dataforseo', source: 'own' }
+    return {
+      error: 'This organization runs scans on its own DataForSEO account, but none is connected. Add it in Integrations → DataForSEO.',
+    }
+  }
+  if (forced !== 'serpapi' && (await dataForSeoCredentials(admin))) return { id: 'dataforseo', source: 'platform' }
+  if (forced !== 'dataforseo' && (await platformCredential(admin, 'SERPAPI_API_KEY'))) return { id: 'serpapi', source: 'platform' }
+  return { error: 'No rank provider is configured. Ask the platform admin to add a DataForSEO or SerpAPI key.' }
+}
+
+/** Instantiate the provider a scan was created with, on the account it was created with. */
 export async function providerFor(
   admin: Admin,
   id: ProviderId,
   target: ProviderTarget,
+  account: { source: CredentialSource; orgId: string },
 ): Promise<RankProvider | null> {
   if (id === 'fake') return createFakeProvider(target)
   if (id === 'dataforseo') {
-    const creds = await dataForSeoCredentials(admin)
+    const creds =
+      account.source === 'own' ? await orgDataForSeoCredentials(admin, account.orgId) : await dataForSeoCredentials(admin)
     return creds ? createDataForSeoProvider(creds.login, creds.password) : null
   }
+  if (account.source === 'own') return null
   const key = await platformCredential(admin, 'SERPAPI_API_KEY')
   return key ? createSerpApiProvider(key) : null
 }

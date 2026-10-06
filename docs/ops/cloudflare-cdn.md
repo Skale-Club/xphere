@@ -52,6 +52,13 @@ Three rules in the `http_request_cache_settings` phase:
 
 1. **`/_next/static/*`** → cache, edge TTL 1 year, browser TTL 1 year.
    Filenames are content-hashed, so they are safe to cache forever.
+   Status code TTL: **≥ 400 → No store.** Without it, a rolling deploy poisons
+   the edge for a year: during the swap a browser holding the new HTML asks the
+   still-live old container for a new chunk, gets a 404, and Cloudflare caches
+   that 404. React never hydrates and every button looks dead (2026-10-06:
+   `webpack-<hash>.js` served as `text/plain` 404 with `cf-cache-status: HIT`).
+   If it happens again: purge the URL, and users need Ctrl+Shift+R because the
+   browser kept its own copy of the 404.
 2. **`/widget/*`** → cache, edge TTL 300s, browser TTL 60s.
    Public per-token content; short TTL so review updates surface quickly.
 3. **`/api/*` and `/auth/*`** → **bypass cache.**

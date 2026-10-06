@@ -14,6 +14,8 @@ import { updateOrgSettings } from '@/app/(admin)/admin/_actions/get-org-detail'
 import { formatEmailDisplay } from '@/lib/email-addresses/format'
 import type { OrgDetail } from '@/app/(admin)/admin/_actions/get-org-detail'
 import { OrgBillingCard } from '@/components/admin/org-billing-card'
+import { OrgLocalSeoCard } from '@/components/admin/org-local-seo-card'
+import type { OrgLocalSeoSettings } from '@/app/(admin)/admin/_actions/local-seo-actions'
 
 const FEATURE_FLAGS = [
   {
@@ -53,7 +55,7 @@ const initFlags = (s: Record<string, unknown>) => ({
   advanced_pipeline_enabled: Boolean(s.advanced_pipeline_enabled),
 })
 
-export function OrgDetailView({ org }: { org: OrgDetail }) {
+export function OrgDetailView({ org, localSeo }: { org: OrgDetail; localSeo: OrgLocalSeoSettings }) {
   const [savedFlags, setSavedFlags] = useState(() => initFlags(org.settings))
   const [flags, setFlags] = useState(() => initFlags(org.settings))
   const [isPending, startTransition] = useTransition()
@@ -145,6 +147,7 @@ export function OrgDetailView({ org }: { org: OrgDetail }) {
 
         <div className="lg:col-span-1 space-y-4">
           <OrgBillingCard orgId={org.id} billing={org.billing} />
+          <OrgLocalSeoCard orgId={org.id} settings={localSeo} />
 
           <Card>
             <CardHeader className="pb-3 pt-4 px-4">

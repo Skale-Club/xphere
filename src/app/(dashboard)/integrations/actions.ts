@@ -10,7 +10,7 @@ import { assertSafeBaseUrl, MedusaUnsafeBaseUrlError } from '@/lib/medusa/client
 export type IntegrationForDisplay = {
   id: string
   organization_id: string
-  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console'
+  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo'
   name: string
   masked_api_key: string // ••••••••last4 | never full key
   location_id: string | null
@@ -304,6 +304,18 @@ export async function testIntegrationConnection(
 
     if (provider === 'resend') {
       return testResendApiKey(apiKey)
+    }
+
+    if (provider === 'dataforseo') {
+      const login = (credentials.login ?? '').trim()
+      if (!login) return { ok: false, error: 'API login is required.' }
+      const res = await fetch('https://api.dataforseo.com/v3/appendix/user_data', {
+        headers: { Authorization: `Basic ${Buffer.from(`${login}:${apiKey}`).toString('base64')}` },
+        signal: controller.signal,
+      })
+      const body = (await res.json().catch(() => null)) as { status_code?: number; status_message?: string } | null
+      if (res.ok && body?.status_code === 20000) return { ok: true }
+      return { ok: false, error: `DataForSEO: ${body?.status_message ?? `HTTP ${res.status}`}` }
     }
 
     if (provider === 'zernio') {

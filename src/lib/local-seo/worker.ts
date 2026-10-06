@@ -26,7 +26,7 @@ import { findTarget, competitorKey, top3 } from './matching'
 import { aggregateCompetitors, computeMetrics } from './metrics'
 import type { AsyncRankProvider, PointQuery, RankProvider, TaskOutcome } from './providers/types'
 import { RankProviderError, isRankProviderError } from './providers/types'
-import type { ProviderId, SerpResult, TargetIdentity } from './types'
+import type { SerpResult, TargetIdentity } from './types'
 
 type Admin = SupabaseClient<Database>
 type PointRow = Database['public']['Tables']['local_seo_scan_points']['Row']
@@ -114,7 +114,7 @@ export async function runLocalSeoTick(admin: Admin, opts: TickOptions = {}): Pro
       await failScan(admin, ctx.scan, `The ${ctx.scan.provider} provider is not configured.`)
       continue
     }
-    if (providers.tripped(provider.id)) {
+    if (providers.tripped(ctx)) {
       await releasePoints(admin, scanPoints)
       continue
     }
@@ -125,7 +125,7 @@ export async function runLocalSeoTick(admin: Admin, opts: TickOptions = {}): Pro
       const queue = [...scanPoints]
       await pool(SYNC_CONCURRENCY, queue.length, async (i) => {
         const point = queue[i]
-        if (Date.now() > deadline || providers.tripped(provider.id) || ctx.scan.status === 'failed') {
+        if (Date.now() > deadline || providers.tripped(ctx) || ctx.scan.status === 'failed') {
           summary.timedOut ||= Date.now() > deadline
           await releasePoints(admin, [point])
           return
@@ -136,7 +136,7 @@ export async function runLocalSeoTick(admin: Admin, opts: TickOptions = {}): Pro
           summary.fetched++
         } catch (err) {
           const e = asProviderError(err)
-          if (e.kind === 'transient') providers.recordTransient(provider.id)
+          if (e.kind === 'transient') providers.recordTransient(ctx)
           if (await handlePointError(admin, point, ctx, e)) summary.failedPoints++
         }
       })
@@ -171,7 +171,7 @@ async function submitAsync(
       outcomes = await provider.submit(batch.map((p) => toQuery(p, ctx.scan)), postbackUrl)
     } catch (err) {
       const e = asProviderError(err)
-      if (e.kind === 'transient') providers.recordTransient(provider.id)
+      if (e.kind === 'transient') providers.recordTransient(ctx)
       for (const p of batch) if (await handlePointError(admin, p, ctx, e)) summary.failedPoints++
       continue
     }
@@ -239,7 +239,7 @@ async function pollAsync(
     const ctx = contexts.get(point.scan_id)
     if (!ctx) continue
     const provider = await providers.get(ctx)
-    if (!provider || provider.mode !== 'async' || providers.tripped(provider.id)) continue
+    if (!provider || provider.mode !== 'async' || providers.tripped(ctx)) continue
     touched.add(point.scan_id)
     polled++
     try {
@@ -261,7 +261,7 @@ async function pollAsync(
       }
     } catch (err) {
       const e = asProviderError(err)
-      if (e.kind === 'transient') providers.recordTransient(provider.id)
+      if (e.kind === 'transient') providers.recordTransient(ctx)
       else if (await handlePointError(admin, point, ctx, e)) summary.failedPoints++
     }
   }
@@ -556,30 +556,45 @@ async function loadScanContexts(admin: Admin, scanIds: string[]): Promise<Map<st
 
 class ProviderCache {
   private cache = new Map<string, RankProvider | null>()
-  private transient = new Map<ProviderId, number>()
+  private transient = new Map<string, number>()
   constructor(
     private admin: Admin,
     private override?: TickOptions['providerOverride'],
   ) {}
 
+  /**
+   * One provider instance per account: the fake provider is per-target, the
+   * platform account is shared by every org, and an org's own account is
+   * shared only by that org's scans. The circuit breaker uses the same key,
+   * so one org's flaky account never pauses everyone else's scans.
+   */
+  private keyFor(ctx: ScanContext): string {
+    const { provider, credential_source: source, org_id: orgId, location_id: locationId } = ctx.scan
+    if (provider === 'fake') return `fake:${locationId}`
+    return source === 'own' ? `${provider}:own:${orgId}` : `${provider}:platform`
+  }
+
   async get(ctx: ScanContext): Promise<RankProvider | null> {
-    // The fake provider is per-target; real ones are shared per tick.
-    const key = ctx.scan.provider === 'fake' ? `fake:${ctx.scan.location_id}` : ctx.scan.provider
+    const key = this.keyFor(ctx)
     if (!this.cache.has(key)) {
       const p = this.override
         ? this.override(ctx.scan, ctx.target)
-        : await providerFor(this.admin, ctx.scan.provider, ctx.target)
+        : await providerFor(this.admin, ctx.scan.provider, ctx.target, {
+            source: ctx.scan.credential_source === 'own' ? 'own' : 'platform',
+            orgId: ctx.scan.org_id,
+          })
       this.cache.set(key, p)
     }
     return this.cache.get(key) ?? null
   }
 
-  recordTransient(id: ProviderId) {
-    this.transient.set(id, (this.transient.get(id) ?? 0) + 1)
+  recordTransient(ctx: ScanContext) {
+    const key = this.keyFor(ctx)
+    this.transient.set(key, (this.transient.get(key) ?? 0) + 1)
   }
 
-  tripped(id: ProviderId): boolean {
-    return (this.transient.get(id) ?? 0) >= BREAKER_THRESHOLD
+  tripped(ctx: ScanContext): boolean {
+    return (this.transient.get(this.keyFor(ctx)) ?? 0) >= BREAKER_THRESHOLD
   }
 }
 

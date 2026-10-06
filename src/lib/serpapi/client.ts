@@ -68,10 +68,17 @@ export type SerpApiMapsSearchPlace = {
   address?: string
   rating?: number
   reviews?: number
-  type?: string
+  /** A string in local_results; an array of categories in place_results. */
+  type?: string | string[]
   types?: string[]
   thumbnail?: string
   gps_coordinates?: { latitude?: number; longitude?: number }
+}
+
+/** The primary category of a Maps place, whichever shape SerpAPI returned. */
+export function placeCategory(place: { type?: string | string[]; types?: string[] }): string | null {
+  const first = Array.isArray(place.type) ? place.type[0] : place.type
+  return first?.trim() || place.types?.[0]?.trim() || null
 }
 
 export type SerpApiMapsSearchResponse = {
