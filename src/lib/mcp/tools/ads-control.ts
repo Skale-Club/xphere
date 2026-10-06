@@ -29,6 +29,7 @@ import {
   type PreviewSuccess,
 } from '@/lib/ads/commands/engine'
 import { loadEffectivePolicy } from '@/lib/ads/commands/policies'
+import { KnowledgeRefsInputSchema, type KnowledgeRefInput } from '@/lib/knowledge/refs'
 import type { ChangeStatus } from '@/lib/ads/commands/types'
 import { resolveAdAccount, listActiveAdAccounts } from '@/lib/ads/ai-accounts'
 import { withConnectionHealth } from '@/lib/ads/connection-health'
@@ -46,7 +47,51 @@ const StatusSchema = z.enum([
 const NEXT_STEP_PENDING =
   'Show the operator the diff, warnings and approval_reasons above and ask them to confirm. Only after an explicit yes, call ads_approve_change with change_id and confirmation_token. Never approve on your own initiative.'
 
-function compact(change: ChangeView) {
+/**
+ * Optional "why" of a proposal. Not required (other clients exist), but an AI
+ * client is told to send it: the outcome reviewer files what happened against
+ * exactly these references ~7 days after the change is applied.
+ */
+const GroundingInput = {
+  rationale: z
+    .string()
+    .max(2000)
+    .optional()
+    .describe('Why you propose this change, in 1-3 sentences: the evidence (metrics, search terms) and the expected effect. Stored on the ledger and quoted in the outcome review.'),
+  knowledge_refs: KnowledgeRefsInputSchema.optional().describe(
+    'Global Knowledge sources that grounded this proposal — pass source_id (global_knowledge_source_id) and source_name from global_knowledge_search results you actually relied on.',
+  ),
+  memory_ids: z
+    .array(z.string().uuid())
+    .max(20)
+    .optional()
+    .describe('ids of ads memories (ads_search_memories) that informed this proposal, e.g. a past result of a similar change.'),
+}
+
+type GroundingArgs = { rationale?: string; knowledge_refs?: KnowledgeRefInput[]; memory_ids?: string[] }
+
+function grounding(args: GroundingArgs) {
+  return { rationale: args.rationale, knowledgeRefs: args.knowledge_refs, memoryRefs: args.memory_ids }
+}
+
+/** Short outcome for list/preview responses; ads_get_change_status returns the full object. */
+function outcomeBrief(change: ChangeView) {
+  const o = change.outcome
+  if (!o) return null
+  if (o.status === 'measured' || o.status === 'no_data') {
+    return {
+      status: o.status,
+      summary: o.summary,
+      windows: o.windows,
+      memory_id: o.memory_id,
+      confounders: o.confounders.length,
+      reviewed_at: change.outcome_reviewed_at,
+    }
+  }
+  return { status: o.status, reviewed_at: change.outcome_reviewed_at }
+}
+
+function compact(change: ChangeView, opts: { fullOutcome?: boolean } = {}) {
   return {
     change_id: change.id,
     status: change.status,
@@ -74,6 +119,14 @@ function compact(change: ChangeView) {
     external_drift: change.external_drift_detected_at
       ? { detected_at: change.external_drift_detected_at, detail: change.external_drift, note: 'The platform no longer matches this change — it was edited outside Xphere after being applied.' }
       : null,
+    rationale: change.rationale,
+    knowledge_refs: change.knowledge_refs,
+    memory_ids: change.memory_refs,
+    outcome: opts.fullOutcome
+      ? change.outcome
+        ? { ...change.outcome, reviewed_at: change.outcome_reviewed_at }
+        : null
+      : outcomeBrief(change),
   }
 }
 
@@ -168,7 +221,7 @@ export const adsControlTools: McpToolDef[] = [
           4: 'structural: creates, duplicates and destructive changes; approval required',
         },
         workflow:
-          'Read → ads_preview_change (returns diff + change_id + confirmation_token) → show the diff to the operator → only after they confirm, ads_approve_change → ads_get_change_status. Money in ad commands is always in major units of the account currency.',
+          'Read → ground: global_knowledge_search for the relevant lessons/playbooks and ads_search_memories (with a query) for past results of similar changes → ads_preview_change with `rationale` (why, citing the evidence) + `knowledge_refs` (the global_knowledge_search sources you relied on: source_id + source_name) + `memory_ids` (memories you relied on) → show the diff and the rationale to the operator → only after they confirm, ads_approve_change → ads_get_change_status. About 7 days after a change is applied Xphere reviews its outcome automatically (campaign metrics 7 days before vs 7 days after), writes it to the change (`outcome`) and files a "result" memory linked to the knowledge you cited — check those results before repeating a similar change. Money in ad commands is always in major units of the account currency.',
       }
     },
   },
@@ -413,12 +466,12 @@ export const adsControlTools: McpToolDef[] = [
     name: 'ads_preview_change',
     title: 'Preview an ads change',
     description:
-      'Propose ONE change to Google Ads, Meta Ads or Google Business Profile. Nothing is written: Xphere reads the current state, computes the before→after diff, checks policy, performs provider preflight when supported, and records it as awaiting approval. Returns change_id, diff, warnings, approval_reasons and possibly a one-time confirmation_token. You MUST show the diff to the operator and get an explicit yes before calling ads_approve_change. Google Business targets use accounts/{account}/locations/{location}.',
+      'Propose ONE change to Google Ads, Meta Ads or Google Business Profile. Nothing is written: Xphere reads the current state, computes the before→after diff, checks policy, performs provider preflight when supported, and records it as awaiting approval. Returns change_id, diff, warnings, approval_reasons and possibly a one-time confirmation_token. You MUST show the diff to the operator and get an explicit yes before calling ads_approve_change. Before proposing, call global_knowledge_search (and ads_search_memories with a query) and pass `rationale` plus `knowledge_refs`/`memory_ids` citing what grounded the change: ~7 days after it is applied the outcome is reviewed automatically and filed as a result memory against those references. Google Business targets use accounts/{account}/locations/{location}.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    inputSchema: z.object({ command: AdsCommandSchema }).strict(),
-    handler: async ({ command }, { auth }) => {
-      const result = await previewChange({ orgId: auth.orgId, actor: mcpActor(auth), command })
+    inputSchema: z.object({ command: AdsCommandSchema, ...GroundingInput }).strict(),
+    handler: async ({ command, ...why }, { auth }) => {
+      const result = await previewChange({ orgId: auth.orgId, actor: mcpActor(auth), command, ...grounding(why) })
       return previewResponse(auth.orgId, result)
     },
   },
@@ -426,7 +479,7 @@ export const adsControlTools: McpToolDef[] = [
     name: 'ads_preview_changes',
     title: 'Preview a batch of ads changes',
     description:
-      'Propose several changes at once (max 20), e.g. a list of negative keywords from a search-terms review. Each item uses exactly the `command` shape of ads_preview_change. Each command becomes its own change (one bad item never blocks the rest), grouped by batch_id. Same rules as ads_preview_change: show the operator every diff and get an explicit yes before approving.',
+      'Propose several changes at once (max 20), e.g. a list of negative keywords from a search-terms review. Each item uses exactly the `command` shape of ads_preview_change. Each command becomes its own change (one bad item never blocks the rest), grouped by batch_id. The top-level `rationale`, `knowledge_refs` and `memory_ids` apply to every item; the batch\'s outcome is reviewed as one unit ~7 days after it is applied. Same rules as ads_preview_change: ground the proposal first, show the operator every diff and get an explicit yes before approving.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     // Each item has exactly the shape of ads_preview_change's `command`. The full
@@ -434,14 +487,21 @@ export const adsControlTools: McpToolDef[] = [
     // twice — it is ~45 KB of JSON Schema in every client's context. Items are
     // validated by the same parser inside previewChange, with per-item errors.
     inputSchema: z
-      .object({ commands: z.array(z.record(z.string(), z.unknown())).min(1).max(20) })
+      .object({ commands: z.array(z.record(z.string(), z.unknown())).min(1).max(20), ...GroundingInput })
       .strict(),
-    handler: async ({ commands }, { auth }) => {
+    handler: async ({ commands, ...why }, { auth }) => {
       const actor = mcpActor(auth)
       const batchId = randomUUID()
       const results = []
       for (const command of commands) {
-        const result = await previewChange({ orgId: auth.orgId, actor, command, batchId, batchSize: commands.length })
+        const result = await previewChange({
+          orgId: auth.orgId,
+          actor,
+          command,
+          batchId,
+          batchSize: commands.length,
+          ...grounding(why),
+        })
         results.push(result.ok ? await previewResponse(auth.orgId, result) : failure(result))
       }
       return {
@@ -502,14 +562,15 @@ export const adsControlTools: McpToolDef[] = [
   {
     name: 'ads_get_change_status',
     title: 'Get ads change status',
-    description: 'Current status of a change (awaiting_approval, queued, succeeded, failed, drifted, ...), its diff, verification result and event log.',
+    description:
+      'Current status of a change (awaiting_approval, queued, succeeded, failed, drifted, ...), its diff, verification result, event log, the rationale and knowledge it was proposed with, and — once reviewed, ~7 days after it was applied — its outcome: campaign metrics 7 days before vs after, percent deltas, other changes in the same window (confounders) and the id of the result memory.',
     area: 'general_xphere',
     inputSchema: z.object({ change_id: z.string().uuid() }).strict(),
     handler: async ({ change_id }, { auth }) => {
       const result = await getChange(auth.orgId, change_id)
       if (!result) return { error: 'not_found', detail: 'Change not found in this organization.' }
       return {
-        ...compact(result.change),
+        ...compact(result.change, { fullOutcome: true }),
         events: result.events.map((e) => ({
           at: e.created_at,
           event: e.event_type,
@@ -523,7 +584,8 @@ export const adsControlTools: McpToolDef[] = [
   {
     name: 'ads_list_changes',
     title: 'List ads changes',
-    description: 'Change history and pending approvals for the organization, newest first. Filter by status, platform, account or campaign.',
+    description:
+      'Change history and pending approvals for the organization, newest first, with each change\'s rationale, cited knowledge and outcome summary (when reviewed). Filter by status, platform, account or campaign — e.g. status ["succeeded"] + campaign_id to see what was tried on a campaign and how it went.',
     area: 'general_xphere',
     inputSchema: z
       .object({
@@ -542,7 +604,7 @@ export const adsControlTools: McpToolDef[] = [
         campaignId: campaign_id,
         limit,
       })
-      return { changes: changes.map(compact), count: changes.length }
+      return { changes: changes.map((c) => compact(c)), count: changes.length }
     },
   },
   {
@@ -563,9 +625,14 @@ export const adsControlTools: McpToolDef[] = [
       'Propose the inverse of an applied change (restore the previous status, budget, name or bid; pause a keyword that was added; remove a negative that was added). This only PREVIEWS the rollback as a new change — it follows the same approval flow as ads_preview_change. History is never rewritten.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
-    inputSchema: z.object({ change_id: z.string().uuid() }).strict(),
-    handler: async ({ change_id }, { auth }) => {
-      const result = await rollbackChange({ orgId: auth.orgId, changeId: change_id, actor: mcpActor(auth) })
+    inputSchema: z
+      .object({
+        change_id: z.string().uuid(),
+        rationale: z.string().max(2000).optional().describe('Why the change is being rolled back (e.g. its reviewed outcome).'),
+      })
+      .strict(),
+    handler: async ({ change_id, rationale }, { auth }) => {
+      const result = await rollbackChange({ orgId: auth.orgId, changeId: change_id, actor: mcpActor(auth), rationale })
       return previewResponse(auth.orgId, result)
     },
   },

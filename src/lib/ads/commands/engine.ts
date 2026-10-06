@@ -43,7 +43,15 @@ import type { AdsActor, ChangeStatus, DiffEntry, PolicyFacts, ResourceSnapshot, 
 import { actsWithHumanAuthority, TERMINAL_STATUSES } from './types'
 import type { Json } from '@/types/database'
 import { onBusinessProfileChangeSettled } from '@/lib/gbp/ledger-effects'
+import {
+  KnowledgeRefInputSchema,
+  normalizeKnowledgeRefs,
+  parseStoredKnowledgeRefs,
+  type KnowledgeRef,
+  type KnowledgeRefInput,
+} from '@/lib/knowledge/refs'
 import { createLogger } from '@/lib/obs/logger'
+import type { ChangeOutcome } from '../outcomes'
 
 const log = createLogger({ module: 'ads/engine' })
 
@@ -95,6 +103,15 @@ export type ChangeView = {
   external_drift: unknown
   external_drift_detected_at: string | null
   last_reconciled_at: string | null
+  /** Why the change was proposed, in the proposer's words. */
+  rationale: string | null
+  /** Global Knowledge sources the proposer cited as grounding. */
+  knowledge_refs: KnowledgeRef[]
+  /** ads_memories ids the proposer cited. */
+  memory_refs: string[]
+  /** Before/after metrics comparison filed by the outcome reviewer (src/lib/ads/outcomes.ts). */
+  outcome: ChangeOutcome | null
+  outcome_reviewed_at: string | null
 }
 
 export type EngineFailure = {
@@ -158,7 +175,61 @@ export function toChangeView(row: ChangeRow): ChangeView {
     external_drift: row.external_drift,
     external_drift_detected_at: row.external_drift_detected_at,
     last_reconciled_at: row.last_reconciled_at,
+    rationale: row.rationale ?? null,
+    knowledge_refs: parseStoredKnowledgeRefs(row.knowledge_refs),
+    memory_refs: parseStoredMemoryRefs(row.memory_refs),
+    outcome: (row.outcome ?? null) as unknown as ChangeOutcome | null,
+    outcome_reviewed_at: row.outcome_reviewed_at ?? null,
   }
+}
+
+// ─── Rationale / references ───────────────────────────────────────────────────
+
+/** Stored rationale cap; the MCP input caps at 2000, dashboards and workflows may send more. */
+export const MAX_RATIONALE_CHARS = 4000
+export const MAX_MEMORY_REFS = 20
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Trim, cap and null-out an empty rationale. */
+export function normalizeRationale(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+  return trimmed.length > MAX_RATIONALE_CHARS ? `${trimmed.slice(0, MAX_RATIONALE_CHARS - 1)}…` : trimmed
+}
+
+/** Deduplicated memory UUIDs (lower-cased); anything that is not a UUID is dropped. */
+export function normalizeMemoryRefs(value: readonly string[] | null | undefined): string[] {
+  const out = new Set<string>()
+  for (const id of value ?? []) {
+    if (typeof id !== 'string' || !UUID_RE.test(id.trim())) continue
+    out.add(id.trim().toLowerCase())
+    if (out.size >= MAX_MEMORY_REFS) break
+  }
+  return Array.from(out)
+}
+
+/**
+ * Validate and dedupe knowledge refs from any caller. MCP input is already
+ * schema-checked; dashboard, Copilot and workflow callers may not be, so an
+ * invalid entry is dropped here rather than stored.
+ */
+export function sanitizeKnowledgeRefs(refs: ReadonlyArray<KnowledgeRefInput | KnowledgeRef> | null | undefined): KnowledgeRef[] {
+  const valid: KnowledgeRefInput[] = []
+  for (const ref of refs ?? []) {
+    if (!ref || typeof ref !== 'object') continue
+    const parsed = KnowledgeRefInputSchema.safeParse({
+      source_id: ref.source_id,
+      ...(ref.source_name ? { source_name: ref.source_name } : {}),
+      ...(ref.url ? { url: ref.url } : {}),
+    })
+    if (parsed.success) valid.push(parsed.data)
+  }
+  return normalizeKnowledgeRefs(valid).slice(0, 20)
+}
+
+function parseStoredMemoryRefs(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []
 }
 
 function fail(code: string, message: string, extra: Partial<EngineFailure> = {}): EngineFailure {
@@ -205,6 +276,15 @@ export type PreviewInput = {
    * policy alone would not.
    */
   approvalReason?: PolicyViolation
+  /**
+   * Why this change is proposed. Stored on the ledger row (trimmed, capped at
+   * MAX_RATIONALE_CHARS) and quoted in the outcome memory the reviewer files.
+   */
+  rationale?: string
+  /** Global Knowledge sources that grounded the proposal (global_knowledge_search results). */
+  knowledgeRefs?: ReadonlyArray<KnowledgeRefInput | KnowledgeRef>
+  /** ads_memories ids the proposal relied on. */
+  memoryRefs?: readonly string[]
 }
 
 export async function previewChange(input: PreviewInput): Promise<PreviewSuccess | EngineFailure> {
@@ -293,6 +373,9 @@ export async function previewChange(input: PreviewInput): Promise<PreviewSuccess
     confirmation_hash: token?.hash ?? null,
     rollback_of: input.rollbackOf ?? null,
     batch_id: input.batchId ?? null,
+    rationale: normalizeRationale(input.rationale),
+    knowledge_refs: sanitizeKnowledgeRefs(input.knowledgeRefs) as unknown as Json,
+    memory_refs: normalizeMemoryRefs(input.memoryRefs) as unknown as Json,
   }
 
   let { row, duplicate } = await insertChange(insertRow)
@@ -719,7 +802,13 @@ export async function cancelChange(params: { orgId: string; changeId: string; ac
 }
 
 /** Preview the inverse of a completed change. It then follows the normal approval path. */
-export async function rollbackChange(params: { orgId: string; changeId: string; actor: AdsActor }): Promise<PreviewSuccess | EngineFailure> {
+export async function rollbackChange(params: {
+  orgId: string
+  changeId: string
+  actor: AdsActor
+  /** Optional reason, appended to the "Rollback of change <id>" rationale. */
+  rationale?: string
+}): Promise<PreviewSuccess | EngineFailure> {
   const row = await getChangeRow(params.orgId, params.changeId)
   if (!row) return fail('not_found', 'Change request not found.')
   if (row.status !== 'succeeded' && row.status !== 'drifted') {
@@ -732,7 +821,18 @@ export async function rollbackChange(params: { orgId: string; changeId: string; 
     row.provider_ref,
   )
   if (!inverse) return fail('not_reversible', 'This change has no safe automatic inverse. Make the reverse change explicitly.')
-  return previewChange({ orgId: params.orgId, actor: params.actor, command: inverse, rollbackOf: row.id })
+  const reason = params.rationale?.trim()
+  return previewChange({
+    orgId: params.orgId,
+    actor: params.actor,
+    command: inverse,
+    rollbackOf: row.id,
+    // The rollback is about the original change, so it carries what grounded
+    // that one: the outcome reviewer can then say "this advice was undone".
+    rationale: `Rollback of change ${row.id}${reason ? `: ${reason}` : ''}`,
+    knowledgeRefs: parseStoredKnowledgeRefs(row.knowledge_refs),
+    memoryRefs: parseStoredMemoryRefs(row.memory_refs),
+  })
 }
 
 /** Re-preview a failed/expired/cancelled change against the current state. */
@@ -748,6 +848,9 @@ export async function retryChange(params: { orgId: string; changeId: string; act
     command: row.payload,
     batchId: row.batch_id ?? undefined,
     rollbackOf: row.rollback_of ?? undefined,
+    rationale: row.rationale ?? undefined,
+    knowledgeRefs: parseStoredKnowledgeRefs(row.knowledge_refs),
+    memoryRefs: parseStoredMemoryRefs(row.memory_refs),
   })
 }
 

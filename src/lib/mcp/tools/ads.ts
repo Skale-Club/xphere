@@ -1,12 +1,20 @@
 import { z } from 'zod'
+import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { createMemory, getOrCreateJourney } from '@/lib/ads/journey-db'
+import { createMemory, getOrCreateJourney, updateMemory } from '@/lib/ads/journey-db'
 import type { AdsMemoryType, AdsMemorySource } from '@/lib/ads/journey-db'
+import { searchMemoriesSemantic } from '@/lib/ads/memory-search'
 import {
   searchGlobalKnowledge,
   ingestGlobalKnowledgeText,
   isPlatformAdminUser,
+  getGlobalKnowledgeSourceMode,
+  listGlobalKnowledgeSources,
 } from '@/lib/knowledge/global-knowledge'
+import { createGlobalKnowledgeNotionPage, listGlobalKnowledgeNotionRoots } from '@/lib/knowledge/notion-write'
+import { processNextGlobalKnowledgeSyncJob } from '@/lib/knowledge/notion-sync'
+import { extractUrlContent } from '@/lib/knowledge/url-extract'
+import { KnowledgeRefsInputSchema } from '@/lib/knowledge/refs'
 import { getInsights, listCampaigns, getAdAccountInfo } from '@/lib/ads/meta-api'
 import type { DatePreset } from '@/lib/ads/meta-api'
 import { withMetaConnection } from '@/lib/ads/connection-health'
@@ -36,6 +44,28 @@ const MetaDatePresetSchema = z.enum([
 
 function parseLeads(actions?: Array<{ action_type: string; value: string }>): number {
   return parseFloat(actions?.find((a) => a.action_type === 'lead')?.value ?? '0')
+}
+
+const MemoryTypeSchema = z.enum(['insight', 'decision', 'plan', 'risk', 'observation', 'result', 'goal'])
+const MemoryStatusSchema = z.enum(['active', 'archived', 'superseded', 'needs_review'])
+
+const FORBIDDEN_GLOBAL_KNOWLEDGE = {
+  error: 'forbidden',
+  detail: 'Only the platform super admin can manage Global Knowledge.',
+  status: 403,
+} as const
+
+/**
+ * Drain the Notion sync queue after the response so a page created through MCP
+ * becomes searchable in seconds instead of waiting for the next cron drain.
+ * `after` throws outside a request scope; the cron picks the job up anyway.
+ */
+function scheduleGlobalKnowledgeSync(): void {
+  try {
+    after(() => processNextGlobalKnowledgeSyncJob().then(() => undefined))
+  } catch {
+    // No request scope — the scheduled drain will process the queued job.
+  }
 }
 
 export const adsTools: McpToolDef[] = [
@@ -377,21 +407,23 @@ export const adsTools: McpToolDef[] = [
     name: 'global_knowledge_search',
     title: 'Search Global Knowledge',
     description:
-      'Semantic search over the platform-wide, expert-curated ads knowledge base (transcribed courses, market best-practices) segmented by media. Use this to GROUND diagnostics, proposals, and plans in proven fundamentals before suggesting changes. A requested platform also returns platform-agnostic "global" fundamentals. Cite what you use.',
+      'Semantic search over the platform-wide, expert-curated ads knowledge base (transcribed courses, market best-practices) segmented by media. Use this to GROUND diagnostics, proposals, and plans in proven fundamentals before suggesting changes. A requested platform also returns platform-agnostic "global" fundamentals. Passages below a relevance floor are dropped: when `matches` is empty, `note` says nothing relevant was found — then do not cite Global Knowledge. Cite what you use by source_name (and url when present), and pass each source_id as knowledge_refs to ads_preview_change / ads_create_memory so the outcome can be traced back to the lesson.',
     area: 'general_xphere',
     inputSchema: z.object({
       query: z.string().min(1),
       platform: PlatformSchema,
       top_k: z.number().int().positive().max(20).optional(),
+      min_similarity: z.number().min(0).max(1).optional()
+        .describe('Relevance floor (cosine similarity). Default 0.3; relevant lessons usually score 0.5+.'),
     }).strict(),
-    handler: async ({ query, platform, top_k }, { auth }) => {
-      const result = await searchGlobalKnowledge({
+    handler: async ({ query, platform, top_k, min_similarity }, { auth }) => {
+      return searchGlobalKnowledge({
         orgId: auth.orgId,
         query,
         platform,
         topK: top_k,
+        minSimilarity: min_similarity,
       })
-      return result
     },
   },
 
@@ -399,61 +431,124 @@ export const adsTools: McpToolDef[] = [
   // These feed/curate the global corpus. Gated to the platform super admin (the
   // calling MCP user must be a platform admin), regardless of which org the token
   // belongs to. Ingestion is billed to the platform OpenRouter key.
+  //
+  // In 'notion' source mode retrieval reads only synchronized Notion pages, so
+  // a write lands as a new Notion page under a synchronized root and flows
+  // through the normal sync. Writing a manual source there would be stored but
+  // never searchable — the silent failure this routing exists to prevent.
 
   {
     name: 'global_knowledge_add_text',
     title: 'Add text to Global Knowledge (super admin)',
     description:
-      'SUPER ADMIN ONLY. Ingest curated material into Global Knowledge for a media scope (meta/google) or "global". Chunks and embeds synchronously using the platform OpenRouter key.',
+      'SUPER ADMIN ONLY. Add curated material to Global Knowledge for a media scope (meta/google) or "global". When the knowledge base is synchronized from Notion (the usual case) this creates a Notion page under the matching root (or root_id) and queues its sync — it becomes searchable within minutes and stays editable in Notion. Otherwise it chunks and embeds synchronously. Structure the content before adding it (central idea, criteria, checklist, conclusion — like the existing lessons) and pass source_url when it came from a video or article.',
     area: 'general_xphere',
     inputSchema: z.object({
-      name: z.string().min(1).max(200),
-      content: z.string().min(1).max(500_000),
+      name: z.string().min(1).max(200).describe('Title of the lesson/page'),
+      content: z.string().min(1).max(400_000).describe('Markdown content'),
       platform: z.enum(['meta', 'google', 'global']).default('global'),
+      root_id: z.string().uuid().optional()
+        .describe('Notion root to file the page under (see global_knowledge_list → notion_roots). Defaults to the root matching platform, then the global root.'),
+      source_url: z.string().url().max(2000).optional().describe('Original video/article URL, recorded on the page'),
     }).strict(),
-    handler: async ({ name, content, platform }, { auth }) => {
-      if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
+    handler: async ({ name, content, platform, root_id, source_url }, { auth }) => {
+      if (!(await isPlatformAdminUser(auth.userId))) return FORBIDDEN_GLOBAL_KNOWLEDGE
+
+      if ((await getGlobalKnowledgeSourceMode()) === 'notion') {
+        const created = await createGlobalKnowledgeNotionPage({
+          title: name,
+          markdown: content,
+          platform,
+          rootId: root_id,
+          sourceUrl: source_url,
+          createdBy: auth.userId,
+        })
+        if (!created.ok) return { error: created.error, detail: created.detail }
+        scheduleGlobalKnowledgeSync()
+        return {
+          ok: true,
+          mode: 'notion',
+          notion_page_id: created.pageId,
+          notion_url: created.url,
+          root: { id: created.rootId, title: created.rootTitle },
+          next_step: 'The page was created in Notion and its sync is queued; it becomes searchable once the sync finishes (usually within a few minutes). Edit it in Notion to refine it.',
+        }
       }
-      const result = await ingestGlobalKnowledgeText({ name, content, platform, createdBy: auth.userId })
-      return result
+
+      const body = source_url ? `Source: ${source_url}\n\n${content}` : content
+      const result = await ingestGlobalKnowledgeText({ name, content: body, platform, createdBy: auth.userId })
+      return 'error' in result ? result : { ok: true, mode: 'manual', ...result }
+    },
+  },
+
+  {
+    name: 'global_knowledge_fetch_url',
+    title: 'Fetch a video transcript or article (super admin)',
+    description:
+      'SUPER ADMIN ONLY. Read-only: extract the text of a YouTube video (its captions/transcript) or a web article so it can be turned into a Global Knowledge lesson. Nothing is saved. Next: structure the text into a lesson (central idea, criteria, checklist, conclusion — no filler, keep the author\'s concrete numbers and examples) and call global_knowledge_add_text with source_url. Transcript extraction is best-effort: if it returns transcript_unavailable, ask the operator to paste the transcript.',
+    area: 'general_xphere',
+    annotations: { readOnlyHint: true, openWorldHint: true },
+    inputSchema: z.object({
+      url: z.string().url().max(2000),
+    }).strict(),
+    handler: async ({ url }, { auth }) => {
+      if (!(await isPlatformAdminUser(auth.userId))) return FORBIDDEN_GLOBAL_KNOWLEDGE
+      const result = await extractUrlContent(url)
+      if (!result.ok) return { error: result.error, detail: result.detail }
+      return {
+        ...result,
+        characters: result.text.length,
+        next_step: 'Structure this into a lesson, show it to the operator if they want to review it, then call global_knowledge_add_text with source_url set to this url.',
+      }
     },
   },
 
   {
     name: 'global_knowledge_list',
     title: 'List Global Knowledge sources (super admin)',
-    description: 'SUPER ADMIN ONLY. List Global Knowledge sources, optionally filtered by media.',
+    description:
+      'SUPER ADMIN ONLY. List Global Knowledge sources with health flags: `searchable` (retrieval can return it right now) and `thin` (at most one indexed chunk or untitled — its content probably lives in a video, attachment or database). Also returns the source mode and, in Notion mode, the synchronized roots you can file new pages under.',
     area: 'general_xphere',
     inputSchema: z.object({
       platform: z.enum(['meta', 'google', 'global']).optional(),
     }).strict(),
     handler: async ({ platform }, { auth }) => {
-      if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
+      if (!(await isPlatformAdminUser(auth.userId))) return FORBIDDEN_GLOBAL_KNOWLEDGE
+      const result = await listGlobalKnowledgeSources({ platform })
+      if ('error' in result) return result
+      const roots = result.source_mode === 'notion' ? await listGlobalKnowledgeNotionRoots() : []
+      return {
+        ...result,
+        thin_count: result.sources.filter((s) => s.thin).length,
+        unsearchable_count: result.sources.filter((s) => !s.searchable).length,
+        notion_roots: roots,
       }
-      let q = db()
-        .from('global_knowledge_sources')
-        .select('id, platform, name, source_type, status, error_detail, chunk_count, created_at')
-        .order('created_at', { ascending: false })
-      if (platform) q = q.eq('platform', platform)
-      const { data, error } = await q
-      if (error) return { error: 'query_failed', detail: error.message }
-      return { sources: data ?? [], count: (data ?? []).length }
     },
   },
 
   {
     name: 'global_knowledge_delete',
     title: 'Delete a Global Knowledge source (super admin)',
-    description: 'SUPER ADMIN ONLY. Remove a Global Knowledge source and its vector chunks.',
+    description:
+      'SUPER ADMIN ONLY. Remove a manually ingested Global Knowledge source and its vector chunks. Notion pages cannot be deleted here — delete or move the page in Notion and the sync removes it.',
     area: 'general_xphere',
     inputSchema: z.object({
       source_id: z.string().uuid(),
     }).strict(),
     handler: async ({ source_id }, { auth }) => {
-      if (!(await isPlatformAdminUser(auth.userId))) {
-        return { error: 'forbidden', detail: 'Only the platform super admin can manage Global Knowledge.', status: 403 }
+      if (!(await isPlatformAdminUser(auth.userId))) return FORBIDDEN_GLOBAL_KNOWLEDGE
+      const { data: source } = await db()
+        .from('global_knowledge_sources')
+        .select('id, source_type, source_url')
+        .eq('id', source_id)
+        .maybeSingle()
+      if (!source) return { error: 'not_found', detail: 'No Global Knowledge source with that id.' }
+      if (source.source_type === 'notion_page') {
+        return {
+          error: 'notion_managed',
+          detail: 'This source is synchronized from Notion. Delete or move the page in Notion; the next sync removes it from the knowledge base.',
+          notion_url: source.source_url,
+        }
       }
       await db().from('documents').delete().contains('metadata', { global_knowledge_source_id: source_id })
       const { error } = await db().from('global_knowledge_sources').delete().eq('id', source_id)
@@ -468,7 +563,7 @@ export const adsTools: McpToolDef[] = [
     name: 'ads_get_journey_summary',
     title: 'Get ads journey summary',
     description:
-      'Get a summary of the ads journey: recent memories (insights/decisions/plans), recent executions (pauses/budget changes), and active plans. Use this to understand the current state of the ads strategy.',
+      'Get a summary of the ads journey: recent memories (insights/decisions/plans, plus automatic "result" memories that measure applied changes), recent executions (pauses/budget changes), and active plans. Use this to understand the current state of the ads strategy.',
     area: 'general_xphere',
     inputSchema: z.object({
       platform: PlatformSchema,
@@ -480,7 +575,7 @@ export const adsTools: McpToolDef[] = [
       // Memories
       let memQ = db()
         .from('ads_memories')
-        .select('id, type, status, source, platform, title, content, campaign_name, confidence, created_at')
+        .select('id, type, status, source, platform, title, content, campaign_name, confidence, knowledge_refs, change_request_id, created_at')
         .eq('org_id', orgId)
         .in('status', ['active', 'needs_review'])
         .order('created_at', { ascending: false })
@@ -524,19 +619,40 @@ export const adsTools: McpToolDef[] = [
   {
     name: 'ads_search_memories',
     title: 'Search ads memories',
-    description: 'Search through stored ads insights, decisions, plans, and observations. Filter by type, status, platform, or campaign.',
+    description:
+      'Search stored ads insights, decisions, plans, risks, observations and results. Pass `query` to search by meaning (e.g. "leads from broad keywords were low quality") — use this before proposing a change, to find past decisions and measured results that support or contradict it. Without a query, filters by type, status, platform or campaign name, newest first.',
     area: 'general_xphere',
     inputSchema: z.object({
-      type: z.enum(['insight', 'decision', 'plan', 'risk', 'observation', 'result', 'goal']).optional(),
-      status: z.enum(['active', 'archived', 'superseded', 'needs_review']).default('active'),
+      query: z.string().min(1).max(500).optional(),
+      type: MemoryTypeSchema.optional(),
+      status: MemoryStatusSchema.default('active'),
       platform: PlatformSchema,
       campaign_name: z.string().optional(),
       limit: z.number().int().min(1).max(50).default(20),
     }).strict(),
-    handler: async ({ type, status, platform, campaign_name, limit }, { auth }) => {
+    handler: async ({ query, type, status, platform, campaign_name, limit }, { auth }) => {
+      if (query) {
+        const result = await searchMemoriesSemantic({
+          orgId: auth.orgId,
+          query,
+          platform,
+          statuses: [status],
+          limit,
+        })
+        if ('error' in result) return result
+        // The semantic index has no type/campaign columns to filter on, so
+        // narrow its hits here when those filters were also given.
+        const campaign = campaign_name?.toLowerCase()
+        const memories = result.memories.filter((m) =>
+          (!type || m.type === type) &&
+          (!campaign || (m.campaign_name ?? '').toLowerCase().includes(campaign)),
+        )
+        return { ...result, memories, count: memories.length, mode: 'semantic' }
+      }
+
       let q = db()
         .from('ads_memories')
-        .select('*')
+        .select('id, type, status, source, platform, title, content, campaign_id, campaign_name, confidence, proposed, knowledge_refs, change_request_id, superseded_by, metadata, created_at, updated_at')
         .eq('org_id', auth.orgId)
         .eq('status', status)
         .order('created_at', { ascending: false })
@@ -548,7 +664,7 @@ export const adsTools: McpToolDef[] = [
 
       const { data, error } = await q
       if (error) return { error: 'query_failed', detail: error.message }
-      return { memories: data ?? [], count: (data ?? []).length }
+      return { memories: data ?? [], count: (data ?? []).length, mode: 'filter' }
     },
   },
 
@@ -556,17 +672,19 @@ export const adsTools: McpToolDef[] = [
     name: 'ads_create_memory',
     title: 'Create ads memory',
     description:
-      'Record an insight, decision, plan, risk, or observation about the ads strategy. Use this after analyzing data via MCP to preserve important findings for future sessions.',
+      'Record an insight, decision, plan, risk, or observation about the ads strategy. Use this after analyzing data via MCP to preserve important findings for future sessions. Pass knowledge_refs (source_id from global_knowledge_search) when a lesson grounded it. If it replaces an older memory, mark the old one superseded with ads_update_memory.',
     area: 'general_xphere',
     inputSchema: z.object({
-      type: z.enum(['insight', 'decision', 'plan', 'risk', 'observation', 'result', 'goal']),
+      type: MemoryTypeSchema,
       title: z.string().min(1).max(200),
       content: z.string().min(1).max(2000),
       platform: PlatformSchema,
       campaign_name: z.string().optional(),
       confidence: z.number().int().min(1).max(5).default(4),
+      knowledge_refs: KnowledgeRefsInputSchema.optional(),
+      change_request_id: z.string().uuid().optional().describe('ads change this memory is about'),
     }).strict(),
-    handler: async ({ type, title, content, platform, campaign_name, confidence }, { auth }) => {
+    handler: async ({ type, title, content, platform, campaign_name, confidence, knowledge_refs, change_request_id }, { auth }) => {
       const id = await createMemory({
         orgId: auth.orgId,
         type: type as AdsMemoryType,
@@ -578,6 +696,8 @@ export const adsTools: McpToolDef[] = [
         confidence,
         proposed: false,
         status: 'active',
+        knowledgeRefs: knowledge_refs,
+        changeRequestId: change_request_id,
       })
       if (!id) return { error: 'Failed to create memory' }
       return { id, ok: true }
@@ -591,14 +711,16 @@ export const adsTools: McpToolDef[] = [
       'Propose a memory for the user to review and approve. Use when you are less certain and want the user to validate the insight before it becomes active context.',
     area: 'general_xphere',
     inputSchema: z.object({
-      type: z.enum(['insight', 'decision', 'plan', 'risk', 'observation', 'result', 'goal']),
+      type: MemoryTypeSchema,
       title: z.string().min(1).max(200),
       content: z.string().min(1).max(2000),
       platform: PlatformSchema,
       campaign_name: z.string().optional(),
       confidence: z.number().int().min(1).max(5).default(2),
+      knowledge_refs: KnowledgeRefsInputSchema.optional(),
+      change_request_id: z.string().uuid().optional(),
     }).strict(),
-    handler: async ({ type, title, content, platform, campaign_name, confidence }, { auth }) => {
+    handler: async ({ type, title, content, platform, campaign_name, confidence, knowledge_refs, change_request_id }, { auth }) => {
       const id = await createMemory({
         orgId: auth.orgId,
         type: type as AdsMemoryType,
@@ -610,9 +732,42 @@ export const adsTools: McpToolDef[] = [
         confidence,
         proposed: true,
         status: 'needs_review',
+        knowledgeRefs: knowledge_refs,
+        changeRequestId: change_request_id,
       })
       if (!id) return { error: 'Failed to propose memory' }
       return { id, ok: true, status: 'needs_review' }
+    },
+  },
+
+  {
+    name: 'ads_update_memory',
+    title: 'Update an ads memory',
+    description:
+      'Curate an existing memory so the journey does not accumulate contradictions: approve a proposal (status active), archive it, mark it superseded by a newer memory (superseded_by), or correct its title/content/confidence/knowledge_refs. Only change what the operator agreed to or what is clearly outdated.',
+    area: 'general_xphere',
+    inputSchema: z.object({
+      memory_id: z.string().uuid(),
+      status: MemoryStatusSchema.optional(),
+      superseded_by: z.string().uuid().optional().describe('Newer memory that replaces this one; forces status superseded'),
+      title: z.string().min(1).max(200).optional(),
+      content: z.string().min(1).max(2000).optional(),
+      confidence: z.number().int().min(1).max(5).optional(),
+      knowledge_refs: KnowledgeRefsInputSchema.optional(),
+    }).strict(),
+    handler: async ({ memory_id, status, superseded_by, title, content, confidence, knowledge_refs }, { auth }) => {
+      const result = await updateMemory({
+        orgId: auth.orgId,
+        memoryId: memory_id,
+        status,
+        supersededBy: superseded_by,
+        title,
+        content,
+        confidence,
+        knowledgeRefs: knowledge_refs,
+      })
+      if (!result.ok) return { error: result.error, detail: result.detail }
+      return { ok: true, memory: result.memory }
     },
   },
 

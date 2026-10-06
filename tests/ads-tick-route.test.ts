@@ -113,6 +113,12 @@ vi.mock('@/lib/ads/snapshot-daily', () => ({
   captureDailyInsights: vi.fn(async () => []),
 }))
 
+// The outcome reviewer (step 3) is covered by tests/ads-outcomes*.test.ts;
+// its import chain reaches the embeddings client, so keep it out of here.
+vi.mock('@/lib/ads/outcomes', () => ({
+  reviewChangeOutcomes: vi.fn(async () => ({ reviewed: 0, memories: 0, noData: 0, skipped: 0, expired: 0 })),
+}))
+
 // Hand-rolled instead of `importOriginal` + spread: the real module's import
 // chain (meta-api.ts/google-api.ts) pulls in src/lib/redis.ts, which opens a
 // real `redis.connect()` on import — against this worktree's

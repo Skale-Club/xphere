@@ -41,7 +41,7 @@ export type PeriodComparison = {
   noData: boolean
 }
 
-type DailyRow = {
+export type DailyRow = {
   impressions: number
   clicks: number
   spend_minor: number
@@ -58,7 +58,7 @@ function emptyTotals(currency = 'USD'): PeriodTotals {
   }
 }
 
-function aggregate(rows: DailyRow[]): PeriodTotals {
+export function aggregate(rows: DailyRow[]): PeriodTotals {
   if (!rows.length) return emptyTotals()
 
   const currency = rows[0].currency ?? 'USD'
@@ -99,7 +99,7 @@ function aggregate(rows: DailyRow[]): PeriodTotals {
 }
 
 /** Signed percent change. Null when there's no baseline to compare against. */
-function pctChange(current: number | null, previous: number | null): number | null {
+export function pctChange(current: number | null, previous: number | null): number | null {
   if (current === null || previous === null) return null
   if (previous === 0) return null
   return ((current - previous) / Math.abs(previous)) * 100
@@ -166,6 +166,78 @@ export async function compareAdsPeriods(params: {
       cpl: pctChange(current.cpl, previous.cpl),
     },
     noData: currentRows.length === 0 && priorRows.length === 0,
+  }
+}
+
+/** An inclusive range of calendar days (`YYYY-MM-DD`, the grain of ads_insights_daily.stat_date). */
+export type DayRange = { since: string; until: string }
+
+export type CampaignWindowTotals = {
+  campaignName: string | null
+  currency: string | null
+  /** Totals per requested window, keyed like the input. `rows` = stored daily rows found. */
+  windows: Record<string, PeriodTotals & { rows: number }>
+}
+
+/** Split stored daily rows into named windows and total each one. Pure; exported for tests. */
+export function totalsByWindow(rows: DailyRow[], windows: Record<string, DayRange>): Record<string, PeriodTotals & { rows: number }> {
+  const out: Record<string, PeriodTotals & { rows: number }> = {}
+  for (const [key, range] of Object.entries(windows)) {
+    // ISO dates compare correctly as strings — no Date parsing, no time zone.
+    const inRange = rows.filter((r) => r.stat_date >= range.since && r.stat_date <= range.until)
+    out[key] = { ...aggregate(inRange), rows: inRange.length }
+  }
+  return out
+}
+
+/**
+ * One campaign's stored daily metrics totalled over several day windows (e.g.
+ * the 7 days before and after a change), in a single indexed query.
+ *
+ * `rows: 0` for a window means the nightly snapshot holds nothing there — the
+ * caller must treat that as "no data", never as zero performance.
+ */
+export async function fetchCampaignWindowTotals(params: {
+  orgId: string
+  platform: 'meta' | 'google'
+  adAccountId: string
+  campaignId: string
+  windows: Record<string, DayRange>
+}): Promise<CampaignWindowTotals> {
+  const ranges = Object.values(params.windows)
+  if (ranges.length === 0) return { campaignName: null, currency: null, windows: {} }
+  const since = ranges.reduce((min, r) => (r.since < min ? r.since : min), ranges[0].since)
+  const until = ranges.reduce((max, r) => (r.until > max ? r.until : max), ranges[0].until)
+
+  const supabase = createServiceRoleClient()
+  const { data, error } = await supabase
+    .from('ads_insights_daily')
+    .select('impressions, clicks, spend_minor, conversions, leads, currency, stat_date, campaign_name')
+    .eq('org_id', params.orgId)
+    .eq('platform', params.platform)
+    .eq('ad_account_id', params.adAccountId)
+    .eq('campaign_id', params.campaignId)
+    .gte('stat_date', since)
+    .lte('stat_date', until)
+    .order('stat_date', { ascending: true })
+  if (error) throw new Error(`Failed to read ads_insights_daily: ${error.message}`)
+
+  const rows = (data ?? []) as Array<DailyRow & { campaign_name: string | null }>
+  // PostgREST returns BIGINT/NUMERIC as numbers or strings depending on size; normalise.
+  const normalised: DailyRow[] = rows.map((r) => ({
+    impressions: Number(r.impressions) || 0,
+    clicks: Number(r.clicks) || 0,
+    spend_minor: Number(r.spend_minor) || 0,
+    conversions: Number(r.conversions) || 0,
+    leads: Number(r.leads) || 0,
+    currency: r.currency,
+    stat_date: r.stat_date,
+  }))
+  const latestName = [...rows].reverse().find((r) => r.campaign_name)?.campaign_name ?? null
+  return {
+    campaignName: latestName,
+    currency: rows[0]?.currency ?? null,
+    windows: totalsByWindow(normalised, params.windows),
   }
 }
 

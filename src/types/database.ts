@@ -8576,6 +8576,11 @@ export interface Database {
           updated_at: string
           verification: Json | null
           warnings: Json
+          knowledge_refs: Json
+          memory_refs: Json
+          outcome: Json | null
+          outcome_reviewed_at: string | null
+          rationale: string | null
         }
         Insert: {
           actor_id?: string | null
@@ -8622,6 +8627,11 @@ export interface Database {
           updated_at?: string
           verification?: Json | null
           warnings?: Json
+          knowledge_refs?: Json
+          memory_refs?: Json
+          outcome?: Json | null
+          outcome_reviewed_at?: string | null
+          rationale?: string | null
         }
         Update: {
           actor_id?: string | null
@@ -8668,6 +8678,11 @@ export interface Database {
           updated_at?: string
           verification?: Json | null
           warnings?: Json
+          knowledge_refs?: Json
+          memory_refs?: Json
+          outcome?: Json | null
+          outcome_reviewed_at?: string | null
+          rationale?: string | null
         }
         Relationships: [
           {
@@ -8972,6 +8987,11 @@ export interface Database {
           title: string
           type: string
           updated_at: string
+          change_request_id: string | null
+          embedded_at: string | null
+          embedding: string | null
+          knowledge_refs: Json
+          superseded_by: string | null
         }
         Insert: {
           campaign_id?: string | null
@@ -8990,6 +9010,11 @@ export interface Database {
           title: string
           type: string
           updated_at?: string
+          change_request_id?: string | null
+          embedded_at?: string | null
+          embedding?: string | null
+          knowledge_refs?: Json
+          superseded_by?: string | null
         }
         Update: {
           campaign_id?: string | null
@@ -9008,6 +9033,11 @@ export interface Database {
           title?: string
           type?: string
           updated_at?: string
+          change_request_id?: string | null
+          embedded_at?: string | null
+          embedding?: string | null
+          knowledge_refs?: Json
+          superseded_by?: string | null
         }
         Relationships: [
           {
@@ -10920,6 +10950,31 @@ export interface Database {
           p_seen_external_ids: string[]
         }
         Returns: undefined
+      }
+      match_ads_memories: {
+        Args: {
+          p_org_id: string
+          query_embedding: number[]
+          platform_filter?: string | null
+          status_filter?: string[]
+          match_count?: number
+        }
+        Returns: Array<{
+          id: string
+          type: string
+          status: string
+          source: string
+          platform: string | null
+          title: string
+          content: string
+          campaign_id: string | null
+          campaign_name: string | null
+          confidence: number
+          knowledge_refs: Json
+          change_request_id: string | null
+          created_at: string
+          similarity: number
+        }>
       }
       match_global_knowledge: {
         Args: {

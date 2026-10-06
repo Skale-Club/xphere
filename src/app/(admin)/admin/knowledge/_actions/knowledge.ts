@@ -15,6 +15,8 @@ import {
   enqueueGlobalKnowledgeRootSync,
   processNextGlobalKnowledgeSyncJob,
 } from '@/lib/knowledge/notion-sync'
+import { createGlobalKnowledgeNotionPage } from '@/lib/knowledge/notion-write'
+import { getGlobalKnowledgeSourceMode } from '@/lib/knowledge/global-knowledge'
 
 export type GlobalKnowledgePlatform = 'meta' | 'google' | 'global'
 
@@ -23,6 +25,18 @@ async function assertPlatformAdmin(): Promise<{ userId: string }> {
   if (!user) redirect('/')
   if (user.email !== process.env.PLATFORM_ADMIN_EMAIL) return orgRedirect('/dashboard')
   return { userId: user.id }
+}
+
+/**
+ * In 'notion' mode only synchronized Notion pages are searchable, so a manual
+ * source would be stored but never retrieved. Refuse instead of failing silently.
+ */
+async function assertManualModeForWrites(): Promise<void> {
+  if (await getGlobalKnowledgeSourceMode() === 'notion') {
+    throw new Error(
+      'Global Knowledge is in Notion mode: manual sources would not be searchable. Add a page to Notion instead.',
+    )
+  }
 }
 
 export async function getGlobalKnowledgeSources() {
@@ -58,6 +72,7 @@ export async function insertGlobalKnowledgeSource(
   platform: GlobalKnowledgePlatform,
 ): Promise<{ id: string }> {
   const { userId } = await assertPlatformAdmin()
+  await assertManualModeForWrites()
   const supabase = createServiceRoleClient()
 
   const { data, error } = await supabase
@@ -91,6 +106,7 @@ export async function addGlobalKnowledgeText(
 ): Promise<{ id: string }> {
   const { userId } = await assertPlatformAdmin()
   if (!content.trim()) throw new Error('Empty content')
+  await assertManualModeForWrites()
   const supabase = createServiceRoleClient()
 
   const storagePath = `${platform}/${crypto.randomUUID()}.txt`
@@ -250,6 +266,39 @@ export async function addNotionKnowledgeRoot(
   })
   after(() => processNextGlobalKnowledgeSyncJob())
   revalidatePath('/admin/knowledge')
+}
+
+export type AddGlobalKnowledgeNotionPageResult =
+  | { ok: true; pageId: string; url: string | null; rootId: string; rootTitle: string }
+  | { ok: false; error: string; detail?: string }
+
+/**
+ * Notion-mode write path: create a real Notion page under a synchronized root
+ * so it flows through the normal sync (manual sources are not searchable in
+ * 'notion' mode). Returns a result instead of throwing so the UI can show the
+ * exact reason (e.g. the integration lacks the "Insert content" capability).
+ */
+export async function addGlobalKnowledgeNotionPage(
+  rootId: string,
+  title: string,
+  content: string,
+): Promise<AddGlobalKnowledgeNotionPageResult> {
+  const { userId } = await assertPlatformAdmin()
+  if (!rootId) return { ok: false, error: 'missing_root', detail: 'Choose a Notion root.' }
+  if (!title.trim()) return { ok: false, error: 'missing_title', detail: 'Enter a page title.' }
+  if (!content.trim()) return { ok: false, error: 'empty_content', detail: 'Enter the page content.' }
+
+  const result = await createGlobalKnowledgeNotionPage({
+    rootId,
+    title,
+    markdown: content,
+    createdBy: userId,
+  })
+  if (result.ok) {
+    after(() => processNextGlobalKnowledgeSyncJob())
+    revalidatePath('/admin/knowledge')
+  }
+  return result
 }
 
 export async function syncNotionKnowledgeRoot(rootId: string): Promise<void> {

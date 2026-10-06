@@ -1,9 +1,20 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { Json } from '@/types/database'
+import { embed, embedBatch } from '@/lib/knowledge/embed'
+import { GLOBAL_KNOWLEDGE_EMBED_MODEL, resolveOrgEmbedCreds } from '@/lib/knowledge/global-knowledge'
+import {
+  KnowledgeRefInputSchema,
+  normalizeKnowledgeRefs,
+  parseStoredKnowledgeRefs,
+  type KnowledgeRef,
+  type KnowledgeRefInput,
+} from '@/lib/knowledge/refs'
 
 export type AdsMemoryType = 'insight' | 'decision' | 'plan' | 'risk' | 'observation' | 'result' | 'goal'
 export type AdsMemoryStatus = 'active' | 'archived' | 'superseded' | 'needs_review'
 export type AdsMemorySource = 'chat' | 'mcp' | 'manual' | 'audit'
+
+export const ADS_MEMORY_STATUSES: readonly AdsMemoryStatus[] = ['active', 'archived', 'superseded', 'needs_review']
 
 export type AdsMemory = {
   id: string
@@ -20,11 +31,112 @@ export type AdsMemory = {
   confidence: number
   proposed: boolean
   metadata: Record<string, unknown>
+  /** Global Knowledge sources that grounded this memory. */
+  knowledge_refs: KnowledgeRef[]
+  /** ads_change_requests row this memory is about, if any. */
+  change_request_id: string | null
+  /** The memory that replaced this one (status 'superseded'). */
+  superseded_by: string | null
+  /** null until the memory has been embedded for semantic search. */
+  embedded_at: string | null
   created_at: string
   updated_at: string
 }
 
+/** Accepts tool input (optional fields) or already-normalized stored refs. */
+export type KnowledgeRefsParam = ReadonlyArray<KnowledgeRefInput | KnowledgeRef>
+
+/**
+ * Every column except `embedding` — a 1536-float vector serialized as a
+ * ~20KB string that no reader needs.
+ */
+export const ADS_MEMORY_COLUMNS =
+  'id, org_id, journey_id, type, status, source, platform, title, content, campaign_id, campaign_name, confidence, proposed, metadata, knowledge_refs, change_request_id, superseded_by, embedded_at, created_at, updated_at'
+
 function db() { return createServiceRoleClient() }
+
+/** Map a raw ads_memories row (without embedding) to the typed shape. */
+export function toAdsMemory(row: Record<string, unknown>): AdsMemory {
+  return {
+    ...(row as Omit<AdsMemory, 'knowledge_refs' | 'metadata' | 'change_request_id' | 'superseded_by' | 'embedded_at'>),
+    metadata: (row.metadata && typeof row.metadata === 'object' ? row.metadata : {}) as Record<string, unknown>,
+    knowledge_refs: parseStoredKnowledgeRefs(row.knowledge_refs),
+    change_request_id: (row.change_request_id as string | null | undefined) ?? null,
+    superseded_by: (row.superseded_by as string | null | undefined) ?? null,
+    embedded_at: (row.embedded_at as string | null | undefined) ?? null,
+  }
+}
+
+/**
+ * Validate and normalize knowledge refs from either input shape. Invalid
+ * entries (non-UUID source_id, malformed url) are dropped, never stored.
+ */
+export function coerceKnowledgeRefs(refs: KnowledgeRefsParam | null | undefined): KnowledgeRef[] {
+  const valid: KnowledgeRefInput[] = []
+  for (const ref of refs ?? []) {
+    const parsed = KnowledgeRefInputSchema.safeParse({
+      source_id: ref.source_id,
+      ...(ref.source_name ? { source_name: ref.source_name } : {}),
+      ...(ref.url ? { url: ref.url } : {}),
+    })
+    if (parsed.success) valid.push(parsed.data)
+  }
+  return normalizeKnowledgeRefs(valid).slice(0, 20)
+}
+
+/** The text a memory is embedded from — title carries most of the meaning. */
+export function memoryEmbeddingText(title: string, content: string): string {
+  return `${title.trim()}\n\n${content.trim()}`
+}
+
+type EmbedCreds = { apiKey: string; baseURL?: string }
+
+/** supabase-js sends a number[] to a pgvector column; the generated type says string. */
+function vectorColumn(vector: number[]): string {
+  return vector as unknown as string
+}
+
+/**
+ * Embed one memory and store the vector. Never throws: a memory that fails to
+ * embed keeps embedding = null and backfillMemoryEmbeddings picks it up later.
+ */
+async function embedAndStoreMemory(
+  orgId: string,
+  memoryId: string,
+  title: string,
+  content: string,
+  creds?: EmbedCreds | null,
+): Promise<boolean> {
+  try {
+    const resolved = creds ?? (await resolveOrgEmbedCreds(orgId))
+    if (!resolved) return false
+    const vector = await embed(memoryEmbeddingText(title, content), resolved.apiKey, {
+      baseURL: resolved.baseURL,
+      model: GLOBAL_KNOWLEDGE_EMBED_MODEL,
+    })
+    const { error } = await db()
+      .from('ads_memories')
+      .update({ embedding: vectorColumn(vector), embedded_at: new Date().toISOString() })
+      .eq('id', memoryId)
+      .eq('org_id', orgId)
+    if (error) throw new Error(error.message)
+    return true
+  } catch (err) {
+    console.error('[ads/journey] failed to embed memory:', memoryId, err instanceof Error ? err.message : err)
+    return false
+  }
+}
+
+/** Is this ads_change_requests row in the org? Guards cross-org links. */
+async function changeRequestBelongsToOrg(orgId: string, changeRequestId: string): Promise<boolean> {
+  const { data } = await db()
+    .from('ads_change_requests')
+    .select('id')
+    .eq('id', changeRequestId)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  return !!data
+}
 
 /**
  * One journey per org. Uses an upsert on the existing UNIQUE(org_id) rather
@@ -67,7 +179,7 @@ export async function fetchRecentMemories(
 ): Promise<AdsMemory[]> {
   let q = db()
     .from('ads_memories')
-    .select('*')
+    .select(ADS_MEMORY_COLUMNS)
     .eq('org_id', orgId)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
@@ -76,9 +188,15 @@ export async function fetchRecentMemories(
   if (platform) q = q.or(`platform.eq.${platform},platform.is.null`)
 
   const { data } = await q
-  return (data ?? []) as AdsMemory[]
+  return ((data ?? []) as unknown as Record<string, unknown>[]).map(toAdsMemory)
 }
 
+/**
+ * Insert a memory, then embed it for semantic search. Returns the new id, or
+ * null when the row could not be saved. An embedding failure does NOT fail the
+ * insert — the row keeps embedding = null and backfillMemoryEmbeddings (run
+ * before every semantic search) catches it up.
+ */
 export async function createMemory(params: {
   orgId: string
   type: AdsMemoryType
@@ -92,9 +210,20 @@ export async function createMemory(params: {
   proposed?: boolean
   status?: AdsMemoryStatus
   metadata?: Record<string, unknown>
+  /** Global Knowledge sources that grounded this memory. */
+  knowledgeRefs?: KnowledgeRefsParam
+  /** ads_change_requests row this memory is about; dropped if not in the org. */
+  changeRequestId?: string
 }): Promise<string | null> {
   try {
     const journey = await getOrCreateJourney(params.orgId)
+
+    let changeRequestId: string | null = params.changeRequestId ?? null
+    if (changeRequestId && !(await changeRequestBelongsToOrg(params.orgId, changeRequestId))) {
+      console.warn('[ads/journey] ignoring change_request_id outside the org:', changeRequestId)
+      changeRequestId = null
+    }
+
     const { data, error } = await db()
       .from('ads_memories')
       .insert({
@@ -111,6 +240,8 @@ export async function createMemory(params: {
         confidence: params.confidence ?? 3,
         proposed: params.proposed ?? false,
         metadata: (params.metadata ?? {}) as Json,
+        knowledge_refs: coerceKnowledgeRefs(params.knowledgeRefs) as unknown as Json,
+        change_request_id: changeRequestId,
       })
       .select('id')
       .single()
@@ -122,10 +253,205 @@ export async function createMemory(params: {
       console.error('[ads/journey] failed to create memory:', error.message)
       return null
     }
-    return data?.id ?? null
+    const id = data?.id ?? null
+    if (id) await embedAndStoreMemory(params.orgId, id, params.title, params.content)
+    return id
   } catch (err) {
     console.error('[ads/journey] failed to create memory:', err instanceof Error ? err.message : err)
     return null
+  }
+}
+
+export type UpdateMemoryError =
+  | 'invalid_input'
+  | 'not_found'
+  | 'invalid_superseded_by'
+  | 'no_changes'
+  | 'update_failed'
+
+export type UpdateMemoryResult =
+  | { ok: true; memory: AdsMemory }
+  | { ok: false; error: UpdateMemoryError; detail?: string }
+
+/**
+ * Curate an existing memory: approve (needs_review → active), archive,
+ * supersede, edit the text or confidence, or replace its knowledge refs.
+ * Always org-scoped.
+ *
+ * - `supersededBy` must be another memory of the same org; it forces status
+ *   'superseded' (passing a different explicit status is an error).
+ * - status 'active' also clears `proposed` (that IS the approval) and, like
+ *   'needs_review', clears a stale `superseded_by` pointer.
+ * - Changing title or content re-embeds; the old vector is cleared first so a
+ *   failed re-embed leaves the row for backfill, never searchable by old text.
+ */
+export async function updateMemory(params: {
+  orgId: string
+  memoryId: string
+  status?: AdsMemoryStatus
+  title?: string
+  content?: string
+  confidence?: number
+  supersededBy?: string
+  knowledgeRefs?: KnowledgeRefsParam
+}): Promise<UpdateMemoryResult> {
+  const { orgId, memoryId } = params
+
+  if (params.status !== undefined && !ADS_MEMORY_STATUSES.includes(params.status)) {
+    return { ok: false, error: 'invalid_input', detail: `Unknown status "${params.status}".` }
+  }
+  const title = params.title?.trim()
+  const content = params.content?.trim()
+  if (params.title !== undefined && (!title || title.length > 200)) {
+    return { ok: false, error: 'invalid_input', detail: 'title must be 1-200 characters.' }
+  }
+  if (params.content !== undefined && (!content || content.length > 2000)) {
+    return { ok: false, error: 'invalid_input', detail: 'content must be 1-2000 characters.' }
+  }
+  if (
+    params.confidence !== undefined &&
+    (!Number.isInteger(params.confidence) || params.confidence < 1 || params.confidence > 5)
+  ) {
+    return { ok: false, error: 'invalid_input', detail: 'confidence must be an integer from 1 to 5.' }
+  }
+  if (params.supersededBy !== undefined && params.status !== undefined && params.status !== 'superseded') {
+    return {
+      ok: false,
+      error: 'invalid_input',
+      detail: `superseded_by implies status 'superseded'; got '${params.status}'.`,
+    }
+  }
+
+  try {
+    const { data: existingRow, error: readErr } = await db()
+      .from('ads_memories')
+      .select(ADS_MEMORY_COLUMNS)
+      .eq('id', memoryId)
+      .eq('org_id', orgId)
+      .maybeSingle()
+    if (readErr) return { ok: false, error: 'update_failed', detail: readErr.message }
+    if (!existingRow) return { ok: false, error: 'not_found', detail: 'No memory with that id in this org.' }
+    const existing = toAdsMemory(existingRow as unknown as Record<string, unknown>)
+
+    const patch: Record<string, unknown> = {}
+
+    if (params.supersededBy !== undefined) {
+      if (params.supersededBy === memoryId) {
+        return { ok: false, error: 'invalid_superseded_by', detail: 'A memory cannot supersede itself.' }
+      }
+      const { data: replacement } = await db()
+        .from('ads_memories')
+        .select('id, superseded_by')
+        .eq('id', params.supersededBy)
+        .eq('org_id', orgId)
+        .maybeSingle()
+      if (!replacement) {
+        return { ok: false, error: 'invalid_superseded_by', detail: 'superseded_by must be a memory in the same org.' }
+      }
+      if (replacement.superseded_by === memoryId) {
+        return {
+          ok: false,
+          error: 'invalid_superseded_by',
+          detail: 'That memory is itself superseded by this one; supersession cannot be circular.',
+        }
+      }
+      patch.superseded_by = params.supersededBy
+      patch.status = 'superseded'
+    } else if (params.status !== undefined) {
+      patch.status = params.status
+      if (params.status === 'active' || params.status === 'needs_review') patch.superseded_by = null
+    }
+
+    if (patch.status === 'active') patch.proposed = false
+
+    const textChanged =
+      (title !== undefined && title !== existing.title) || (content !== undefined && content !== existing.content)
+    if (title !== undefined) patch.title = title
+    if (content !== undefined) patch.content = content
+    if (textChanged) {
+      patch.embedding = null
+      patch.embedded_at = null
+    }
+    if (params.confidence !== undefined) patch.confidence = params.confidence
+    if (params.knowledgeRefs !== undefined) patch.knowledge_refs = coerceKnowledgeRefs(params.knowledgeRefs)
+
+    if (Object.keys(patch).length === 0) {
+      return { ok: false, error: 'no_changes', detail: 'Nothing to update.' }
+    }
+    patch.updated_at = new Date().toISOString()
+
+    const { data: updatedRow, error: updateErr } = await db()
+      .from('ads_memories')
+      .update(patch as never)
+      .eq('id', memoryId)
+      .eq('org_id', orgId)
+      .select(ADS_MEMORY_COLUMNS)
+      .maybeSingle()
+    if (updateErr) return { ok: false, error: 'update_failed', detail: updateErr.message }
+    if (!updatedRow) return { ok: false, error: 'not_found', detail: 'No memory with that id in this org.' }
+    let memory = toAdsMemory(updatedRow as unknown as Record<string, unknown>)
+
+    if (textChanged && (await embedAndStoreMemory(orgId, memoryId, memory.title, memory.content))) {
+      memory = { ...memory, embedded_at: new Date().toISOString() }
+    }
+    return { ok: true, memory }
+  } catch (err) {
+    return { ok: false, error: 'update_failed', detail: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/**
+ * Embed up to `limit` of the org's memories that have no vector yet (written
+ * before migration 1325, or whose embed failed). Returns how many were stored.
+ * Never throws.
+ */
+export async function backfillMemoryEmbeddings(orgId: string, limit = 25): Promise<number> {
+  return backfillMemoryEmbeddingsWithCreds(orgId, undefined, limit)
+}
+
+/** Same as backfillMemoryEmbeddings, reusing already-resolved credentials. */
+export async function backfillMemoryEmbeddingsWithCreds(
+  orgId: string,
+  creds: EmbedCreds | null | undefined,
+  limit = 25,
+): Promise<number> {
+  try {
+    const { data: rows, error } = await db()
+      .from('ads_memories')
+      .select('id, title, content')
+      .eq('org_id', orgId)
+      .is('embedding', null)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(Math.max(1, Math.floor(limit)), 100))
+    if (error) throw new Error(error.message)
+    if (!rows || rows.length === 0) return 0
+
+    const resolved = creds ?? (await resolveOrgEmbedCreds(orgId))
+    if (!resolved) return 0
+
+    const vectors = await embedBatch(
+      rows.map((r) => memoryEmbeddingText(r.title, r.content)),
+      resolved.apiKey,
+      { baseURL: resolved.baseURL, model: GLOBAL_KNOWLEDGE_EMBED_MODEL },
+    )
+    const embeddedAt = new Date().toISOString()
+    const results = await Promise.all(
+      rows.map(async (row, i) => {
+        const vector = vectors[i]
+        if (!vector) return false
+        const { error: updateErr } = await db()
+          .from('ads_memories')
+          .update({ embedding: vectorColumn(vector), embedded_at: embeddedAt })
+          .eq('id', row.id)
+          .eq('org_id', orgId)
+        if (updateErr) console.error('[ads/journey] backfill update failed:', row.id, updateErr.message)
+        return !updateErr
+      }),
+    )
+    return results.filter(Boolean).length
+  } catch (err) {
+    console.error('[ads/journey] memory embedding backfill failed:', err instanceof Error ? err.message : err)
+    return 0
   }
 }
 

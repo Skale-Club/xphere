@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     case 'cancel':
       return engineResponse(await cancelChange({ ...args, reason: parsed.data.reason }))
     case 'rollback':
-      return engineResponse(await rollbackChange(args))
+      return engineResponse(await rollbackChange({ ...args, rationale: parsed.data.reason }))
     case 'retry':
       return engineResponse(await retryChange(args))
   }
