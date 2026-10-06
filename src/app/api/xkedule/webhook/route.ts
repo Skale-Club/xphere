@@ -106,7 +106,7 @@ async function runXkeduleTransition(
   nativeStatus: BookingStatus,
   bookingId: string,
   orgId: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; transitioned?: boolean }> {
   switch (nativeStatus) {
     case 'confirmed': return confirmBooking(ctx, bookingId, orgId)
     case 'cancelled': return cancelBooking(ctx, bookingId, orgId)
@@ -194,7 +194,7 @@ export async function POST(request: Request): Promise<Response> {
     // 4. Idempotency + last-write-wins ordering
     const { data: existing } = await supabase
       .from('bookings')
-      .select('id, external_updated_at, status, start_at, end_at')
+      .select('id, external_updated_at, status, start_at, end_at, attribution')
       .eq('org_id', orgId)
       .eq('external_source', 'xkedule')
       .eq('external_id', externalId)
@@ -275,6 +275,7 @@ export async function POST(request: Request): Promise<Response> {
     // below so redeliveries of an already-cancelled row (allowed through by
     // MIR-10 as idempotent no-ops) never re-send it.
     let transitionedToCancelled = false
+    const storedAttribution: unknown = existing?.attribution ?? null
     if (existing) {
       // MIR-10: a terminal mirror row (cancelled/no_show/showed) must not be
       // silently revived by an out-of-order retry -- e.g. a booking.updated
@@ -326,7 +327,9 @@ export async function POST(request: Request): Promise<Response> {
         const tx = await runXkeduleTransition({ supabase }, status, bookingId, orgId)
         if (!tx.ok) {
           console.error('[xkedule/webhook] lifecycle transition failed:', tx.error)
-        } else if (status === 'cancelled' && existing.status !== 'cancelled') {
+        } else if (status === 'cancelled' && existing.status !== 'cancelled' && tx.transitioned === true) {
+          // `transitioned` comes from the atomic transition RPC, so of two
+          // concurrent duplicate cancel deliveries only one gets true.
           transitionedToCancelled = true
         }
       }
@@ -390,6 +393,10 @@ export async function POST(request: Request): Promise<Response> {
         bookingId,
         externalBookingId: externalId,
         cancelledAt: Number.isNaN(cancelledAt.getTime()) ? new Date() : cancelledAt,
+        // Stored bundle as read BEFORE this delivery's update overwrote it
+        // (a cancel payload may omit attribution and null it out on the row).
+        storedAttribution: storedAttribution,
+        incomingAttribution: attribution,
       }).catch((err) => console.error('[xkedule/webhook] retractBookingConversionIfEligible error:', err))
     }
 

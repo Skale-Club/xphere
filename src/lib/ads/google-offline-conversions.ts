@@ -23,8 +23,11 @@
 //
 // Consent (EEA requirement): the attribution bundle carries the visitor's
 // Consent Mode v2 signals (`consent_ad_user_data`, `consent_ad_personalization`,
-// 'granted' | 'denied' | null). They are sent as ClickConversion.consent;
-// null/absent maps to UNSPECIFIED. Currency falls back to the booking's own
+// 'granted' | 'denied' | null). 'denied' ad_user_data SKIPS the upload
+// entirely (logged as skipped / consent_denied); 'granted' or unknown
+// (tenants without a banner) uploads. They are sent as ClickConversion.consent
+// (GRANTED/DENIED; a missing value is UNSPECIFIED, and when BOTH are unknown
+// the consent object is omitted). Currency falls back to the booking's own
 // currency, then organizations.default_currency, then 'USD'.
 //
 // Online-conversion retraction: the website's GTM fires an online "Marcacao
@@ -36,7 +39,17 @@
 // Bigode org (b5bd24d8-aed0-4983-9750-d02d88a6b161) the value is
 // "customers/7385502411/conversionActions/7784727960" (NOT written by code --
 // set it in organizations.settings by hand). Adjustments match by orderId, so
-// no click id is needed.
+// no click id is needed -- but the retraction only runs for bookings that came
+// from the website (the mirror row carries an attribution bundle), since
+// admin-created bookings never fired the online conversion; Google's
+// "conversion not found / already retracted / expired" partial failures are
+// logged as skipped/warn, not as errors.
+//
+// CONTRACT: the website's GTM `transaction_id` must be exactly
+// String(booking.id) as sent by Xkedule -- identical to the `orderId` used
+// here (the webhook's `externalId`). The two must stay identical; bookings
+// created before the Xkedule-side site fix (when the id was `booking_<id>` /
+// `booking_<timestamp>`) are not retractable.
 //
 // This module must NEVER throw into its caller (the xkedule webhook) --
 // every path either returns silently (not eligible / not configured) or
@@ -145,7 +158,7 @@ export interface ClickConversionPayload {
     conversionValue?: number
     currencyCode: string
     orderId: string
-    consent: { adUserData: GoogleConsentStatus; adPersonalization: GoogleConsentStatus }
+    consent?: { adUserData: GoogleConsentStatus; adPersonalization: GoogleConsentStatus }
     gclid?: string
     gbraid?: string
     wbraid?: string
@@ -168,15 +181,87 @@ export function buildUploadClickConversionsPayload(input: ClickConversionInput):
     conversionDateTime: formatConversionDateTime(input.conversionDateTime),
     currencyCode: input.currencyCode,
     orderId: input.orderId,
-    consent: {
-      adUserData: mapConsentStatus(input.consentAdUserData),
-      adPersonalization: mapConsentStatus(input.consentAdPersonalization),
-    },
     [clickId.field]: clickId.value,
   }
   if (input.conversionValue != null) conversion.conversionValue = input.conversionValue
+  // Both unknown -> omit `consent` entirely rather than send UNSPECIFIED twice.
+  if (input.consentAdUserData || input.consentAdPersonalization) {
+    conversion.consent = {
+      adUserData: mapConsentStatus(input.consentAdUserData),
+      adPersonalization: mapConsentStatus(input.consentAdPersonalization),
+    }
+  }
 
   return { conversions: [conversion], partialFailure: true }
+}
+
+const WEBSITE_ATTRIBUTION_KEYS = [
+  'xphere_visitor_id',
+  'gclid',
+  'gbraid',
+  'wbraid',
+  'fbclid',
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'landing_page',
+  'referrer',
+  'captured_at',
+] as const
+
+/**
+ * True when an attribution bundle carries any real website-capture data (a
+ * click id, UTM, landing page, visitor id, ...). Consent flags alone don't
+ * count. Bookings created in the admin carry no bundle, so they never fired
+ * the website's online conversion.
+ */
+export function attributionIndicatesWebsiteOrigin(attribution: unknown): boolean {
+  if (!attribution || typeof attribution !== 'object' || Array.isArray(attribution)) return false
+  const obj = attribution as Record<string, unknown>
+  return WEBSITE_ATTRIBUTION_KEYS.some((k) => {
+    const v = obj[k]
+    return typeof v === 'string' ? v.trim() !== '' : v != null
+  })
+}
+
+/** ConversionAdjustmentUploadError values meaning "nothing (left) to retract" -- expected, not an incident. */
+const BENIGN_ADJUSTMENT_ERRORS = new Set([
+  'CONVERSION_NOT_FOUND',
+  'CONVERSION_ALREADY_RETRACTED',
+  'CONVERSION_EXPIRED',
+])
+
+function collectAdjustmentErrorCodes(node: unknown, out: string[]): void {
+  if (Array.isArray(node)) {
+    for (const n of node) collectAdjustmentErrorCodes(n, out)
+    return
+  }
+  if (!node || typeof node !== 'object') return
+  const obj = node as Record<string, unknown>
+  const code = obj.conversionAdjustmentUploadError
+  if (typeof code === 'string') out.push(code)
+  for (const v of Object.values(obj)) collectAdjustmentErrorCodes(v, out)
+}
+
+/**
+ * Classifies an uploadConversionAdjustments partialFailureError: 'benign'
+ * when every ConversionAdjustmentUploadError in it is conversion-not-found /
+ * already-retracted / expired (the booking never fired, or was already
+ * retracted, or is past the adjustment window), else 'error'. Falls back to
+ * matching the enum names in the serialized error if the structured details
+ * aren't present.
+ */
+export function classifyAdjustmentFailure(
+  partialFailureError: { message?: string; details?: unknown } | null | undefined,
+): 'none' | 'benign' | 'error' {
+  if (!partialFailureError) return 'none'
+  const codes: string[] = []
+  collectAdjustmentErrorCodes(partialFailureError.details, codes)
+  if (codes.length > 0) return codes.every((c) => BENIGN_ADJUSTMENT_ERRORS.has(c)) ? 'benign' : 'error'
+  const text = JSON.stringify(partialFailureError)
+  return [...BENIGN_ADJUSTMENT_ERRORS].some((c) => text.includes(c)) ? 'benign' : 'error'
 }
 
 export interface ConversionAdjustmentInput {
@@ -239,6 +324,21 @@ export interface UploadBookingConversionParams {
 export async function uploadBookingConversionIfEligible(params: UploadBookingConversionParams): Promise<void> {
   const clickId = resolveClickId(params.attribution)
   if (!clickId) return // nothing to report -- not an error, just no click on this booking
+
+  if (params.attribution?.consent_ad_user_data === 'denied') {
+    // The visitor denied ad_user_data: Google's EEA policy forbids sending
+    // this click back. 'granted' / null / absent (tenants with no banner) upload.
+    await log({
+      event_type: EVENT_TYPE,
+      source: SOURCE,
+      status: 'skipped',
+      severity: 'info',
+      org_id: params.orgId,
+      correlation_id: params.bookingId,
+      payload: { booking_id: params.bookingId, reason: 'consent_denied', click_id_field: clickId.field },
+    }).catch(() => {})
+    return
+  }
 
   try {
     const supabase = createServiceRoleClient()
@@ -349,6 +449,14 @@ export interface RetractBookingConversionParams {
   externalBookingId: string
   /** When the cancellation happened (webhook occurred_at). */
   cancelledAt: Date
+  /**
+   * The attribution bundle stored on the mirror row BEFORE this delivery
+   * overwrote it, and the one on the incoming payload. The retraction only
+   * runs if either shows the booking came from the website (see
+   * attributionIndicatesWebsiteOrigin).
+   */
+  storedAttribution?: unknown
+  incomingAttribution?: unknown
 }
 
 /**
@@ -360,6 +468,16 @@ export interface RetractBookingConversionParams {
  * ('ads.google_conversion_retraction'). Never throws.
  */
 export async function retractBookingConversionIfEligible(params: RetractBookingConversionParams): Promise<void> {
+  // Admin-created / pay-on-site bookings never fired the website's online
+  // conversion, so there is nothing to retract (and Google would answer
+  // CONVERSION_NOT_FOUND).
+  if (
+    !attributionIndicatesWebsiteOrigin(params.storedAttribution) &&
+    !attributionIndicatesWebsiteOrigin(params.incomingAttribution)
+  ) {
+    return
+  }
+
   try {
     const supabase = createServiceRoleClient()
 
@@ -436,13 +554,19 @@ export async function retractBookingConversionIfEligible(params: RetractBookingC
       () => uploadConversionAdjustments(customerId, tokens.refresh_token, payload),
     )
 
-    const failed = !!result.partialFailureError
+    const outcome = classifyAdjustmentFailure(result.partialFailureError)
     await log({
       ...logBase,
-      status: failed ? 'failed' : 'ok',
-      severity: failed ? 'error' : 'info',
-      payload: { booking_id: params.bookingId, order_id: params.externalBookingId, customer_id: customerId, result },
-      error_message: failed ? JSON.stringify(result.partialFailureError) : undefined,
+      status: outcome === 'none' ? 'ok' : outcome === 'benign' ? 'skipped' : 'failed',
+      severity: outcome === 'none' ? 'info' : outcome === 'benign' ? 'warn' : 'error',
+      payload: {
+        booking_id: params.bookingId,
+        order_id: params.externalBookingId,
+        customer_id: customerId,
+        ...(outcome === 'benign' ? { reason: 'conversion_not_retractable' } : {}),
+        result,
+      },
+      error_message: outcome === 'error' ? JSON.stringify(result.partialFailureError) : undefined,
     })
   } catch (err) {
     await log({

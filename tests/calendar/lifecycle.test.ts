@@ -173,7 +173,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await fn({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(state.eventDispatchInserts).toHaveLength(1)
       expect(state.eventDispatchInserts[0]).toMatchObject({
         event_type: event,
@@ -191,7 +191,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await fn({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(state.eventDispatchInserts).toHaveLength(0)
       expect(state.fromCalls).not.toContain('workflows')
     })
@@ -269,7 +269,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await confirmBooking({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(createMeetingLink).toHaveBeenCalledWith(orgId, expect.objectContaining({ title: 'Consult' }))
       expect(state.eventDispatchInserts).toHaveLength(1)
       expect(state.eventDispatchInserts[0]).toMatchObject({ event_type: 'meeting.confirmed' })
@@ -297,7 +297,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await confirmBooking({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(createMeetingLink).toHaveBeenCalled()
       expect(state.eventDispatchInserts).toHaveLength(1)
     })
@@ -322,7 +322,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await confirmBooking({ supabase } as any, bookingId, orgId)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(createMeetingLink).not.toHaveBeenCalled()
       expect(state.eventDispatchInserts).toHaveLength(1)
     })
@@ -345,7 +345,7 @@ describe('calendar lifecycle transitions (LIFE-01, LIFE-02)', () => {
 
       const result = await rescheduleBooking({ supabase } as any, bookingId, orgId, newStartAt, newEndAt)
 
-      expect(result).toEqual({ ok: true })
+      expect(result).toMatchObject({ ok: true })
       expect(state.eventDispatchInserts).toHaveLength(1)
       expect(state.eventDispatchInserts[0]).toMatchObject({
         event_type: 'meeting.rescheduled',
