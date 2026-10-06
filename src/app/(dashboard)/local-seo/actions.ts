@@ -145,7 +145,36 @@ const updateLocationSchema = z.object({
   defaultShape: z.enum(['square', 'circle']),
   googleBusinessProfileId: z.string().uuid().nullable(),
   isActive: z.boolean(),
+  // Where the geogrid is centred. Defaults to the Maps pin; a service-area
+  // business (hidden address) sets it to the city it serves.
+  centerLat: z.number().min(-90).max(90),
+  centerLng: z.number().min(-180).max(180),
 })
+
+/**
+ * Coordinates of a city or address, to centre the geogrid of a service-area
+ * business. Uses the same Maps search as "Add location"; nothing is saved.
+ */
+export async function findGridCenter(query: string): Promise<{ label: string; lat: number; lng: number } | Fail> {
+  const ctx = await context('local_seo.manage')
+  if ('error' in ctx) return { error: ctx.error }
+  const q = query.trim()
+  if (q.length < 2) return { error: 'Type a city or an address.' }
+  const key = await businessSearchKey(createServiceRoleClient(), ctx.orgId)
+  if (!key) return { error: 'No SerpAPI key is configured for the search. Ask the platform admin to add one.' }
+  try {
+    const places = await new SerpApiClient(key).searchBusinesses(q)
+    const hit = places.find((p) => p.gps_coordinates?.latitude != null && p.gps_coordinates?.longitude != null)
+    if (!hit) return { error: `Nothing found for “${q}”.` }
+    return {
+      label: [hit.title, hit.address].filter(Boolean).join(' · ') || q,
+      lat: hit.gps_coordinates!.latitude!,
+      lng: hit.gps_coordinates!.longitude!,
+    }
+  } catch (err) {
+    return { error: isSerpApiError(err) ? err.message : 'Search failed.' }
+  }
+}
 
 export async function updateLocation(
   locationId: string,
@@ -167,6 +196,8 @@ export async function updateLocation(
       default_shape: v.defaultShape,
       google_business_profile_id: v.googleBusinessProfileId,
       is_active: v.isActive,
+      lat: v.centerLat,
+      lng: v.centerLng,
     })
     .eq('id', locationId)
   if (error) return { error: error.message }

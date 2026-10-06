@@ -16,7 +16,7 @@ export default async function LocationSettingsPage({ params }: { params: Promise
     supabase
       .from('local_seo_locations')
       .select(
-        'id, name, business_name, place_id, address, language, country, default_grid_size, default_spacing_m, default_shape, google_business_profile_id, is_active',
+        'id, name, business_name, place_id, address, lat, lng, language, country, default_grid_size, default_spacing_m, default_shape, google_business_profile_id, is_active',
       )
       .eq('id', locationId)
       .maybeSingle(),
@@ -62,6 +62,9 @@ export default async function LocationSettingsPage({ params }: { params: Promise
           name: location.name,
           businessName: location.business_name,
           placeId: location.place_id,
+          address: location.address,
+          centerLat: location.lat,
+          centerLng: location.lng,
           language: location.language,
           country: location.country,
           defaultGridSize: location.default_grid_size,

@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, X } from 'lucide-react'
+import { MapPin, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import {
   addKeywords,
   deleteKeyword,
   deleteLocation,
+  findGridCenter,
   updateLocation,
 } from '@/app/(dashboard)/local-seo/actions'
 import {
@@ -35,6 +36,9 @@ type LocationForm = {
   name: string
   businessName: string
   placeId: string | null
+  address: string | null
+  centerLat: number
+  centerLng: number
   language: string
   country: string
   defaultGridSize: number
@@ -60,6 +64,9 @@ export function LocationSettings({
   const router = useRouter()
   const [form, setForm] = useState(location)
   const [newKeywords, setNewKeywords] = useState('')
+  const [centerQuery, setCenterQuery] = useState('')
+  const [centerLabel, setCenterLabel] = useState<string | null>(null)
+  const [finding, startFind] = useTransition()
   const [saving, startSave] = useTransition()
   const [busy, startBusy] = useTransition()
   const set = <K extends keyof LocationForm>(k: K, v: LocationForm[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -75,6 +82,8 @@ export function LocationSettings({
         defaultShape: form.defaultShape,
         googleBusinessProfileId: form.googleBusinessProfileId,
         isActive: form.isActive,
+        centerLat: form.centerLat,
+        centerLng: form.centerLng,
       })
       if ('error' in res) toast.error(res.error)
       else {
@@ -83,6 +92,21 @@ export function LocationSettings({
       }
     })
   }
+
+  function findCenter() {
+    startFind(async () => {
+      const res = await findGridCenter(centerQuery)
+      if ('error' in res) toast.error(res.error)
+      else {
+        setForm((f) => ({ ...f, centerLat: res.lat, centerLng: res.lng }))
+        setCenterLabel(res.label)
+        toast.success('Centre found. Save to use it on the next scans.')
+      }
+    })
+  }
+
+  const centerMoved = form.centerLat !== location.centerLat || form.centerLng !== location.centerLng
+  const coords = `${form.centerLat.toFixed(5)}, ${form.centerLng.toFixed(5)}`
 
   function add() {
     startBusy(async () => {
@@ -228,6 +252,47 @@ export function LocationSettings({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ls-set-center">Grid center</Label>
+            <p className="flex items-center gap-1.5 text-xs text-text-secondary">
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <a
+                href={`https://www.google.com/maps?q=${form.centerLat},${form.centerLng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                {centerLabel ? `${centerLabel} (${coords})` : coords}
+              </a>
+              {centerMoved && <span className="text-warning">· unsaved</span>}
+            </p>
+            {canManage && (
+              <div className="flex gap-2">
+                <Input
+                  id="ls-set-center"
+                  value={centerQuery}
+                  onChange={(e) => setCenterQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (centerQuery.trim()) findCenter()
+                    }
+                  }}
+                  placeholder="City or address, e.g. Framingham, MA"
+                />
+                <Button type="button" variant="secondary" onClick={findCenter} loading={finding} disabled={!centerQuery.trim()}>
+                  <Search className="h-4 w-4" />
+                  Find
+                </Button>
+              </div>
+            )}
+            <p className="text-xs text-text-tertiary">
+              {location.address
+                ? 'Defaults to the Google Maps pin.'
+                : 'Service-area business: Google hides the address, so centre the grid on the city it serves.'}{' '}
+              New scans use this centre; earlier scans keep theirs.
+            </p>
           </div>
           <div className="space-y-1.5">
             <Label>Reviews profile</Label>
