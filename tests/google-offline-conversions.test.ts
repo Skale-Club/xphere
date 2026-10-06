@@ -12,6 +12,9 @@ import {
   formatConversionDateTime,
   buildUploadClickConversionsPayload,
   customerIdFromConversionActionResourceName,
+  mapConsentStatus,
+  resolveConversionCurrency,
+  buildConversionAdjustmentsPayload,
 } from '@/lib/ads/google-offline-conversions'
 
 describe('resolveClickId', () => {
@@ -84,6 +87,7 @@ describe('buildUploadClickConversionsPayload', () => {
           conversionDateTime: '2026-09-20 14:05:09+00:00',
           currencyCode: 'EUR',
           orderId: 'booking-abc-123',
+          consent: { adUserData: 'UNSPECIFIED', adPersonalization: 'UNSPECIFIED' },
           conversionValue: 49.9,
           gclid: 'gc1',
         },
@@ -107,5 +111,75 @@ describe('buildUploadClickConversionsPayload', () => {
 
   it('throws when no click id is present — callers must check resolveClickId first', () => {
     expect(() => buildUploadClickConversionsPayload({ ...base })).toThrow(/no click id/)
+  })
+})
+
+describe('mapConsentStatus', () => {
+  it('maps granted/denied and treats everything else as UNSPECIFIED', () => {
+    expect(mapConsentStatus('granted')).toBe('GRANTED')
+    expect(mapConsentStatus('denied')).toBe('DENIED')
+    expect(mapConsentStatus(null)).toBe('UNSPECIFIED')
+    expect(mapConsentStatus(undefined)).toBe('UNSPECIFIED')
+  })
+})
+
+describe('buildUploadClickConversionsPayload consent', () => {
+  const base = {
+    conversionActionResourceName: 'customers/1234567890/conversionActions/987654321',
+    conversionDateTime: new Date('2026-09-20T14:05:09.000Z'),
+    conversionValue: null,
+    currencyCode: 'EUR',
+    orderId: 'booking-abc-123',
+    gclid: 'gc1',
+  }
+
+  it('sends the visitor consent signals on the conversion', () => {
+    const payload = buildUploadClickConversionsPayload({
+      ...base,
+      consentAdUserData: 'granted',
+      consentAdPersonalization: 'denied',
+    })
+    expect(payload.conversions[0].consent).toEqual({ adUserData: 'GRANTED', adPersonalization: 'DENIED' })
+  })
+
+  it('maps each signal independently and defaults unknowns to UNSPECIFIED', () => {
+    const payload = buildUploadClickConversionsPayload({
+      ...base,
+      consentAdUserData: 'granted',
+      consentAdPersonalization: null,
+    })
+    expect(payload.conversions[0].consent).toEqual({ adUserData: 'GRANTED', adPersonalization: 'UNSPECIFIED' })
+  })
+})
+
+describe('resolveConversionCurrency', () => {
+  it('prefers the booking currency, then the org default, then USD', () => {
+    expect(resolveConversionCurrency('EUR', 'USD')).toBe('EUR')
+    expect(resolveConversionCurrency(null, 'EUR')).toBe('EUR')
+    expect(resolveConversionCurrency(undefined, 'eur')).toBe('EUR')
+    expect(resolveConversionCurrency('  ', 'EUR')).toBe('EUR')
+    expect(resolveConversionCurrency(null, null)).toBe('USD')
+    expect(resolveConversionCurrency(null, undefined)).toBe('USD')
+  })
+})
+
+describe('buildConversionAdjustmentsPayload', () => {
+  it('builds a single RETRACTION keyed by the Xkedule booking id', () => {
+    const payload = buildConversionAdjustmentsPayload({
+      conversionActionResourceName: 'customers/7385502411/conversionActions/7784727960',
+      orderId: '4242',
+      adjustmentDateTime: new Date('2026-09-20T14:05:09.000Z'),
+    })
+    expect(payload).toEqual({
+      partialFailure: true,
+      conversionAdjustments: [
+        {
+          conversionAction: 'customers/7385502411/conversionActions/7784727960',
+          adjustmentType: 'RETRACTION',
+          adjustmentDateTime: '2026-09-20 14:05:09+00:00',
+          orderId: '4242',
+        },
+      ],
+    })
   })
 })

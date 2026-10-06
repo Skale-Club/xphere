@@ -35,7 +35,10 @@ import { canonicalizeContactPhone, countryForTimeZone } from '@/lib/phone-number
 import type { BookingStatus } from '@/lib/calendar/booking-status'
 import { extractAttributionInput, parseAttribution } from '@/lib/xkedule/attribution'
 import { linkVisitorToContact } from '@/lib/analytics/identify'
-import { uploadBookingConversionIfEligible } from '@/lib/ads/google-offline-conversions'
+import {
+  uploadBookingConversionIfEligible,
+  retractBookingConversionIfEligible,
+} from '@/lib/ads/google-offline-conversions'
 // Shared with the Action Engine's xkedule_create_booking emitter (Xkedule
 // booking-created platform gap fix) -- see src/lib/xkedule/mirror.ts's file
 // header for why these live there instead of here.
@@ -267,6 +270,11 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     let bookingId: string
+    // Set only when THIS delivery actually moved an already-mirrored,
+    // non-cancelled row to 'cancelled' -- gates the Google Ads retraction
+    // below so redeliveries of an already-cancelled row (allowed through by
+    // MIR-10 as idempotent no-ops) never re-send it.
+    let transitionedToCancelled = false
     if (existing) {
       // MIR-10: a terminal mirror row (cancelled/no_show/showed) must not be
       // silently revived by an out-of-order retry -- e.g. a booking.updated
@@ -318,6 +326,8 @@ export async function POST(request: Request): Promise<Response> {
         const tx = await runXkeduleTransition({ supabase }, status, bookingId, orgId)
         if (!tx.ok) {
           console.error('[xkedule/webhook] lifecycle transition failed:', tx.error)
+        } else if (status === 'cancelled' && existing.status !== 'cancelled') {
+          transitionedToCancelled = true
         }
       }
     } else {
@@ -362,6 +372,25 @@ export async function POST(request: Request): Promise<Response> {
         currency,
         attribution,
       }).catch((err) => console.error('[xkedule/webhook] uploadBookingConversionIfEligible error:', err))
+    }
+
+    // A booking that just transitioned to 'cancelled': the website already
+    // fired the online "Marcacao Online" conversion at booking time (orderId
+    // = the Xkedule booking id = `externalId`, NOT Xphere's mirror uuid), and
+    // Google keeps counting it. Retract it. Only on a real transition of an
+    // existing row (not redeliveries, not a first-seen-as-cancelled INSERT,
+    // which is mostly historical backfill with no live conversion to retract).
+    // Showed -> cancelled can't happen: TERMINAL_STATUSES (MIR-10) drops it
+    // above, so there is no offline "Cliente atendido" conversion to undo here.
+    // Fire-and-forget; the function never throws and logs to event_logs.
+    if (transitionedToCancelled) {
+      const cancelledAt = new Date(occurredAt)
+      void retractBookingConversionIfEligible({
+        orgId,
+        bookingId,
+        externalBookingId: externalId,
+        cancelledAt: Number.isNaN(cancelledAt.getTime()) ? new Date() : cancelledAt,
+      }).catch((err) => console.error('[xkedule/webhook] retractBookingConversionIfEligible error:', err))
     }
 
     return ok()

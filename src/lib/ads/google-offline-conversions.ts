@@ -21,6 +21,23 @@
 // d02d88a6b161 once the "Cliente atendido" import conversion action exists
 // in that account.
 //
+// Consent (EEA requirement): the attribution bundle carries the visitor's
+// Consent Mode v2 signals (`consent_ad_user_data`, `consent_ad_personalization`,
+// 'granted' | 'denied' | null). They are sent as ClickConversion.consent;
+// null/absent maps to UNSPECIFIED. Currency falls back to the booking's own
+// currency, then organizations.default_currency, then 'USD'.
+//
+// Online-conversion retraction: the website's GTM fires an online "Marcacao
+// Online" conversion at booking time with orderId = the Xkedule booking id.
+// When the booking is later cancelled, retractBookingConversionIfEligible()
+// sends an uploadConversionAdjustments RETRACTION for that orderId so Google
+// stops counting it. Config key (organizations.settings, same resource-name
+// format as above): `google_ads_online_booking_conversion_action`. For the
+// Bigode org (b5bd24d8-aed0-4983-9750-d02d88a6b161) the value is
+// "customers/7385502411/conversionActions/7784727960" (NOT written by code --
+// set it in organizations.settings by hand). Adjustments match by orderId, so
+// no click id is needed.
+//
 // This module must NEVER throw into its caller (the xkedule webhook) --
 // every path either returns silently (not eligible / not configured) or
 // swallows its own error after logging it via lib/logger.ts's event_logs
@@ -29,11 +46,18 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt } from '@/lib/crypto'
 import { log } from '@/lib/logger'
-import { parseTokens, uploadClickConversions, type ClickConversionUploadResult } from './google-api'
+import {
+  parseTokens,
+  uploadClickConversions,
+  uploadConversionAdjustments,
+  type ClickConversionUploadResult,
+  type ConversionAdjustmentUploadResult,
+} from './google-api'
 import { withConnectionHealth } from './connection-health'
 import type { BookingAttribution } from '@/lib/xkedule/attribution'
 
 const EVENT_TYPE = 'ads.google_offline_conversion'
+const RETRACTION_EVENT_TYPE = 'ads.google_conversion_retraction'
 const SOURCE = 'xkedule-webhook'
 
 // ─── Pure helpers (no network, no DB — see tests/google-offline-conversions.test.ts) ──
@@ -81,6 +105,25 @@ export function formatConversionDateTime(date: Date, utcOffsetMinutes = 0): stri
   return `${y}-${mo}-${d} ${h}:${mi}:${s}${sign}${offH}:${offM}`
 }
 
+export type ConsentSignal = 'granted' | 'denied' | null | undefined
+export type GoogleConsentStatus = 'GRANTED' | 'DENIED' | 'UNSPECIFIED'
+
+/** granted -> GRANTED, denied -> DENIED, anything else (null/undefined/unknown) -> UNSPECIFIED. */
+export function mapConsentStatus(signal: ConsentSignal): GoogleConsentStatus {
+  if (signal === 'granted') return 'GRANTED'
+  if (signal === 'denied') return 'DENIED'
+  return 'UNSPECIFIED'
+}
+
+/** Currency for the upload: the booking's own, else the org default, else USD. Blank strings count as absent. */
+export function resolveConversionCurrency(
+  bookingCurrency: string | null | undefined,
+  orgDefaultCurrency: string | null | undefined,
+): string {
+  const pick = (v: string | null | undefined) => (typeof v === 'string' && v.trim() ? v.trim().toUpperCase() : null)
+  return pick(bookingCurrency) ?? pick(orgDefaultCurrency) ?? 'USD'
+}
+
 export interface ClickConversionInput {
   conversionActionResourceName: string
   gclid?: string | null
@@ -91,6 +134,8 @@ export interface ClickConversionInput {
   currencyCode: string
   /** Booking id -- Google dedups repeat uploads of the same order_id, making retries/redeliveries idempotent. */
   orderId: string
+  consentAdUserData?: ConsentSignal
+  consentAdPersonalization?: ConsentSignal
 }
 
 export interface ClickConversionPayload {
@@ -100,6 +145,7 @@ export interface ClickConversionPayload {
     conversionValue?: number
     currencyCode: string
     orderId: string
+    consent: { adUserData: GoogleConsentStatus; adPersonalization: GoogleConsentStatus }
     gclid?: string
     gbraid?: string
     wbraid?: string
@@ -122,6 +168,10 @@ export function buildUploadClickConversionsPayload(input: ClickConversionInput):
     conversionDateTime: formatConversionDateTime(input.conversionDateTime),
     currencyCode: input.currencyCode,
     orderId: input.orderId,
+    consent: {
+      adUserData: mapConsentStatus(input.consentAdUserData),
+      adPersonalization: mapConsentStatus(input.consentAdPersonalization),
+    },
     [clickId.field]: clickId.value,
   }
   if (input.conversionValue != null) conversion.conversionValue = input.conversionValue
@@ -129,7 +179,39 @@ export function buildUploadClickConversionsPayload(input: ClickConversionInput):
   return { conversions: [conversion], partialFailure: true }
 }
 
-/** "customers/1234567890/conversionActions/987654321" -> "1234567890". Null if the resource name doesn't match the expected shape. */
+export interface ConversionAdjustmentInput {
+  conversionActionResourceName: string
+  /** The conversion's orderId -- for the online booking conversion, the Xkedule booking id (what the site pushes as transaction_id). */
+  orderId: string
+  adjustmentDateTime: Date
+}
+
+export interface ConversionAdjustmentsPayload {
+  conversionAdjustments: Array<{
+    conversionAction: string
+    adjustmentType: 'RETRACTION'
+    adjustmentDateTime: string
+    orderId: string
+  }>
+  partialFailure: true
+}
+
+/** Pure builder for the uploadConversionAdjustments request body (a single RETRACTION matched by orderId). */
+export function buildConversionAdjustmentsPayload(input: ConversionAdjustmentInput): ConversionAdjustmentsPayload {
+  return {
+    conversionAdjustments: [
+      {
+        conversionAction: input.conversionActionResourceName,
+        adjustmentType: 'RETRACTION',
+        adjustmentDateTime: formatConversionDateTime(input.adjustmentDateTime),
+        orderId: input.orderId,
+      },
+    ],
+    partialFailure: true,
+  }
+}
+
+/** "customers/1234567890/conversionActions/987654321" ->"1234567890". Null if the resource name doesn't match the expected shape. */
 export function customerIdFromConversionActionResourceName(resourceName: string): string | null {
   const m = /^customers\/(\d+)\/conversionActions\/\d+$/.exec(resourceName.trim())
   return m ? m[1] : null
@@ -163,7 +245,7 @@ export async function uploadBookingConversionIfEligible(params: UploadBookingCon
 
     const { data: org } = await supabase
       .from('organizations')
-      .select('settings')
+      .select('settings, default_currency')
       .eq('id', params.orgId)
       .maybeSingle()
     const settings = (org?.settings ?? {}) as Record<string, unknown>
@@ -224,8 +306,10 @@ export async function uploadBookingConversionIfEligible(params: UploadBookingCon
       wbraid: clickId.field === 'wbraid' ? clickId.value : undefined,
       conversionDateTime: new Date(params.bookingEndAt),
       conversionValue: params.totalPrice,
-      currencyCode: params.currency ?? 'USD',
+      currencyCode: resolveConversionCurrency(params.currency, org?.default_currency),
       orderId: params.bookingId,
+      consentAdUserData: params.attribution?.consent_ad_user_data,
+      consentAdPersonalization: params.attribution?.consent_ad_personalization,
     })
 
     const result: ClickConversionUploadResult = await withConnectionHealth(
@@ -247,6 +331,122 @@ export async function uploadBookingConversionIfEligible(params: UploadBookingCon
   } catch (err) {
     await log({
       event_type: EVENT_TYPE,
+      source: SOURCE,
+      status: 'failed',
+      severity: 'error',
+      org_id: params.orgId,
+      correlation_id: params.bookingId,
+      error_message: err instanceof Error ? err.message : String(err),
+    }).catch(() => {})
+  }
+}
+
+export interface RetractBookingConversionParams {
+  orgId: string
+  /** Xphere's mirror row uuid -- used only as the log correlation id. */
+  bookingId: string
+  /** The Xkedule booking id (bookings.external_id / webhook booking.id) -- the orderId of the online conversion. */
+  externalBookingId: string
+  /** When the cancellation happened (webhook occurred_at). */
+  cancelledAt: Date
+}
+
+/**
+ * Called by the xkedule webhook when a booking transitions to 'cancelled'.
+ * Retracts the online "Marcacao Online" conversion (orderId = Xkedule booking
+ * id) so Google stops counting a booking that no longer exists. Skips
+ * silently when `google_ads_online_booking_conversion_action` isn't set for
+ * the org; needs no click id. Logs to event_logs
+ * ('ads.google_conversion_retraction'). Never throws.
+ */
+export async function retractBookingConversionIfEligible(params: RetractBookingConversionParams): Promise<void> {
+  try {
+    const supabase = createServiceRoleClient()
+
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('settings')
+      .eq('id', params.orgId)
+      .maybeSingle()
+    const settings = (org?.settings ?? {}) as Record<string, unknown>
+    const conversionActionResourceName =
+      typeof settings.google_ads_online_booking_conversion_action === 'string'
+        ? settings.google_ads_online_booking_conversion_action
+        : null
+
+    if (!conversionActionResourceName) return // not configured for this org -- expected, not an error
+
+    const logBase = {
+      event_type: RETRACTION_EVENT_TYPE,
+      source: SOURCE,
+      org_id: params.orgId,
+      correlation_id: params.bookingId,
+    }
+
+    const customerId = customerIdFromConversionActionResourceName(conversionActionResourceName)
+    if (!customerId) {
+      await log({
+        ...logBase,
+        status: 'skipped',
+        severity: 'warn',
+        payload: {
+          booking_id: params.bookingId,
+          order_id: params.externalBookingId,
+          reason: 'invalid_conversion_action_resource_name',
+          conversionActionResourceName,
+        },
+      })
+      return
+    }
+
+    const { data: conn } = await supabase
+      .from('ads_connections')
+      .select('encrypted_access_token')
+      .eq('org_id', params.orgId)
+      .eq('platform', 'google')
+      .eq('ad_account_id', customerId)
+      .eq('usable', true)
+      .maybeSingle()
+
+    if (!conn) {
+      await log({
+        ...logBase,
+        status: 'skipped',
+        severity: 'warn',
+        payload: {
+          booking_id: params.bookingId,
+          order_id: params.externalBookingId,
+          reason: 'no_usable_google_connection',
+          customer_id: customerId,
+        },
+      })
+      return
+    }
+
+    const tokens = parseTokens(await decrypt(conn.encrypted_access_token))
+
+    const payload = buildConversionAdjustmentsPayload({
+      conversionActionResourceName,
+      orderId: params.externalBookingId,
+      adjustmentDateTime: params.cancelledAt,
+    })
+
+    const result: ConversionAdjustmentUploadResult = await withConnectionHealth(
+      { orgId: params.orgId, platform: 'google', adAccountId: customerId },
+      () => uploadConversionAdjustments(customerId, tokens.refresh_token, payload),
+    )
+
+    const failed = !!result.partialFailureError
+    await log({
+      ...logBase,
+      status: failed ? 'failed' : 'ok',
+      severity: failed ? 'error' : 'info',
+      payload: { booking_id: params.bookingId, order_id: params.externalBookingId, customer_id: customerId, result },
+      error_message: failed ? JSON.stringify(result.partialFailureError) : undefined,
+    })
+  } catch (err) {
+    await log({
+      event_type: RETRACTION_EVENT_TYPE,
       source: SOURCE,
       status: 'failed',
       severity: 'error',

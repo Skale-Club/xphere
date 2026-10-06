@@ -13,7 +13,15 @@
 //     utm_source, utm_medium, utm_campaign, utm_term, utm_content: string | null,
 //     landing_page, referrer: url | null,
 //     captured_at: ISO-8601,
+//     consent_ad_user_data, consent_ad_personalization: 'granted' | 'denied' | null,
 //   }
+//
+// The two consent_* fields carry the visitor's Google Consent Mode v2 signals
+// at capture time and are forwarded verbatim on the Google Ads offline
+// conversion upload (ClickConversion.consent -- required for EEA traffic).
+// Absent/null means "unknown" (-> UNSPECIFIED upstream). Unlike the other
+// fields, an unrecognised consent value degrades to null instead of failing
+// the object, so a bad value never costs us the gclid.
 //
 // "Ausente ou null quando não há dados ... O Xphere tem de tolerar a
 // ausência" -- every field is optional/nullable, and the whole object may be
@@ -23,6 +31,9 @@
 // the booking mirror; unknown keys are silently ignored (zod's default
 // object behavior -- no `.strict()`).
 import { z } from 'zod'
+
+/** 'granted' | 'denied' | null. Anything else (wrong type, unknown string) becomes null rather than invalidating the whole attribution object. */
+const consentSchema = z.enum(['granted', 'denied']).nullable().optional().catch(null)
 
 export const attributionSchema = z
   .object({
@@ -43,6 +54,8 @@ export const attributionSchema = z
     landing_page: z.string().nullable().optional(),
     referrer: z.string().nullable().optional(),
     captured_at: z.string().nullable().optional(),
+    consent_ad_user_data: consentSchema,
+    consent_ad_personalization: consentSchema,
   })
   .nullable()
   .optional()

@@ -59,6 +59,36 @@ describe('attributionSchema / parseAttribution', () => {
   })
 })
 
+describe('consent fields (Consent Mode v2)', () => {
+  it("parses 'granted' / 'denied' / null", () => {
+    expect(
+      parseAttribution({ gclid: 'gc1', consent_ad_user_data: 'granted', consent_ad_personalization: 'denied' }),
+    ).toEqual({ gclid: 'gc1', consent_ad_user_data: 'granted', consent_ad_personalization: 'denied' })
+    expect(parseAttribution({ consent_ad_user_data: null, consent_ad_personalization: null })).toEqual({
+      consent_ad_user_data: null,
+      consent_ad_personalization: null,
+    })
+  })
+
+  it('leaves them absent when not sent', () => {
+    const result = parseAttribution({ gclid: 'gc1' })
+    expect(result?.consent_ad_user_data).toBeUndefined()
+    expect(result?.consent_ad_personalization).toBeUndefined()
+  })
+
+  it('turns an invalid consent value into null WITHOUT dropping the rest of the attribution', () => {
+    const result = parseAttribution({
+      gclid: 'gc1',
+      consent_ad_user_data: 'maybe',
+      consent_ad_personalization: 7,
+    })
+    expect(result).not.toBeNull()
+    expect(result?.gclid).toBe('gc1')
+    expect(result?.consent_ad_user_data).toBeNull()
+    expect(result?.consent_ad_personalization).toBeNull()
+  })
+})
+
 describe('extractAttributionInput', () => {
   it('reads a top-level attribution field (sibling of booking)', () => {
     const body = { event: 'booking.completed', booking: { id: 1 }, attribution: { gclid: 'gc1' } }

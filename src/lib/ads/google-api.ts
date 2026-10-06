@@ -580,6 +580,33 @@ export async function uploadClickConversions(
   )
 }
 
+export type ConversionAdjustmentUploadResult = {
+  results?: Array<Record<string, unknown>>
+  partialFailureError?: { message?: string; details?: unknown }
+}
+
+/**
+ * customers/{id}:uploadConversionAdjustments -- retracts/restates a
+ * conversion already recorded in Google Ads (e.g. an online "booking made"
+ * conversion whose booking was later cancelled), matched by the conversion's
+ * orderId. `body` is built by the pure buildConversionAdjustmentsPayload() in
+ * google-offline-conversions.ts. Like uploadClickConversions, partialFailure
+ * is always true, so a rejected adjustment comes back as
+ * `partialFailureError` on an otherwise-200 response.
+ */
+export async function uploadConversionAdjustments(
+  customerId: string,
+  refreshToken: string,
+  body: { conversionAdjustments: unknown[]; partialFailure: true },
+): Promise<ConversionAdjustmentUploadResult> {
+  const safeCustomerId = assertNumericId(customerId, 'customer_id')
+  return gadsRequest<ConversionAdjustmentUploadResult>(
+    `customers/${safeCustomerId}:uploadConversionAdjustments`,
+    refreshToken,
+    { method: 'POST', body },
+  )
+}
+
 // ─── Geo target constant lookup ────────────────────────────────────────────────
 
 export type GeoTargetConstantSuggestion = {
