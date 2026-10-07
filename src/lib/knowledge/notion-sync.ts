@@ -1,4 +1,8 @@
-import { chunkText } from '@/lib/knowledge/chunk-text'
+import {
+  chunkNotionPage,
+  NOTION_CHUNKER_VERSION,
+  stripChildReferences,
+} from '@/lib/knowledge/notion-chunk'
 import { embedBatch } from '@/lib/knowledge/embed'
 import {
   buildGlobalKnowledgeDocumentMetadata,
@@ -164,6 +168,12 @@ async function syncNotionPage(params: {
   root: Root
   pageId: string
   embeddingKey: string
+  /**
+   * The page has child pages. A page with children is a folder: its own text
+   * is navigation for humans (and Notion renders the children as link lines),
+   * so it is listed in the admin view but contributes no chunks.
+   */
+  isContainer: boolean
 }): Promise<void> {
   const supabase = createServiceRoleClient()
   const page = await retrieveNotionPage(params.accessToken, params.pageId)
@@ -176,11 +186,11 @@ async function syncNotionPage(params: {
   }
 
   const markdownResponse = await retrieveNotionPageMarkdown(params.accessToken, params.pageId)
-  const markdown = stripEmptyBlocks(
+  const markdown = stripChildReferences(stripEmptyBlocks(
     markdownResponse.truncated || markdownResponse.unknown_block_ids.length > 0
       ? await retrieveNotionPageTextFallback(params.accessToken, params.pageId)
       : markdownResponse.markdown,
-  )
+  ))
 
   // Database rows often keep their substance in properties (a "Summary" or
   // "Notes" column) rather than in the page body, so index those too.
@@ -190,7 +200,11 @@ async function syncNotionPage(params: {
   const content = normalizeNotionMarkdown(
     [`# ${page.title}`, propertiesSection, markdown].filter((part) => part.trim()).join('\n\n'),
   )
-  const contentHash = await hashNotionContent(content)
+  // The hash also covers how the page is chunked, so a chunker change or a
+  // page turning into a folder re-indexes it even when its text is unchanged.
+  const contentHash = await hashNotionContent(
+    `${NOTION_CHUNKER_VERSION}\ncontainer:${params.isContainer}\n${content}`,
+  )
   const { data: existing, error: existingError } = await supabase
     .from('global_knowledge_sources')
     .select('*')
@@ -233,18 +247,20 @@ async function syncNotionPage(params: {
         status: 'processing',
         external_id: params.pageId,
         notion_root_id: params.root.id,
+        is_container: params.isContainer,
         is_active: false,
       })
       .select('id')
       .single()
     if (error || !inserted) throw new Error(error?.message ?? 'Failed to create Notion source')
     sourceId = inserted.id
-  } else if (placementChanged) {
+  } else if (placementChanged || current?.is_container !== params.isContainer) {
     const { error } = await supabase
       .from('global_knowledge_sources')
       .update({
         platform: params.root.platform,
         notion_root_id: params.root.id,
+        is_container: params.isContainer,
         updated_at: new Date().toISOString(),
       })
       .eq('id', sourceId)
@@ -253,8 +269,9 @@ async function syncNotionPage(params: {
 
   // A page with nothing but its title (an empty module placeholder) would be
   // indexed as one lone title chunk: it matches searches by name and answers
-  // nothing. Keep the source row for the admin view, but index no chunks.
-  if (!markdown.trim() && !propertiesSection.trim()) {
+  // nothing. A folder's text is navigation, not knowledge. Keep the source row
+  // for the admin view, but index no chunks for either.
+  if (params.isContainer || (!markdown.trim() && !propertiesSection.trim())) {
     await supabase
       .from('documents')
       .delete()
@@ -280,7 +297,13 @@ async function syncNotionPage(params: {
     return
   }
 
-  const chunks = chunkText(content, 500, 50)
+  const chunks = chunkNotionPage({
+    title: page.title,
+    body: normalizeNotionMarkdown(
+      [propertiesSection, markdown].filter((part) => part.trim()).join('\n\n'),
+    ),
+    maxTokens: 500,
+  })
   if (chunks.length === 0) throw new Error(`Notion page ${params.pageId} produced no chunks`)
 
   const revisionId = crypto.randomUUID()
@@ -354,8 +377,12 @@ async function syncNotionRoot(job: SyncJob, connection: Connection, root: Root):
       throw new Error(`Notion root exceeds the ${MAX_ROOT_PAGES}-page safety limit`)
     }
     seen.add(pageId)
-    await syncNotionPage({ accessToken, root, pageId, embeddingKey })
-    pageQueue.push(...await discoverChildPages(accessToken, pageId))
+    const children = await discoverChildPages(accessToken, pageId)
+    // The root page is the section's front page (what it covers, how to add
+    // pages) — a folder even before its first child page exists.
+    const isContainer = children.length > 0 || pageId === root.notion_page_id
+    await syncNotionPage({ accessToken, root, pageId, embeddingKey, isContainer })
+    pageQueue.push(...children)
   }
 
   const { error } = await supabase.rpc('complete_global_knowledge_root_sync', {

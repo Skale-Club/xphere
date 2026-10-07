@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle, AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database,
-  ExternalLink, FilePlus, FileText, Loader2, RefreshCw, Trash2, Unplug, Upload,
+  ExternalLink, FilePlus, FileText, Folder, Loader2, RefreshCw, Trash2, Unplug, Upload,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -46,6 +46,7 @@ type Source = {
   chunk_count: number
   created_at: string
   notion_root_id: string | null
+  is_container?: boolean
 }
 
 const PLATFORM_LABEL: Record<GlobalKnowledgePlatform, string> = {
@@ -67,6 +68,8 @@ function getSourceType(mime: string, name: string): 'pdf' | 'text' | 'csv' {
  */
 function isThinNotionSource(source: Source): boolean {
   if (source.source_type !== 'notion_page' || source.status === 'processing') return false
+  // A folder (page with child pages) is indexed with no chunks on purpose.
+  if (source.is_container) return false
   return source.chunk_count <= 1 || source.name.trim() === 'Untitled'
 }
 
@@ -813,11 +816,15 @@ export function GlobalKnowledgeManager({
                                       key={source.id}
                                       className="flex items-center gap-3 px-4 py-3 [contain-intrinsic-size:44px] [content-visibility:auto]"
                                     >
-                                      <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
+                                      {source.is_container ? (
+                                        <Folder className="h-4 w-4 shrink-0 text-text-tertiary" />
+                                      ) : (
+                                        <FileText className="h-4 w-4 shrink-0 text-text-tertiary" />
+                                      )}
                                       <div className="min-w-0 flex-1">
                                         <p className="truncate text-sm text-text-primary">{source.name}</p>
                                         <p className="text-xs text-text-tertiary">
-                                          {source.chunk_count} chunks
+                                          {source.is_container ? 'Folder · not indexed' : `${source.chunk_count} chunks`}
                                           {source.status === 'error' && source.error_detail
                                             ? ` · ${source.error_detail}`
                                             : ''}

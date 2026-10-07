@@ -2517,6 +2517,7 @@ export interface Database {
           last_synced_at: string | null
           is_active: boolean
           notion_root_id: string | null
+          is_container: boolean
           created_by: string | null
           created_at: string
           updated_at: string
@@ -2538,6 +2539,7 @@ export interface Database {
           last_synced_at?: string | null
           is_active?: boolean
           notion_root_id?: string | null
+          is_container?: boolean
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -2557,6 +2559,7 @@ export interface Database {
           last_synced_at?: string | null
           is_active?: boolean
           notion_root_id?: string | null
+          is_container?: boolean
           updated_at?: string
         }
         Relationships: []

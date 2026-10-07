@@ -441,10 +441,10 @@ export const adsTools: McpToolDef[] = [
     name: 'global_knowledge_add_text',
     title: 'Add text to Global Knowledge (super admin)',
     description:
-      'SUPER ADMIN ONLY. Add curated material to Global Knowledge for a media scope (meta/google) or "global". When the knowledge base is synchronized from Notion (the usual case) this creates a Notion page under the matching root (or root_id) and queues its sync — it becomes searchable within minutes and stays editable in Notion. Otherwise it chunks and embeds synchronously. Structure the content before adding it (central idea, criteria, checklist, conclusion — like the existing lessons) and pass source_url when it came from a video or article.',
+      'SUPER ADMIN ONLY. Add curated material to Global Knowledge for a media scope (meta/google) or "global". When the knowledge base is synchronized from Notion (the usual case) this creates a Notion page under the matching root (or root_id) and queues its sync — it becomes searchable within minutes and stays editable in Notion. Otherwise it chunks and embeds synchronously. One page per topic: before adding, run global_knowledge_search — if a page on the same topic already exists, do not create a duplicate; tell the operator to merge the new material into that page in Notion. Title the page by the topic or question it answers (no lesson numbers). Structure it with these ## sections: Resumo, Quando se aplica, Como fazer (rules and steps), Erros comuns e mitos, Checklist, Fontes. Keep each section self-contained — retrieval returns sections on their own — and pass source_url when it came from a video or article.',
     area: 'general_xphere',
     inputSchema: z.object({
-      name: z.string().min(1).max(200).describe('Title of the lesson/page'),
+      name: z.string().min(1).max(200).describe('Topic or question the page answers, e.g. "Anúncios no Google Maps: como aparecer" — no lesson numbers'),
       content: z.string().min(1).max(400_000).describe('Markdown content'),
       platform: z.enum(['meta', 'google', 'global']).default('global'),
       root_id: z.string().uuid().optional()
@@ -485,7 +485,7 @@ export const adsTools: McpToolDef[] = [
     name: 'global_knowledge_fetch_url',
     title: 'Fetch a video transcript or article (super admin)',
     description:
-      'SUPER ADMIN ONLY. Read-only: extract the text of a YouTube video (its captions/transcript) or a web article so it can be turned into a Global Knowledge lesson. Nothing is saved. Next: structure the text into a lesson (central idea, criteria, checklist, conclusion — no filler, keep the author\'s concrete numbers and examples) and call global_knowledge_add_text with source_url. Transcript extraction is best-effort: if it returns transcript_unavailable, ask the operator to paste the transcript.',
+      'SUPER ADMIN ONLY. Read-only: extract the text of a YouTube video (its captions/transcript) or a web article so it can be turned into Global Knowledge. Nothing is saved. Next: structure the text as a topic page (Resumo, Quando se aplica, Como fazer, Erros comuns e mitos, Checklist, Fontes — no filler, keep the author\'s concrete numbers and examples) and call global_knowledge_add_text with source_url, or merge it into the existing page on the same topic. Transcript extraction is best-effort: if it returns transcript_unavailable, ask the operator to paste the transcript.',
     area: 'general_xphere',
     annotations: { readOnlyHint: true, openWorldHint: true },
     inputSchema: z.object({
@@ -498,7 +498,7 @@ export const adsTools: McpToolDef[] = [
       return {
         ...result,
         characters: result.text.length,
-        next_step: 'Structure this into a lesson, show it to the operator if they want to review it, then call global_knowledge_add_text with source_url set to this url.',
+        next_step: 'Structure this as a topic page, show it to the operator if they want to review it, then call global_knowledge_add_text with source_url set to this url — unless a page on the same topic already exists, in which case it should be merged into that page in Notion.',
       }
     },
   },
@@ -507,7 +507,7 @@ export const adsTools: McpToolDef[] = [
     name: 'global_knowledge_list',
     title: 'List Global Knowledge sources (super admin)',
     description:
-      'SUPER ADMIN ONLY. List Global Knowledge sources with health flags: `searchable` (retrieval can return it right now) and `thin` (at most one indexed chunk or untitled — its content probably lives in a video, attachment or database). Also returns the source mode and, in Notion mode, the synchronized roots you can file new pages under.',
+      'SUPER ADMIN ONLY. List Global Knowledge sources with health flags: `searchable` (retrieval can return it right now), `thin` (at most one indexed chunk or untitled — its content probably lives in a video, attachment or database) and `is_container` (a Notion folder: a page with child pages, indexed with no chunks by design — not a problem). Also returns the source mode and, in Notion mode, the synchronized roots you can file new pages under.',
     area: 'general_xphere',
     inputSchema: z.object({
       platform: z.enum(['meta', 'google', 'global']).optional(),
@@ -520,7 +520,8 @@ export const adsTools: McpToolDef[] = [
       return {
         ...result,
         thin_count: result.sources.filter((s) => s.thin).length,
-        unsearchable_count: result.sources.filter((s) => !s.searchable).length,
+        unsearchable_count: result.sources.filter((s) => !s.searchable && !s.is_container).length,
+        folder_count: result.sources.filter((s) => s.is_container).length,
         notion_roots: roots,
       }
     },

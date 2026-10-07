@@ -427,7 +427,9 @@ export type GlobalKnowledgeSourceSummary = {
   source_url: string | null
   last_synced_at: string | null
   created_at: string
-  /** Probably empty or a stub: at most one chunk, or never given a title. */
+  /** Notion folder: a page with child pages, indexed with no chunks by design. */
+  is_container: boolean
+  /** Probably empty or a stub: at most one chunk, or never given a title. Never true for a folder. */
   thin: boolean
   /** Whether match_global_knowledge can return this source right now. */
   searchable: boolean
@@ -438,10 +440,12 @@ export type GlobalKnowledgeSourceSummary = {
  * active, and of the family the current source mode reads.
  */
 export function classifyGlobalKnowledgeSource(
-  source: Pick<GlobalKnowledgeSourceSummary, 'name' | 'chunk_count' | 'status' | 'is_active' | 'source_type'>,
+  source: Pick<GlobalKnowledgeSourceSummary, 'name' | 'chunk_count' | 'status' | 'is_active' | 'source_type'> & {
+    is_container?: boolean
+  },
   mode: GlobalKnowledgeSourceMode,
 ): { thin: boolean; searchable: boolean } {
-  const thin = (source.chunk_count ?? 0) <= 1 || source.name.trim() === 'Untitled'
+  const thin = !source.is_container && ((source.chunk_count ?? 0) <= 1 || source.name.trim() === 'Untitled')
   const modeMatches = mode === 'notion' ? source.source_type === 'notion_page' : source.source_type !== 'notion_page'
   // An empty Notion page is synced with zero chunks: present, but never returned.
   const searchable = source.status === 'ready' && source.is_active === true && modeMatches && (source.chunk_count ?? 0) > 0
@@ -460,7 +464,7 @@ export async function listGlobalKnowledgeSources(params: {
 
   let q = supabase
     .from('global_knowledge_sources')
-    .select('id, platform, name, source_type, status, error_detail, chunk_count, is_active, source_url, last_synced_at, created_at')
+    .select('id, platform, name, source_type, status, error_detail, chunk_count, is_active, is_container, source_url, last_synced_at, created_at')
     .order('created_at', { ascending: false })
   if (params.platform) q = q.eq('platform', params.platform)
 
