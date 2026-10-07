@@ -36,6 +36,7 @@ import { createLogger } from '@/lib/obs/logger'
 import { captureDailyInsights } from '@/lib/ads/snapshot-daily'
 import { reviewChangeOutcomes, type OutcomeReviewResult } from '@/lib/ads/outcomes'
 import { daysUntilExpiry, EXPIRY_WARNING_DAYS, markConnectionError, type AdsPlatform } from '@/lib/ads/connection-health'
+import { planExpiryNotices, sendExpiryNotices, type ExpiryCandidate } from '@/lib/ads/expiry-notify'
 
 const CRON_SECRET = process.env.CRON_SECRET
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -49,6 +50,7 @@ type ConnectionRow = {
   ad_account_name: string | null
   token_expires_at: string | null
   status: string
+  health?: string | null
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -76,11 +78,13 @@ export async function GET(request: Request): Promise<Response> {
   // ─── 1. Expiry watch ────────────────────────────────────────────────────────
   let expiringSoon = 0
   let expired = 0
+  let noticesSent = 0
+  const expiryCandidates: ExpiryCandidate[] = []
 
   try {
     let q = supabase
       .from('ads_connections')
-      .select('id, org_id, platform, ad_account_id, ad_account_name, token_expires_at, status')
+      .select('id, org_id, platform, ad_account_id, ad_account_name, token_expires_at, status, health')
       .in('status', ['active', 'available'])
       .not('token_expires_at', 'is', null)
       // Google's token_expires_at holds the ~1-hour ACCESS-token expiry, not
@@ -104,6 +108,15 @@ export async function GET(request: Request): Promise<Response> {
     for (const conn of (connections ?? []) as ConnectionRow[]) {
       const days = daysUntilExpiry(conn.token_expires_at)
       if (days === null) continue
+      expiryCandidates.push({
+        org_id: conn.org_id,
+        platform: conn.platform,
+        ad_account_id: conn.ad_account_id,
+        ad_account_name: conn.ad_account_name,
+        status: conn.status,
+        health: conn.health ?? null,
+        daysLeft: days,
+      })
 
       if (days <= 0) {
         expired++
@@ -150,6 +163,14 @@ export async function GET(request: Request): Promise<Response> {
   } catch (err) {
     log.error('ads_tick_expiry_watch_failed', { error: err })
     captureApiError(err, { route: 'ads-tick', stage: 'expiry-watch' })
+  }
+
+  // Tell owners/admins, not just whoever opens /ads. Never fails the tick.
+  try {
+    noticesSent = await sendExpiryNotices(supabase, planExpiryNotices(expiryCandidates))
+  } catch (err) {
+    log.error('ads_tick_expiry_notify_failed', { error: err })
+    captureApiError(err, { route: 'ads-tick', stage: 'expiry-notify' })
   }
 
   // ─── 2. Daily insight snapshot ──────────────────────────────────────────────
@@ -206,7 +227,7 @@ export async function GET(request: Request): Promise<Response> {
 
   return Response.json({
     ok: true,
-    expiry: { expiringSoon, expired },
+    expiry: { expiringSoon, expired, noticesSent },
     snapshot: { accounts: snapshotAccounts, rows: snapshotRows, errors: snapshotErrors, skipped: skipSnapshot },
     outcomes: outcomes ?? { disabled: true },
   })

@@ -9,6 +9,7 @@ export type NotificationType =
   | 'incoming_call'
   | 'handoff_requested'
   | 'local_seo_alert'
+  | 'ads_connection_expiring'
 
 export interface InsertNotificationOptions {
   /**

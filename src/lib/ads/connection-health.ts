@@ -184,4 +184,4 @@ export function daysUntilExpiry(tokenExpiresAt: string | null, now = new Date())
 }
 
 /** Connections within this window are surfaced to the operator as "expiring". */
-export const EXPIRY_WARNING_DAYS = 7
+export const EXPIRY_WARNING_DAYS = 14

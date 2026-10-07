@@ -126,7 +126,7 @@ export interface InboundEmailRouteRow {
   created_at: string
 }
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert' | 'ads_connection_expiring'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'

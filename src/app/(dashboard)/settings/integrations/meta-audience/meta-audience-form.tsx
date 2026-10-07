@@ -45,6 +45,9 @@ import {
 type Preview = { entities: number; emails: number; phones: number; suppressed: number; invalid: number; scope: string }
 type Pixel = { id: string; name: string; lastFiredTime: string | null }
 
+/** Mirrors EXPIRY_WARNING_DAYS in src/lib/ads/connection-health.ts (server-only module). */
+const EXPIRY_WARNING_DAYS = 14
+
 const KIND_LABELS: Record<AudienceKind, string> = {
   xcraper_master: 'All Xcraper prospects',
   prospect_segment: 'Saved prospect segment',
@@ -141,6 +144,8 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
     (item) => item.usable || item.id === connectionId,
   )
   const connectionExpired = !connection?.expiresAt || Date.parse(connection.expiresAt) <= Date.now()
+  const connectionExpiringSoon = !connectionExpired && Boolean(connection?.expiresAt) &&
+    Date.parse(connection!.expiresAt!) - Date.now() <= EXPIRY_WARNING_DAYS * 86_400_000
   const segment = data.savedSegments.find((item) => item.id === segmentId)
   const configReady = Boolean(selected && isConnectionReady(connection, connectionExpired))
   const enableReason = !selected
@@ -382,10 +387,15 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
                 </SelectContent>
               </Select>
               {connection && (
-                <p className={`text-xs ${isConnectionReady(connection, connectionExpired) ? 'text-emerald-600' : 'text-destructive'}`}>
-                  {isConnectionReady(connection, connectionExpired)
-                    ? `Connected · token expires ${formatDate(connection.expiresAt)}`
-                    : 'Reconnect required before a real sync.'}
+                <p className={`text-xs ${!isConnectionReady(connection, connectionExpired)
+                  ? 'text-destructive'
+                  : connectionExpiringSoon ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600'}`}
+                >
+                  {!isConnectionReady(connection, connectionExpired)
+                    ? 'Reconnect required before a real sync.'
+                    : connectionExpiringSoon
+                      ? `Token expires ${formatDate(connection.expiresAt)} · reconnect Meta in Ads before then or syncing stops.`
+                      : `Connected · token expires ${formatDate(connection.expiresAt)}`}
                 </p>
               )}
             </div>

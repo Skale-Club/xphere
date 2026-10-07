@@ -171,6 +171,17 @@ function buildPushData(type: string, payload: Record<string, unknown>): PushData
         tag: `handoff-${payload.conversation_id ?? 'inbox'}`,
       }
     }
+    case 'ads_connection_expiring': {
+      const platform = payload.platform === 'google' ? 'Google Ads' : 'Meta'
+      const days = typeof payload.days_left === 'number' ? payload.days_left : null
+      const expired = payload.kind === 'expired'
+      return {
+        title: expired ? `${platform} connection expired` : `${platform} connection expires in ${days} day${days === 1 ? '' : 's'}`,
+        body: 'Reconnect it to keep reports, conversions and audiences syncing.',
+        url: payload.platform === 'google' ? '/ads/google' : '/ads',
+        tag: `ads-expiry-${payload.platform ?? 'meta'}`,
+      }
+    }
     case 'flow_failed': {
       const flowName = (payload.flow_name as string | undefined) ?? 'A workflow'
       return {

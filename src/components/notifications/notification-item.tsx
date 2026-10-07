@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { PhoneMissed, AlertTriangle, Phone, Bell, Hand, MapPin, type LucideIcon } from 'lucide-react'
+import { PhoneMissed, AlertTriangle, Phone, Bell, Hand, MapPin, PlugZap, type LucideIcon } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
@@ -62,6 +62,8 @@ function getNavigationTarget(notification: NotificationRow): string {
       return '/workflows/logs'
     case 'local_seo_alert':
       return `/seo/local/${payload.location_id ?? ''}/${payload.target === 'profile' ? 'profile' : 'trends'}`
+    case 'ads_connection_expiring':
+      return payload.platform === 'google' ? '/ads/google' : '/ads'
     default:
       return '/'
   }
@@ -190,6 +192,21 @@ function describe(notification: NotificationRow): NotificationContent {
           delta !== null ? ` (${delta > 0 ? '+' : ''}${delta})` : ''
         }`,
         reason: p.is_worse ? 'Ranking dropped' : 'Ranking improved',
+      }
+    }
+
+    case 'ads_connection_expiring': {
+      const platform = p.platform === 'google' ? 'Google Ads' : 'Meta'
+      const accounts = Array.isArray(p.accounts) ? (p.accounts as unknown[]).filter((a): a is string => typeof a === 'string') : []
+      const count = typeof p.account_count === 'number' ? p.account_count : accounts.length
+      const names = accounts.slice(0, 2).join(', ') + (count > 2 ? ` +${count - 2}` : '')
+      const days = typeof p.days_left === 'number' ? p.days_left : null
+      const expired = p.kind === 'expired'
+      return {
+        tile: <IconTile icon={PlugZap} tone={expired ? 'danger' : 'warning'} />,
+        title: expired ? `${platform} connection expired` : `${platform} connection expires in ${days} day${days === 1 ? '' : 's'}`,
+        detail: `${names || 'Ad account'} · reconnect to keep reports, conversions and audiences syncing`,
+        reason: expired ? 'Reconnect required' : 'Reconnect soon',
       }
     }
 
