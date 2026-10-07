@@ -150,6 +150,15 @@ async function embedChunks(chunks: string[], apiKey: string): Promise<number[][]
   return vectors
 }
 
+/**
+ * Notion's markdown endpoint renders each empty paragraph as `<empty-block/>`.
+ * Left in, a page holding only that tag counts as having a body and is indexed
+ * as a title-only chunk that weakly matches every query.
+ */
+export function stripEmptyBlocks(markdown: string): string {
+  return markdown.replace(/<empty-block\s*\/>/g, '').replace(/\n{3,}/g, '\n\n').trim()
+}
+
 async function syncNotionPage(params: {
   accessToken: string
   root: Root
@@ -167,9 +176,11 @@ async function syncNotionPage(params: {
   }
 
   const markdownResponse = await retrieveNotionPageMarkdown(params.accessToken, params.pageId)
-  const markdown = markdownResponse.truncated || markdownResponse.unknown_block_ids.length > 0
-    ? await retrieveNotionPageTextFallback(params.accessToken, params.pageId)
-    : markdownResponse.markdown
+  const markdown = stripEmptyBlocks(
+    markdownResponse.truncated || markdownResponse.unknown_block_ids.length > 0
+      ? await retrieveNotionPageTextFallback(params.accessToken, params.pageId)
+      : markdownResponse.markdown,
+  )
 
   // Database rows often keep their substance in properties (a "Summary" or
   // "Notes" column) rather than in the page body, so index those too.

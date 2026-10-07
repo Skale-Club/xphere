@@ -60,7 +60,7 @@ import {
   isNotionDatabaseRow,
   NotionApiError,
 } from '@/lib/notion/client'
-import { discoverChildPages } from '@/lib/knowledge/notion-sync'
+import { discoverChildPages, stripEmptyBlocks } from '@/lib/knowledge/notion-sync'
 
 describe('buildGlobalKnowledgePageMarkdown', () => {
   it('normalizes newlines and trailing spaces', () => {
@@ -329,5 +329,16 @@ describe('createGlobalKnowledgeNotionPage', () => {
     await createGlobalKnowledgeNotionPage({ title: 'Long', markdown: `${paragraph}\n\n${paragraph}\n\n${paragraph}` })
     expect(clientMocks.createNotionPageFromMarkdown).toHaveBeenCalledTimes(1)
     expect(clientMocks.appendNotionPageMarkdown).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('stripEmptyBlocks', () => {
+  it('treats a page holding only empty-block tags as empty', () => {
+    expect(stripEmptyBlocks('<empty-block/>')).toBe('')
+    expect(stripEmptyBlocks('\n<empty-block/>\n\n<empty-block />\n')).toBe('')
+  })
+
+  it('keeps real content and collapses the gaps left behind', () => {
+    expect(stripEmptyBlocks('## Ideia\n<empty-block/>\n\n\nTexto')).toBe('## Ideia\n\nTexto')
   })
 })
