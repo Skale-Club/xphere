@@ -118,6 +118,23 @@ reimplement verification, only the discovery/grouping around it.
 `email_verification_provider='bounce'` — a real bounce permanently marks the
 address non-sendable across every channel and campaign, not just Xmail.
 
+**Platform addresses** (`src/lib/prospects/platform-emails.ts`, 2026-10-07): an
+email whose domain (or subdomain) belongs to a booking marketplace (booksy.com,
+vagaro.com, ...) is that platform's support inbox, never the business's own
+(measured: `help.us@booksy.com` on 38 accounts; 12 of 40 had already burned
+credits and read `ok`). `verifyProspectEmail()` decides it by rule before any
+provider call — `email_status='invalid'`, `email_verification_provider='platform_rule'`,
+`email_risk='high'`, `email_verified_at` untouched (it is the cron's spend-cap
+ledger) — and the batch aggregate counts it as `platform_email`, not `invalid`.
+`prospects_import_to_xmail` holds it back first (`held_back.platform_email`,
+`retained_for_review` reason `platform_email`) whatever its `email_status`;
+`prospects_enroll_in_campaign` never enrols it; `prospects_list` flags it.
+The domain list must stay in sync with Xmail's `src/server/lib/platform-emails.ts`
+and Xcraper's `backend/src/services/emailPlaceholders.ts`.
+`scripts/backfill-platform-emails.ts` (dry run by default, `--apply` to write)
+applies the rule to existing rows and keeps the previous status in
+`custom_fields.previous_email_status`.
+
 ## Inbound — how external systems reach Xphere
 
 All inbound endpoints authenticate with an **Xphere API key** (`xph_…`, created

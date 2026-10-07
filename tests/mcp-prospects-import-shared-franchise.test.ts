@@ -4,7 +4,11 @@
 // categories for a human decision, reported (never silently dropped) the
 // same way catch_all/unknown already are:
 //   (a) shared_email — an address recorded on 3+ DISTINCT businesses.
-//       Measured: help.us@booksy.com on 11 different scraped barbershops.
+//       Measured: help.us@booksy.com on 11 different scraped barbershops. Since
+//       2026-10-07 a known platform domain is held back earlier, as platform_email
+//       (see mcp-prospects-import-platform-email.test.ts), so this file exercises the
+//       heuristic with a NON-platform shared address, which is what shared_email is
+//       still for (e.g. a management company's front desk).
 //   (b) franchise — a recognized national barbershop/salon chain location.
 //       Measured: contact.us@sportclips.com (Sport Clips' corporate support
 //       address) on a scraped location.
@@ -128,7 +132,7 @@ describe('prospects_import_to_xmail — shared_email + franchise retention (Item
       account({
         id: `booksy-${i + 1}`,
         name: `Booksy Shop ${i + 1}`,
-        custom_fields: { email: 'help.us@booksy.com' },
+        custom_fields: { email: 'frontdesk@sharedmgmt.example' },
       }),
     )
     // Two listings of the SAME business under different names, no website on
@@ -175,12 +179,12 @@ describe('prospects_import_to_xmail — shared_email + franchise retention (Item
     expect(retained.length).toBeGreaterThan(0)
     expect(retained.length).toBeLessThanOrEqual(10)
     expect(retained.some((r) => r.reason === 'franchise' && r.matched_brand === 'Sport Clips')).toBe(true)
-    expect(retained.some((r) => r.reason === 'shared_email' && r.email === 'help.us@booksy.com')).toBe(true)
+    expect(retained.some((r) => r.reason === 'shared_email' && r.email === 'frontdesk@sharedmgmt.example')).toBe(true)
   })
 
   it('dry run (confirmed omitted) reports shared_email/franchise counts without importing anything', async () => {
     const booksyAccounts = Array.from({ length: 3 }, (_, i) =>
-      account({ id: `booksy-${i + 1}`, name: `Booksy Shop ${i + 1}`, custom_fields: { email: 'help.us@booksy.com' } }),
+      account({ id: `booksy-${i + 1}`, name: `Booksy Shop ${i + 1}`, custom_fields: { email: 'frontdesk@sharedmgmt.example' } }),
     )
     const db = makeDb({ contacts: [], accounts: booksyAccounts })
     createServiceRoleClient.mockReturnValue(db)

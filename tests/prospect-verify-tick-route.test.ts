@@ -295,7 +295,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     getMillionVerifierCredits.mockResolvedValueOnce({ configured: true, credits: 500, ok: true }).mockResolvedValueOnce({ configured: true, credits: 499, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'xmail-run-1', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -349,7 +349,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
       contactFixture.email_status = 'ok'
       return {
         results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-        aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+        aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
       }
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'xmail-run-1', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
@@ -395,7 +395,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     // Simulates a catch_all outcome — verified, but deliberately not imported.
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'catch_all', risk: 'medium', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 0, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 0, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'xmail-run-1', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -429,7 +429,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 500, ok: true })
     verifyProspectsBatch.mockImplementation(async (_orgId: string, prospects: Array<{ id: string; email: string }>) => ({
       results: prospects.map((p) => ({ kind: 'contact', id: p.id, email: p.email, result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true })),
-      aggregate: { ok: prospects.length, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: prospects.length, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     }))
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -482,7 +482,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 500, ok: true })
     verifyProspectsBatch.mockImplementation(async (_orgId: string, prospects: Array<{ id: string }>) => ({
       results: prospects.map((p) => ({ kind: 'contact', id: p.id, email: 'x', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true })),
-      aggregate: { ok: prospects.length, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: prospects.length, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     }))
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -516,7 +516,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 5, ok: true })
     verifyProspectsBatch.mockResolvedValueOnce({
       results: [{ kind: 'contact', id: 'c1', email: 'a@example.com', result: { blocked: true, reason: 'no_verification_credits' }, sendable: false }],
-      aggregate: { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 1 },
+      aggregate: { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 1, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -546,7 +546,7 @@ describe('GET /api/cron/prospect-verify-tick', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 500, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'a@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
 
     const { GET } = await importRoute({ PROSPECTING_AUTO_VERIFY: '1' })

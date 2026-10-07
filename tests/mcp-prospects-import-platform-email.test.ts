@@ -110,6 +110,10 @@ function contact(overrides: Partial<Record<string, unknown>>) {
   }
 }
 
+// Since 2026-10-07 Xphere holds known platform domains (booksy.com...) back BEFORE calling Xmail (see
+// the describe block at the bottom). These Item 4 tests cover the fallback that remains: an address
+// Xphere's own list does not know yet but Xmail rejects as a platform email, so the domain used here
+// is deliberately one that is NOT in PLATFORM_EMAIL_DOMAINS.
 describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -121,7 +125,7 @@ describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () 
       prospect_sources: [{ id: 'src-1' }],
       contacts: [
         contact({ id: 'c-accepted', email: 'owner@independentshop.example' }),
-        contact({ id: 'c-platform', email: 'help.us@booksy.com' }),
+        contact({ id: 'c-platform', email: 'support@newplatform.example' }),
       ],
       accounts: [],
     })
@@ -132,7 +136,7 @@ describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () 
       ok: true,
       imported: 1,
       leadIds: ['lead-accepted'],
-      skippedPlatformEmails: ['help.us@booksy.com'],
+      skippedPlatformEmails: ['support@newplatform.example'],
       duplicatesInPayload: 0,
     })
 
@@ -152,7 +156,7 @@ describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () 
   it('stamps nobody and reports every submitted prospect retained when Xmail rejects all of them as platform emails', async () => {
     const db = makeDb({
       prospect_sources: [{ id: 'src-1' }],
-      contacts: [contact({ id: 'c-platform', email: 'help.us@booksy.com' })],
+      contacts: [contact({ id: 'c-platform', email: 'support@newplatform.example' })],
       accounts: [],
     })
     createServiceRoleClient.mockReturnValue(db)
@@ -160,7 +164,7 @@ describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () 
       ok: true,
       imported: 0,
       leadIds: [],
-      skippedPlatformEmails: ['help.us@booksy.com'],
+      skippedPlatformEmails: ['support@newplatform.example'],
       duplicatesInPayload: 0,
     })
 
@@ -193,5 +197,65 @@ describe('prospects_import_to_xmail — platform-email accounting (Item 4)', () 
 
     expect(result.retained_platform_email).toBeUndefined()
     expect(db.updateCalls[0].ids).toEqual(['c-accepted'])
+  })
+})
+
+describe('prospects_import_to_xmail — platform_email hold-back (2026-10-07)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    isXmailConfigured.mockReturnValue(true)
+  })
+
+  it('holds a known platform address back first, even when it is already email_status ok, and never sends it to Xmail', async () => {
+    const db = makeDb({
+      prospect_sources: [{ id: 'src-1' }],
+      contacts: [
+        contact({ id: 'c-ok', email: 'owner@independentshop.example' }),
+        // verified 'ok' (credits were spent) and a subdomain of a platform: still held back
+        contact({ id: 'c-booksy', email: 'Help.Us@Booksy.com', email_status: 'ok' }),
+        contact({ id: 'c-subdomain', email: 'noreply@mail.vagaro.com', email_status: 'ok' }),
+        // lookalike domain is NOT a platform
+        contact({ id: 'c-lookalike', email: 'hello@notbooksy.com', email_status: 'ok' }),
+      ],
+      accounts: [],
+    })
+    createServiceRoleClient.mockReturnValue(db)
+    xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 2, leadIds: ['a', 'b'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
+
+    const input = tool().inputSchema.parse({ external_run_id: 'run-1', confirmed: true })
+    const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
+
+    const submitted = (xmailBulkImportLeads.mock.calls[0][0] as Array<{ email: string }>).map((lead) => lead.email)
+    expect(submitted).toEqual(['owner@independentshop.example', 'hello@notbooksy.com'])
+    expect(result.imported).toBe(2)
+
+    const held = (result.held_back as Record<string, number>)
+    expect(held.platform_email).toBe(2)
+    expect(held.shared_email).toBe(0)
+    expect(held.franchise).toBe(0)
+    const retained = result.retained_for_review as Array<{ email: string; reason: string }>
+    expect(retained.map((r) => r.reason)).toEqual(['platform_email', 'platform_email'])
+    expect(result.message).toMatch(/2 platform_email/)
+
+    // only the two accepted rows are stamped; the platform rows never get xmail_imported_at
+    expect(db.updateCalls).toHaveLength(1)
+    expect(db.updateCalls[0].ids).toEqual(['c-ok', 'c-lookalike'])
+  })
+
+  it('reports platform_email in the dry run and imports nothing', async () => {
+    const db = makeDb({
+      prospect_sources: [{ id: 'src-1' }],
+      contacts: [contact({ id: 'c-booksy', email: 'help.us@booksy.com', email_status: 'ok' })],
+      accounts: [],
+    })
+    createServiceRoleClient.mockReturnValue(db)
+
+    const input = tool().inputSchema.parse({ external_run_id: 'run-1' })
+    const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
+
+    expect(result.would_import).toBe(0)
+    expect((result.held_back as Record<string, number>).platform_email).toBe(1)
+    expect(xmailBulkImportLeads).not.toHaveBeenCalled()
+    expect(db.updateCalls).toHaveLength(0)
   })
 })

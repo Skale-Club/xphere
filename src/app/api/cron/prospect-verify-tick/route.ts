@@ -418,7 +418,7 @@ export async function GET(request: Request): Promise<Response> {
 
   const { groups, skippedNoExternalRun } = await groupByExternalRun(candidates, log)
 
-  const totals: BatchAggregate = { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 }
+  const totals: BatchAggregate = { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 }
   let creditsUsedTotal: number | null = 0
   let stoppedReason: 'no_credits' | null = null
   let processedCount = 0
@@ -472,7 +472,9 @@ export async function GET(request: Request): Promise<Response> {
           ok: batch.aggregate.ok,
           catchAll: batch.aggregate.catch_all,
           unknown: batch.aggregate.unknown,
-          invalid: batch.aggregate.invalid,
+          // Xmail requires checked == ok + catchAll + unknown + invalid: a platform address
+          // (persisted invalid/platform_rule, no credit spent) travels as invalid.
+          invalid: batch.aggregate.invalid + batch.aggregate.platform_email,
           creditsUsed,
           verificationProvider,
           verifiedAt,

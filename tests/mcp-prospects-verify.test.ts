@@ -160,7 +160,7 @@ describe('prospects_verify handler', () => {
         },
         sendable: true,
       })),
-      aggregate: { ok: 1, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     }))
     xmailNotifyVerificationComplete.mockResolvedValue({
       ok: true,
@@ -231,7 +231,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 100, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -253,7 +253,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValueOnce({ configured: true, credits: null, ok: false, error: 'timeout' })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -270,7 +270,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 100, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
 
     const input = tool().inputSchema.parse({ source_type: 'xcraper' })
@@ -293,7 +293,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 100, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
 
     const input = tool().inputSchema.parse({ external_run_id: 'run-42' })
@@ -315,7 +315,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 100, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: false, error: 'Xmail does not know external run "run-42" (404).', runNotFound: true })
 
@@ -345,7 +345,7 @@ describe('prospects_verify handler', () => {
         { kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true },
         { kind: 'contact', id: 'c2', email: 'bob@example.com', result: { status: 'ok', risk: 'low', provider: 'neverbounce', verifiedAt: 'x', cached: false }, sendable: true },
       ],
-      aggregate: { ok: 2, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 2, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -366,7 +366,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 0, ok: false })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { blocked: true, reason: 'no_verification_credits' }, sendable: false }],
-      aggregate: { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 1 },
+      aggregate: { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 1, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -394,7 +394,7 @@ describe('prospects_verify handler', () => {
     getMillionVerifierCredits.mockResolvedValueOnce({ configured: true, credits: 110, ok: true })
     verifyProspectsBatch.mockResolvedValue({
       results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+      aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
 
@@ -425,7 +425,7 @@ describe('prospects_verify handler', () => {
       getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 100, ok: true })
       verifyProspectsBatch.mockResolvedValue({
         results: [{ kind: 'contact', id: 'c1', email: 'alice@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
-        aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 },
+        aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
       })
       xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
     }

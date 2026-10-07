@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { verifyWithMillionVerifier, verifyWithNeverBounce } from './providers'
 import { riskForStatus, isSendable } from './risk-policy'
 import { isVerifyFailure } from './types'
+import { isPlatformEmail } from '@/lib/prospects/platform-emails'
 import type { EmailRisk, EmailStatus, VerificationProvider, VerifySuccess } from './types'
 
 export { riskForStatus, isSendable }
@@ -95,6 +96,27 @@ export async function verifyProspectEmail(
 ): Promise<VerifyEmailResult> {
   const table = tableFor(kind)
 
+  // Platform address (help.us@booksy.com...): never the business's own mailbox, so no provider
+  // call and no credit. This is the narrowest point every verification path funnels through
+  // (verifyProspectsBatch -> prospects_verify, the enroll dry run and the auto-verify cron, plus
+  // prospect_send_message), and it ignores `force`. Persisted as invalid/platform_rule so the
+  // row leaves the cron's `email_status IS NULL` queue and is never picked again. Deliberately
+  // does NOT stamp email_verified_at: nothing was verified, and that column is the ledger the
+  // cron's daily spend cap counts (countVerifiedToday).
+  if (isPlatformEmail(email)) {
+    await db()
+      .from(table)
+      .update({
+        email_status: 'invalid',
+        email_verification_provider: 'platform_rule',
+        email_risk: 'high',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('org_id', orgId)
+      .eq('id', id)
+    return { status: 'invalid', risk: 'high', provider: 'platform_rule', verifiedAt: new Date().toISOString(), cached: false }
+  }
+
   if (!opts.force) {
     const { data: existing } = await db()
       .from(table)
@@ -102,7 +124,13 @@ export async function verifyProspectEmail(
       .eq('org_id', orgId)
       .eq('id', id)
       .maybeSingle()
-    if (existing && isFresh(existing.email_verified_at, existing.email_status)) {
+    // A 'platform_rule' verdict belongs to the platform address it was decided on. If we got here
+    // the email is no longer a platform one (it was edited), so that verdict is stale: re-verify.
+    if (
+      existing &&
+      existing.email_verification_provider !== 'platform_rule' &&
+      isFresh(existing.email_verified_at, existing.email_status)
+    ) {
       return {
         status: existing.email_status as EmailStatus,
         risk: riskForStatus(existing.email_status as EmailStatus),
@@ -146,10 +174,13 @@ export interface BatchAggregate {
   ok: number
   catch_all: number
   unknown: number
+  /** Provider said invalid. Platform addresses are NOT counted here, see `platform_email`. */
   invalid: number
   disposable: number
   bounced: number
   blocked: number
+  /** Booking-platform addresses skipped by rule (provider 'platform_rule'), no credit spent. */
+  platform_email: number
 }
 
 export interface VerifyBatchResult {
@@ -185,10 +216,12 @@ export async function verifyProspectsBatch(
   const workerCount = Math.min(BATCH_CONCURRENCY, prospects.length)
   await Promise.all(Array.from({ length: workerCount }, () => worker()))
 
-  const aggregate: BatchAggregate = { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0 }
+  const aggregate: BatchAggregate = { ok: 0, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 }
   for (const r of results) {
     if (isBlocked(r.result)) {
       aggregate.blocked++
+    } else if (r.result.provider === 'platform_rule') {
+      aggregate.platform_email++
     } else {
       aggregate[r.result.status]++
     }

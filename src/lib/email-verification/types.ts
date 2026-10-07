@@ -10,7 +10,12 @@ export type EmailStatus = 'ok' | 'catch_all' | 'unknown' | 'disposable' | 'inval
 /** Deliverability risk bucket, persisted in contacts/accounts.email_risk. */
 export type EmailRisk = 'low' | 'medium' | 'high'
 
-export type VerificationProvider = 'millionverifier' | 'neverbounce'
+/**
+ * 'platform_rule' is not a vendor: it marks an email decided by our own rule (the address belongs
+ * to a booking platform, see src/lib/prospects/platform-emails.ts) without calling any provider.
+ * `email_verification_provider` is an unconstrained text column, so no migration is needed.
+ */
+export type VerificationProvider = 'millionverifier' | 'neverbounce' | 'platform_rule'
 
 /** Typed failure reasons a provider call can degrade to — never a thrown error. */
 export type VerifyFailureReason = 'no_credits' | 'unauthorized' | 'unreachable' | 'rate_limited'
