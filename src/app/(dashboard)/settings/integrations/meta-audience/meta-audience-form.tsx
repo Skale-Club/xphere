@@ -41,12 +41,11 @@ import {
   normalizeAudienceSourceDefinition,
   type AudienceKind,
 } from '@/lib/meta/audience-source'
+import { EXPIRY_WARNING_DAYS } from '@/lib/ads/expiry'
 
 type Preview = { entities: number; emails: number; phones: number; suppressed: number; invalid: number; scope: string }
 type Pixel = { id: string; name: string; lastFiredTime: string | null }
 
-/** Mirrors EXPIRY_WARNING_DAYS in src/lib/ads/connection-health.ts (server-only module). */
-const EXPIRY_WARNING_DAYS = 14
 
 const KIND_LABELS: Record<AudienceKind, string> = {
   xcraper_master: 'All Xcraper prospects',

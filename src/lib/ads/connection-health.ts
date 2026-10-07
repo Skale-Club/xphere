@@ -175,13 +175,5 @@ export function withMetaConnection<T>(
   return withConnectionHealth({ orgId, platform: 'meta', adAccountId }, operation)
 }
 
-/** Days until a stored token expires, or null when there is no expiry on file. */
-export function daysUntilExpiry(tokenExpiresAt: string | null, now = new Date()): number | null {
-  if (!tokenExpiresAt) return null
-  const expiry = new Date(tokenExpiresAt)
-  if (Number.isNaN(expiry.getTime())) return null
-  return Math.floor((expiry.getTime() - now.getTime()) / 86_400_000)
-}
-
-/** Connections within this window are surfaced to the operator as "expiring". */
-export const EXPIRY_WARNING_DAYS = 14
+// Client-safe; re-exported so server importers keep one import path.
+export { daysUntilExpiry, EXPIRY_WARNING_DAYS } from './expiry'

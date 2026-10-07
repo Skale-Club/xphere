@@ -6,6 +6,8 @@ import { getTelegramBot } from '@/app/(dashboard)/integrations/telegram/actions'
 import { IntegrationList } from '@/components/integrations/integration-list'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import type { SavedIntegration } from '@/lib/integrations/registry'
+import { summarizeAdsConnection, type AdsConnectionSummaryRow } from '@/lib/ads/expiry'
+import { createClient } from '@/lib/supabase/server'
 
 interface Props {
   searchParams: Promise<{ open?: string }>
@@ -13,7 +15,17 @@ interface Props {
 
 export default async function SettingsIntegrationsPage({ searchParams }: Props) {
   const { open } = await searchParams
-  const [rows, telegramBot] = await Promise.all([getIntegrationsForDisplay(), getTelegramBot()])
+  const supabase = await createClient()
+  const [rows, telegramBot, metaConnections] = await Promise.all([
+    getIntegrationsForDisplay(),
+    getTelegramBot(),
+    // RLS scopes this to the active org.
+    supabase
+      .from('ads_connections')
+      .select('ad_account_id, ad_account_name, status, health, token_expires_at')
+      .eq('platform', 'meta'),
+  ])
+  const metaAds = summarizeAdsConnection((metaConnections.data ?? []) as AdsConnectionSummaryRow[])
 
   const saved: Record<string, SavedIntegration> = {}
   for (const row of rows) {
@@ -51,7 +63,7 @@ export default async function SettingsIntegrationsPage({ searchParams }: Props) 
         description="Wire Xphere into the rest of your stack | messaging, voice, CRM, calendar, and AI providers."
       />
       <Suspense fallback={null}>
-        <IntegrationList saved={saved} initialOpen={open} />
+        <IntegrationList saved={saved} initialOpen={open} metaAds={metaAds} />
       </Suspense>
     </PageContainer>
   )

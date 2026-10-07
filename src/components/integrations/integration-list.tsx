@@ -7,9 +7,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronRight, Target } from 'lucide-react'
+import { ChevronRight, RefreshCw, Target } from 'lucide-react'
 
 import { StatusPill } from '@/components/design-system/status-pill'
+import { Button } from '@/components/ui/button'
+import type { AdsConnectionSummary } from '@/lib/ads/expiry'
 import { cn } from '@/lib/utils'
 
 import { IntegrationLogo } from './integration-logo'
@@ -28,6 +30,61 @@ interface IntegrationListProps {
   saved: Record<string, SavedIntegration>
   /** Optional provider id from `?open=...` to open on mount. */
   initialOpen?: string
+  /** Meta Ads OAuth connection status (ads_connections), shown under Advertising. */
+  metaAds?: AdsConnectionSummary
+}
+
+/** Full-page navigation: the connect route redirects off-site to Facebook. */
+const META_CONNECT_HREF = '/api/ads/meta/connect?return=/settings/integrations'
+
+const META_ADS_PILL: Record<AdsConnectionSummary['state'], { tone: 'success' | 'warning' | 'danger' | 'idle'; label: string }> = {
+  ok: { tone: 'success', label: 'Connected' },
+  expiring: { tone: 'warning', label: 'Expiring soon' },
+  expired: { tone: 'danger', label: 'Expired' },
+  broken: { tone: 'danger', label: 'Reconnect needed' },
+  not_connected: { tone: 'idle', label: 'Not connected' },
+}
+
+function formatDay(value: string) {
+  return new Date(value).toLocaleDateString(undefined, { dateStyle: 'medium' })
+}
+
+function metaAdsDetail(summary: AdsConnectionSummary): string {
+  if (summary.state === 'not_connected') return 'Connect Facebook to manage campaigns, conversions and custom audiences.'
+  const accounts = summary.activeAccounts.length > 0
+    ? summary.activeAccounts.slice(0, 2).join(', ') + (summary.activeAccounts.length > 2 ? ` +${summary.activeAccounts.length - 2}` : '')
+    : `${summary.accountCount} ad account${summary.accountCount === 1 ? '' : 's'}`
+  if (!summary.expiresAt) return accounts
+  if (summary.state === 'expired') return `${accounts} · access expired ${formatDay(summary.expiresAt)}`
+  return `${accounts} · access expires ${formatDay(summary.expiresAt)}`
+}
+
+function MetaAdsRow({ summary }: { summary: AdsConnectionSummary }) {
+  const pill = META_ADS_PILL[summary.state]
+  const connected = summary.state !== 'not_connected'
+  return (
+    <div className="flex w-full flex-wrap items-center gap-4 px-4 py-3">
+      <IntegrationLogo logo={{ path: '/logos/meta.svg', letter: 'M', color: 'bg-blue-600' }} name="Meta Ads" size={36} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[13.5px] font-medium text-text-primary">Meta Ads</p>
+        <p className="mt-0.5 line-clamp-1 text-[12px] text-text-tertiary">{metaAdsDetail(summary)}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <StatusPill tone={pill.tone}>
+          {summary.state === 'expiring' && summary.daysLeft !== null
+            ? `Expires in ${summary.daysLeft} day${summary.daysLeft === 1 ? '' : 's'}`
+            : pill.label}
+        </StatusPill>
+        <Button size="sm" variant={summary.state === 'ok' ? 'outline' : 'default'} asChild>
+          {/* Plain anchor, not next/link: the route answers with an off-site redirect. */}
+          <a href={META_CONNECT_HREF}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            {connected ? 'Reconnect' : 'Connect'}
+          </a>
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 type Status = 'active' | 'connected' | 'inactive' | 'not_connected'
@@ -52,7 +109,7 @@ const STATUS_TONE: Record<Status, 'success' | 'idle'> = {
   not_connected: 'idle',
 }
 
-export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
+export function IntegrationList({ saved, initialOpen, metaAds }: IntegrationListProps) {
   const router = useRouter()
   const params = useSearchParams()
   const [openId, setOpenId] = useState<string | null>(null)
@@ -107,6 +164,11 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
       <div className="space-y-6">
         <section className="space-y-2">
           <h3 className="text-[11px] font-medium uppercase tracking-[0.08em] text-text-tertiary">Advertising</h3>
+          {metaAds && (
+            <div className="overflow-hidden rounded-[12px] border border-border bg-bg-secondary">
+              <MetaAdsRow summary={metaAds} />
+            </div>
+          )}
           <Link
             href="/settings/integrations/meta-audience"
             className="group flex w-full items-center gap-4 rounded-[12px] border border-border bg-bg-secondary px-4 py-3 text-left transition-colors hover:bg-bg-tertiary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -116,7 +178,7 @@ export function IntegrationList({ saved, initialOpen }: IntegrationListProps) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-[13.5px] font-medium text-text-primary">Meta Custom Audiences</p>
-              <p className="mt-0.5 line-clamp-1 text-[12px] text-text-tertiary">Sync hashed Xcraper prospects to tenant-owned ad audiences.</p>
+              <p className="mt-0.5 line-clamp-1 text-[12px] text-text-tertiary">Prospecting and remarketing audiences: Xcraper prospects, CRM leads, website visitors.</p>
             </div>
             <ChevronRight className="h-4 w-4 text-text-tertiary transition-transform group-hover:translate-x-0.5" />
           </Link>
