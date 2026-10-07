@@ -83,7 +83,11 @@ function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext)
 
   // Extend every tool's registered schema with an optional org_id parameter.
   // The framework resolves + validates it before the tool handler runs.
-  const extendedShape = { ...shape, org_id: z.string().uuid().optional() }
+  const extendedShape = { ...shape, org_id: z
+      .string()
+      .uuid()
+      .optional()
+      .describe('Target organization. OAuth sessions may pass any org the user belongs to; an xph_ token only works for the org it was generated in.') }
 
   server.registerTool(
     tool.name,
@@ -109,7 +113,7 @@ function registerTool(server: McpServer, tool: McpToolDef, auth: McpAuthContext)
           area: tool.area,
           action: tool.name,
           status: 'blocked',
-          notes: `org_id ${requestedOrgId} denied — user is not a member`,
+          notes: `org_id ${requestedOrgId} denied — ${denial.error}`,
         })
         return {
           content: [{ type: 'text', text: JSON.stringify(denial) }],

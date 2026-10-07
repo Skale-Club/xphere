@@ -116,12 +116,21 @@ describe('resolveEffectiveOrg', () => {
     expect(auth.orgId).toBe(originalOrgId) // auth is immutable
   })
 
-  it('ignores org_id for legacy tokens (single-org only)', async () => {
+  it('denies a foreign org_id for legacy tokens instead of ignoring it', async () => {
     const auth = makeLegacyAuth()
     const { effectiveAuth, denial } = await resolveEffectiveOrg(auth, ORG_B)
-    expect(denial).toBeUndefined()
+    expect(denial?.error).toBe('org_mismatch')
+    expect(denial?.status).toBe(403)
     expect(effectiveAuth.orgId).toBe(ORG_A) // token's org unchanged
-    // assertUserInOrg must NOT be called — no membership check for legacy tokens
+    // No membership lookup — a legacy token never switches orgs
+    expect(createServiceRoleClient).not.toHaveBeenCalled()
+  })
+
+  it("accepts a legacy token's own org_id", async () => {
+    const auth = makeLegacyAuth()
+    const { effectiveAuth, denial } = await resolveEffectiveOrg(auth, ORG_A)
+    expect(denial).toBeUndefined()
+    expect(effectiveAuth).toBe(auth)
     expect(createServiceRoleClient).not.toHaveBeenCalled()
   })
 

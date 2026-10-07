@@ -33,7 +33,10 @@ export interface OrgResolutionResult {
  * Resolves the effective org for a per-call org_id parameter.
  *
  * Rules:
- * - No org_id supplied, or legacy token: use auth.orgId unchanged.
+ * - No org_id supplied: use auth.orgId unchanged.
+ * - Legacy xph_ token: it is bound to one org, so an org_id naming that org
+ *   passes and any other org_id is denied. Silently falling back to the
+ *   token's org used to answer the caller with another tenant's data.
  * - OAuth + org_id: validate membership; deny if not a member.
  * - Each call gets an independent McpAuthContext — auth is never mutated.
  */
@@ -41,8 +44,19 @@ export async function resolveEffectiveOrg(
   auth: McpAuthContext,
   requestedOrgId: string | undefined,
 ): Promise<OrgResolutionResult> {
-  if (!requestedOrgId || auth.kind !== 'oauth' || !auth.userId) {
+  if (!requestedOrgId) {
     return { effectiveAuth: auth }
+  }
+  if (auth.kind !== 'oauth' || !auth.userId) {
+    if (requestedOrgId === auth.orgId) return { effectiveAuth: auth }
+    return {
+      effectiveAuth: auth,
+      denial: {
+        error: 'org_mismatch',
+        detail: `This token is bound to organization ${auth.orgId} and cannot act on ${requestedOrgId}. Use a token generated in that organization (Settings → MCP Server) or connect via OAuth to switch orgs per call.`,
+        status: 403,
+      },
+    }
   }
   const isMember = await assertUserInOrg(auth.userId, requestedOrgId)
   if (!isMember) {
