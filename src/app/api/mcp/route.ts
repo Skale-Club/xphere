@@ -72,6 +72,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
+  if (request.headers.get('authorization')) logMcpRequest(request, 200, null)
   // Discovery / health response. The real MCP traffic comes over POST.
   // Streamable HTTP allows GET for server-initiated SSE, but in stateless mode
   // we just expose metadata.
@@ -88,9 +89,51 @@ export async function GET(request: Request) {
   }))
 }
 
+// Streamable HTTP requires clients to accept both JSON and SSE, and the SDK
+// answers 406 otherwise. We only ever reply with JSON (enableJsonResponse),
+// so a client or credential probe that sends `Accept: application/json`,
+// `*/*` or nothing is rewritten instead of being turned away.
+async function withMcpAccept(request: Request, body: string): Promise<Request> {
+  const accept = request.headers.get('accept') ?? ''
+  if (accept.includes('application/json') && accept.includes('text/event-stream')) {
+    return new Request(request.url, { method: 'POST', headers: request.headers, body })
+  }
+  const headers = new Headers(request.headers)
+  headers.set('accept', 'application/json, text/event-stream')
+  return new Request(request.url, { method: 'POST', headers, body })
+}
+
+// One line per failed request (and per authenticated GET, which is what a
+// credential probe tends to send) so a misbehaving client can be diagnosed
+// from the container logs. Never logs the credential itself, only its shape.
+function logMcpRequest(request: Request, status: number, rpcMethod: string | null) {
+  const authHeader = request.headers.get('authorization') ?? ''
+  const scheme = authHeader ? (authHeader.split(' ')[0] || 'raw') : 'none'
+  const credential = authHeader.includes(' ') ? authHeader.slice(authHeader.indexOf(' ') + 1).trim() : authHeader
+  console.warn(
+    `[mcp] ${request.method} ${status} rpc=${rpcMethod ?? '-'} auth=${scheme} cred_len=${credential.length}` +
+      ` cred_kind=${credential.startsWith('xph_') ? 'xph' : credential ? 'other' : 'none'}` +
+      ` accept="${request.headers.get('accept') ?? ''}" ua="${request.headers.get('user-agent') ?? ''}"`,
+  )
+}
+
+function rpcMethodOf(body: string): string | null {
+  try {
+    const parsed = JSON.parse(body)
+    const first = Array.isArray(parsed) ? parsed[0] : parsed
+    return typeof first?.method === 'string' ? first.method : null
+  } catch {
+    return null
+  }
+}
+
 export async function POST(request: Request) {
+  const body = await request.text()
   const auth = await authenticateMcpRequest(request.headers.get('authorization'))
-  if (!auth) return unauthorizedResponse(request)
+  if (!auth) {
+    logMcpRequest(request, 401, rpcMethodOf(body))
+    return unauthorizedResponse(request)
+  }
 
   // Stateless mode: one transport per request | no in-memory session state.
   // Returns JSON responses instead of SSE streams for simpler client compat
@@ -104,7 +147,8 @@ export async function POST(request: Request) {
   await server.connect(transport)
 
   try {
-    const response = await transport.handleRequest(request)
+    const response = await transport.handleRequest(await withMcpAccept(request, body))
+    if (response.status >= 400) logMcpRequest(request, response.status, rpcMethodOf(body))
     return withCors(response)
   } finally {
     // Ensure transport resources are released | server.close() also closes it.
