@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { MapPin } from 'lucide-react'
 
+import { BreadcrumbLabel } from '@/components/layout/breadcrumb-label'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export default async function LocationLayout({
@@ -23,6 +24,7 @@ export default async function LocationLayout({
 
   return (
     <div className="flex h-full flex-col">
+      <BreadcrumbLabel segment={location.id} label={location.name} />
       {/* The location's pages are listed under it in the SEO sub-sidebar. */}
       <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle bg-bg-secondary px-4 py-3 sm:px-6">
         <div className="min-w-0">

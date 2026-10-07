@@ -18,6 +18,7 @@ import { AuditProgress } from '@/components/seo/audit-progress'
 import { DetailSheet } from '@/components/seo/detail-sheet'
 import { PagesTable, type PageRow } from '@/components/seo/pages-table'
 import { RunAuditButton } from '@/components/seo/run-audit-button'
+import { BreadcrumbLabel } from '@/components/layout/breadcrumb-label'
 import { ScoreBadge } from '@/components/seo/score-badge'
 import { ScoreHistoryChart } from '@/components/seo/score-history-chart'
 import { SiteSettingsDialog } from '@/components/seo/site-settings-dialog'
@@ -83,6 +84,7 @@ export default async function SeoSitePage({
 
   return (
     <PageContainer>
+      <BreadcrumbLabel segment={siteId} label={site.name} />
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
