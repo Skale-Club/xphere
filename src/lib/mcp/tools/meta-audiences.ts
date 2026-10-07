@@ -70,9 +70,9 @@ function reconcileConfig(config: AudienceConfigRow): ReconcileConfig {
 export const metaAudienceTools: McpToolDef[] = [
   {
     name: 'meta_audiences_status',
-    title: 'List Meta prospect audiences',
+    title: 'List Meta custom audiences',
     description:
-      'List this workspace Meta/Facebook Custom Audience configurations, consent readiness, connection status, and recent aggregate sync results. Returns no contact identifiers, hashes, or access tokens.',
+      'List this workspace Meta/Facebook Custom Audience configurations (kind: xcraper_master/prospect_segment = prospecting, crm_contacts = CRM leads/customers, pixel_website = Pixel website visitors), consent readiness, connection status, and recent aggregate sync results. Returns no contact identifiers, hashes, or access tokens.',
     area: 'general_xphere',
     inputSchema: z.object({}).strict(),
     handler: async (_input, { auth }) => {
@@ -119,7 +119,7 @@ export const metaAudienceTools: McpToolDef[] = [
   },
   {
     name: 'meta_audience_sync',
-    title: 'Preview or sync a Meta prospect audience',
+    title: 'Preview or sync a Meta custom audience',
     description:
       'Preview aggregate eligible/suppressed counts for a configured Meta/Facebook Custom Audience. A real ADD/REMOVE reconciliation runs only with confirmed:true, after explicit human approval, accepted Customer List terms, and sync_enabled=true. Never returns contact identifiers or hashes.',
     area: 'general_xphere',

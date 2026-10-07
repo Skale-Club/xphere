@@ -9068,7 +9068,7 @@ export interface Database {
           ads_connection_id: string | null
           custom_audience_id: string | null
           audience_name: string | null
-          audience_kind: 'xcraper_master' | 'prospect_segment'
+          audience_kind: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition: Json
           sync_enabled: boolean
           terms_accepted_at: string | null
@@ -9095,7 +9095,7 @@ export interface Database {
           ads_connection_id?: string | null
           custom_audience_id?: string | null
           audience_name?: string | null
-          audience_kind?: 'xcraper_master' | 'prospect_segment'
+          audience_kind?: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition?: Json
           sync_enabled?: boolean
           terms_accepted_at?: string | null
@@ -9122,7 +9122,7 @@ export interface Database {
           ads_connection_id?: string | null
           custom_audience_id?: string | null
           audience_name?: string | null
-          audience_kind?: 'xcraper_master' | 'prospect_segment'
+          audience_kind?: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition?: Json
           sync_enabled?: boolean
           terms_accepted_at?: string | null

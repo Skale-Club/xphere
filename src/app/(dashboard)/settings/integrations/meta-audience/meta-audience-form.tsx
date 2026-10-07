@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -22,6 +23,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  createRemarketingPack,
+  listMetaPixels,
   previewMetaAudience,
   runMetaAudience,
   saveMetaAudienceConfig,
@@ -30,8 +33,29 @@ import {
   type MetaAudienceConnectionOption,
   type MetaAudienceDashboardData,
 } from './actions'
+import {
+  CRM_LIFECYCLE_STAGES,
+  DEFAULT_CRM_LIFECYCLE_STAGES,
+  DEFAULT_LEAD_PIXEL_EVENTS,
+  MAX_PIXEL_RETENTION_DAYS,
+  normalizeAudienceSourceDefinition,
+  type AudienceKind,
+} from '@/lib/meta/audience-source'
 
 type Preview = { entities: number; emails: number; phones: number; suppressed: number; invalid: number; scope: string }
+type Pixel = { id: string; name: string; lastFiredTime: string | null }
+
+const KIND_LABELS: Record<AudienceKind, string> = {
+  xcraper_master: 'All Xcraper prospects',
+  prospect_segment: 'Saved prospect segment',
+  crm_contacts: 'CRM leads and customers',
+  pixel_website: 'Website visitors (Pixel)',
+}
+
+/** "a, b ,c" → ['a','b','c'] — the comma-list inputs for sources, tags and events. */
+export function parseList(value: string): string[] {
+  return [...new Set(value.split(',').map((item) => item.trim()).filter(Boolean))]
+}
 
 function formatDate(value: string | null) {
   if (!value) return 'Never'
@@ -39,7 +63,11 @@ function formatDate(value: string | null) {
 }
 
 function sourceLabel(config: MetaAudienceConfigRow) {
-  return config.audience_kind === 'xcraper_master' ? 'All Xcraper prospects' : 'Saved prospect segment'
+  return KIND_LABELS[config.audience_kind] ?? config.audience_kind
+}
+
+function definitionOf(config: MetaAudienceConfigRow | null) {
+  return config ? normalizeAudienceSourceDefinition(config.audience_kind, config.source_definition) : null
 }
 
 /**
@@ -65,7 +93,26 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
     : `${data.orgName} - Xcraper Prospects`
   const [name, setName] = React.useState(selected?.audience_name ?? launchName)
   const [connectionId, setConnectionId] = React.useState(selected?.ads_connection_id ?? '')
-  const [kind, setKind] = React.useState<'xcraper_master' | 'prospect_segment'>(selected?.audience_kind ?? 'xcraper_master')
+  const [kind, setKind] = React.useState<AudienceKind>(selected?.audience_kind ?? 'xcraper_master')
+  const initialDefinition = definitionOf(selected)
+  const initialCrm = initialDefinition?.kind === 'crm_contacts' ? initialDefinition : null
+  const initialPixel = initialDefinition?.kind === 'pixel_website' ? initialDefinition : null
+  const [stages, setStages] = React.useState<string[]>(initialCrm?.lifecycleStages ?? [...DEFAULT_CRM_LIFECYCLE_STAGES])
+  const [sources, setSources] = React.useState((initialCrm?.sources ?? []).join(', '))
+  const [sourceTypes, setSourceTypes] = React.useState((initialCrm?.sourceTypes ?? []).join(', '))
+  const [tags, setTags] = React.useState((initialCrm?.tags ?? []).join(', '))
+  const [pixelId, setPixelId] = React.useState(initialPixel?.pixelId ?? '')
+  const [pixelEvents, setPixelEvents] = React.useState((initialPixel?.events ?? ['PageView']).join(', '))
+  const [retentionDays, setRetentionDays] = React.useState(String(initialPixel?.retentionDays ?? 30))
+  const [urlContains, setUrlContains] = React.useState(initialPixel?.urlContains ?? '')
+  // Pixels per connection id; null while loading. Read live from Meta.
+  const [pixelCache, setPixelCache] = React.useState<Record<string, Pixel[] | null>>({})
+  const requestedPixels = React.useRef(new Set<string>())
+  const [packConnectionId, setPackConnectionId] = React.useState(
+    data.connections.find((item) => item.usable)?.id ?? '',
+  )
+  const [packPixelId, setPackPixelId] = React.useState('')
+  const [packTerms, setPackTerms] = React.useState(false)
   const initialSegment = selected?.source_definition && typeof selected.source_definition === 'object' && !Array.isArray(selected.source_definition)
     ? selected.source_definition.prospectAudienceId
     : null
@@ -104,7 +151,11 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
         ? 'Reconnect the selected Meta account.'
         : kind === 'prospect_segment' && (!segment || segment.entityCount === 0)
           ? 'Choose a saved segment with explicit members.'
-          : !selected.terms_accepted_at
+          : kind === 'crm_contacts' && stages.length === 0
+            ? 'Choose at least one lifecycle stage.'
+            : kind === 'pixel_website' && (!pixelId || parseList(pixelEvents).length === 0)
+              ? 'Choose a Pixel and at least one event.'
+              : !selected.terms_accepted_at
             ? 'Accept the Meta Customer List terms.'
             : null
 
@@ -113,6 +164,17 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
     setName(config?.audience_name ?? launchName)
     setConnectionId(config?.ads_connection_id ?? '')
     setKind(config?.audience_kind ?? 'xcraper_master')
+    const normalized = definitionOf(config)
+    const crm = normalized?.kind === 'crm_contacts' ? normalized : null
+    const pixel = normalized?.kind === 'pixel_website' ? normalized : null
+    setStages(crm?.lifecycleStages ?? [...DEFAULT_CRM_LIFECYCLE_STAGES])
+    setSources((crm?.sources ?? []).join(', '))
+    setSourceTypes((crm?.sourceTypes ?? []).join(', '))
+    setTags((crm?.tags ?? []).join(', '))
+    setPixelId(pixel?.pixelId ?? '')
+    setPixelEvents((pixel?.events ?? ['PageView']).join(', '))
+    setRetentionDays(String(pixel?.retentionDays ?? 30))
+    setUrlContains(pixel?.urlContains ?? '')
     const definition = config?.source_definition
     setSegmentId(definition && typeof definition === 'object' && !Array.isArray(definition) && typeof definition.prospectAudienceId === 'string'
       ? definition.prospectAudienceId
@@ -136,17 +198,68 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
     }
   }
 
+  /** Pixels are read live from Meta for an ad account, once per connection. */
+  const loadPixels = React.useCallback(async (forConnection: string) => {
+    if (!forConnection || requestedPixels.current.has(forConnection)) return
+    requestedPixels.current.add(forConnection)
+    setPixelCache((cache) => ({ ...cache, [forConnection]: null }))
+    const result = await listMetaPixels(forConnection)
+    if (!result.ok) toast.error(result.error ?? 'Could not load Pixels.')
+    setPixelCache((cache) => ({ ...cache, [forConnection]: result.ok ? result.pixels ?? [] : [] }))
+  }, [])
+
+  React.useEffect(() => {
+    if (kind === 'pixel_website' && connectionId) void loadPixels(connectionId)
+  }, [kind, connectionId, loadPixels])
+
+  React.useEffect(() => {
+    if (packConnectionId) void loadPixels(packConnectionId)
+  }, [packConnectionId, loadPixels])
+
   async function save() {
+    const retention = Number.parseInt(retentionDays, 10)
     const ok = await execute('save', () => saveMetaAudienceConfig({
       id: selected?.id,
       ads_connection_id: connectionId,
       audience_name: name,
       audience_kind: kind,
       saved_segment_id: kind === 'prospect_segment' ? segmentId : null,
+      lifecycle_stages: kind === 'crm_contacts' ? stages as (typeof CRM_LIFECYCLE_STAGES)[number][] : [],
+      sources: kind === 'crm_contacts' ? parseList(sources) : [],
+      source_types: kind === 'crm_contacts' ? parseList(sourceTypes) : [],
+      tags: kind === 'crm_contacts' ? parseList(tags) : [],
+      pixel_id: kind === 'pixel_website' ? pixelId : null,
+      pixel_events: kind === 'pixel_website' ? parseList(pixelEvents) : [],
+      retention_days: kind === 'pixel_website' && Number.isFinite(retention) ? retention : null,
+      url_contains: kind === 'pixel_website' ? urlContains : null,
       terms_accepted: terms,
     }))
     if (ok) toast.success(selected ? 'Audience updated.' : 'Audience created.')
   }
+
+  async function createPack() {
+    setBusy('pack')
+    try {
+      const result = await createRemarketingPack({
+        ads_connection_id: packConnectionId,
+        pixel_id: packPixelId || null,
+        terms_accepted: packTerms,
+      })
+      if (!result.ok) return toast.error(result.error ?? 'Could not create the remarketing audiences.')
+      if (!result.created) return toast.info('Every remarketing audience already exists for this ad account.')
+      toast.success(
+        `${result.created} audience${result.created === 1 ? '' : 's'} created` +
+        (result.enabled ? ' and scheduled for sync.' : '. Enable them once the connection is ready.'),
+      )
+      router.refresh()
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const packConnections = data.connections.filter((item) => item.usable)
+  const formPixels = pixelCache[connectionId]
+  const packPixels = pixelCache[packConnectionId]
 
   async function loadPreview() {
     if (!selected) return
@@ -196,10 +309,61 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
       </aside>
 
       <main className="space-y-6">
+        {!selected && (
+          <section className="space-y-4 rounded-[12px] border border-border bg-bg-secondary p-5">
+            <div>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-text-primary">
+                <Sparkles className="h-4 w-4" /> Remarketing pack
+              </h2>
+              <p className="mt-1 text-sm text-text-tertiary">
+                One click creates the standard set for an ad account: site visitors (30 and {MAX_PIXEL_RETENTION_DAYS} days) and
+                form submitters from the Pixel, plus CRM leads and CRM customers from Xphere. Audiences that already exist are skipped.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Meta connection and ad account</Label>
+                <Select value={packConnectionId} onValueChange={(value) => { setPackConnectionId(value); setPackPixelId('') }}>
+                  <SelectTrigger><SelectValue placeholder="Select a Meta account" /></SelectTrigger>
+                  <SelectContent>
+                    {packConnections.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.adAccountName} · {item.adAccountId}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Website Pixel</Label>
+                <Select value={packPixelId || 'none'} onValueChange={(value) => setPackPixelId(value === 'none' ? '' : value)}>
+                  <SelectTrigger><SelectValue placeholder={packPixels === null ? 'Loading Pixels…' : 'Choose a Pixel'} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Pixel (CRM audiences only)</SelectItem>
+                    {(packPixels ?? []).map((pixel) => (
+                      <SelectItem key={pixel.id} value={pixel.id}>
+                        {pixel.name} · last fired {pixel.lastFiredTime ? formatDate(pixel.lastFiredTime) : 'never'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-[10px] border border-border bg-bg-tertiary/30 p-4">
+              <Checkbox id="meta-pack-terms" checked={packTerms} onCheckedChange={(value) => setPackTerms(Boolean(value))} />
+              <label htmlFor="meta-pack-terms" className="text-sm text-text-primary">
+                I confirm our right to use this customer and website data for advertising under the Meta Custom Audience terms.
+              </label>
+            </div>
+            <Button onClick={createPack} disabled={busy !== null || !packConnectionId || !packTerms}>
+              {busy === 'pack' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Create remarketing audiences
+            </Button>
+          </section>
+        )}
+
         <section className="space-y-5 rounded-[12px] border border-border bg-bg-secondary p-5">
           <div>
             <h2 className="text-base font-semibold text-text-primary">Audience setup</h2>
-            <p className="mt-1 text-sm text-text-tertiary">Choose one tenant connection and an explicit prospect scope.</p>
+            <p className="mt-1 text-sm text-text-tertiary">Choose one tenant connection and the people this audience should hold.</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -230,8 +394,9 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
               <Select value={kind} onValueChange={(value) => setKind(value as typeof kind)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="xcraper_master">All Xcraper prospects</SelectItem>
-                  <SelectItem value="prospect_segment">Saved prospect segment</SelectItem>
+                  {(Object.keys(KIND_LABELS) as AudienceKind[]).map((value) => (
+                    <SelectItem key={value} value={value}>{KIND_LABELS[value]}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -253,6 +418,84 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
             </div>
           )}
 
+          {kind === 'crm_contacts' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Lifecycle stages</Label>
+                <div className="flex flex-wrap gap-4">
+                  {CRM_LIFECYCLE_STAGES.map((stage) => (
+                    <label key={stage} className="flex items-center gap-2 text-sm capitalize text-text-secondary">
+                      <Checkbox
+                        checked={stages.includes(stage)}
+                        onCheckedChange={(value) => setStages((current) =>
+                          value ? [...new Set([...current, stage])] : current.filter((item) => item !== stage),
+                        )}
+                      />
+                      {stage}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Sources (optional)</Label>
+                <Input value={sources} onChange={(event) => setSources(event.target.value)} placeholder="api, whatsapp, instagram" />
+                <p className="text-xs text-text-tertiary">Contact source, comma separated. Website forms arrive as api.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Source types (optional)</Label>
+                <Input value={sourceTypes} onChange={(event) => setSourceTypes(event.target.value)} placeholder="site slug" />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Tags (optional, any of)</Label>
+                <Input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="webinar, quote-request" />
+              </div>
+            </div>
+          )}
+
+          {kind === 'pixel_website' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Pixel</Label>
+                <Select value={pixelId} onValueChange={setPixelId} disabled={!connectionId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={!connectionId ? 'Select a Meta account first' : formPixels === null ? 'Loading Pixels…' : 'Choose a Pixel'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(formPixels ?? []).map((pixel) => (
+                      <SelectItem key={pixel.id} value={pixel.id}>
+                        {pixel.name} · last fired {pixel.lastFiredTime ? formatDate(pixel.lastFiredTime) : 'never'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Pixel events (any of)</Label>
+                <Input value={pixelEvents} onChange={(event) => setPixelEvents(event.target.value)} placeholder="PageView" />
+                <p className="text-xs text-text-tertiary">
+                  PageView = every visitor. Form submitters: {DEFAULT_LEAD_PIXEL_EVENTS.join(', ')}.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Retention (days, max {MAX_PIXEL_RETENTION_DAYS})</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={MAX_PIXEL_RETENTION_DAYS}
+                  value={retentionDays}
+                  onChange={(event) => setRetentionDays(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>URL contains (optional)</Label>
+                <Input value={urlContains} onChange={(event) => setUrlContains(event.target.value)} placeholder="/pricing" />
+              </div>
+              <p className="text-xs text-text-tertiary sm:col-span-2">
+                Meta fills this audience from Pixel events automatically. Xphere creates it once; no contact data is uploaded.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-start gap-3 rounded-[10px] border border-border bg-bg-tertiary/30 p-4">
             <Checkbox
               id="meta-terms"
@@ -269,11 +512,19 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button onClick={save} disabled={busy !== null || !name.trim() || !connectionId || (kind === 'prospect_segment' && !segmentId)}>
+            <Button
+              onClick={save}
+              disabled={
+                busy !== null || !name.trim() || !connectionId ||
+                (kind === 'prospect_segment' && !segmentId) ||
+                (kind === 'crm_contacts' && stages.length === 0) ||
+                (kind === 'pixel_website' && (!pixelId || parseList(pixelEvents).length === 0))
+              }
+            >
               {busy === 'save' && <Loader2 className="h-4 w-4 animate-spin" />}
               {selected ? 'Save changes' : 'Create audience'}
             </Button>
-            {selected && (
+            {selected && selected.audience_kind !== 'pixel_website' && (
               <Button variant="secondary" onClick={loadPreview} disabled={busy !== null}>
                 <Eye className="h-4 w-4" /> Preview
               </Button>
@@ -301,7 +552,11 @@ export function MetaAudienceForm({ data }: { data: MetaAudienceDashboardData }) 
                   <p className="mt-1 text-xl font-semibold text-text-primary">{value}</p>
                 </div>
               )) : (
-                <p className="text-sm text-text-tertiary sm:col-span-2 xl:col-span-5">Run Preview to calculate safe membership counts.</p>
+                <p className="text-sm text-text-tertiary sm:col-span-2 xl:col-span-5">
+                  {selected.audience_kind === 'pixel_website'
+                    ? 'Pixel audiences are sized by Meta; check the audience in Ads Manager after the first sync.'
+                    : 'Run Preview to calculate safe membership counts.'}
+                </p>
               )}
             </div>
 

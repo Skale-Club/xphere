@@ -20,6 +20,7 @@ import { runFlow, definitionHasWait } from '@/lib/flows/engine'
 import type { FlowDefinition } from '@/lib/flows/schema'
 import { resumeMatchingWaits } from '@/lib/flows/resume-waits'
 import { enqueueLead } from '@/lib/meta/capi-enqueue'
+import { markMetaAudiencesDirty } from '@/lib/meta/audience-dirty'
 
 export type ContactEventType = 'contact.created' | 'contact.captured'
 
@@ -119,6 +120,18 @@ export async function emitContactEvent(
         console.error('[contacts/events] enqueueLead error:', err)
       })
     }
+
+    // Meta remarketing: schedule this org's CRM contact audiences so a new or
+    // re-captured contact reaches Meta on the next sync instead of waiting for
+    // the hourly sweep. No-op when the org has no such audience.
+    void markMetaAudiencesDirty(supabase as ReturnType<typeof createServiceRoleClient>, {
+      orgId,
+      reason: eventType,
+      entityType: 'contact',
+      entityId: contactId,
+    }).catch((err) => {
+      console.error('[contacts/events] markMetaAudiencesDirty error:', err)
+    })
 
     const contact = await buildContactScope(supabase, contactId)
 

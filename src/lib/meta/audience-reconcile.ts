@@ -8,8 +8,10 @@ import {
 } from '@/lib/meta/audience-members'
 import {
   audienceSourceTypes,
+  isAudienceDefinitionValid,
   normalizeAudienceSourceDefinition,
   type AudienceSourceDefinition,
+  type PixelWebsiteDefinition,
 } from '@/lib/meta/audience-source'
 import {
   MetaAudienceConnectionError,
@@ -17,12 +19,13 @@ import {
 } from '@/lib/meta/audience-provider'
 import {
   createCustomAudience,
+  createWebsiteCustomAudience,
   syncHashedUsersToAudience,
   type AudienceHashEntry,
   type MetaCustomerFileSource,
 } from '@/lib/meta/custom-audiences'
 import { MetaGraphRequestError } from '@/lib/meta/graph'
-import type { Database, Json } from '@/types/database'
+import type { ContactSource, CrmLifecycleStage, Database, Json } from '@/types/database'
 
 export type AudienceSyncTrigger = 'manual' | 'scheduled' | 'ingestion' | 'retry'
 
@@ -104,6 +107,11 @@ export interface AudienceReconcileTransport {
     token: string,
     opts: { name: string; consentBasis: MetaCustomerFileSource },
   ): Promise<{ id: string }>
+  createWebsiteAudience(
+    adAccountId: string,
+    token: string,
+    opts: { name: string; pixelId: string; events: string[]; retentionDays: number; urlContains: string | null },
+  ): Promise<{ id: string }>
   syncHashes(
     audienceId: string,
     token: string,
@@ -114,6 +122,7 @@ export interface AudienceReconcileTransport {
 
 const defaultTransport: AudienceReconcileTransport = {
   createAudience: createCustomAudience,
+  createWebsiteAudience: createWebsiteCustomAudience,
   syncHashes: syncHashedUsersToAudience,
 }
 
@@ -201,12 +210,24 @@ export async function reconcileMetaAudience(input: {
       throw new ReconcilePreconditionError('AD_ACCOUNT_REQUIRED', 'Select a Meta ad account before syncing.')
     }
 
+    const definition = sourceDefinition(config)
+    if (!isAudienceDefinitionValid(definition)) {
+      throw new ReconcilePreconditionError('INVALID_SCOPE', 'The audience source scope is empty or invalid.')
+    }
+
     const connection = await input.provider.getConnection(
       input.orgId,
       config.metaAdAccountId,
       config.adsConnectionId,
     )
     token = connection.token
+
+    if (definition.kind === 'pixel_website') {
+      return await reconcilePixelAudience(input, transport, config, definition, token, {
+        runId: claim.runId,
+        claimId: claim.claimId,
+      })
+    }
 
     let audienceId = config.customAudienceId
     if (!audienceId && !input.dryRun) {
@@ -279,6 +300,52 @@ export async function reconcileMetaAudience(input: {
   }
 }
 
+const ZERO_COUNTS: FinishCounts = {
+  targetCount: 0,
+  addCount: 0,
+  removeCount: 0,
+  unchangedCount: 0,
+  invalidCount: 0,
+  suppressedCount: 0,
+}
+
+/**
+ * Pixel audiences have no member list: Meta evaluates the rule against Pixel
+ * events. Reconciling one means "make sure the rule audience exists"; every
+ * later pass is a cheap no-op commit that keeps the schedule and status honest.
+ */
+async function reconcilePixelAudience(
+  input: { store: AudienceReconcileStore; orgId: string; audienceConfigId: string; dryRun: boolean },
+  transport: AudienceReconcileTransport,
+  config: ReconcileConfig,
+  definition: PixelWebsiteDefinition,
+  token: string,
+  claim: { runId: string; claimId: string },
+): Promise<ReconcileResult> {
+  const finish = { ...ZERO_COUNTS, orgId: input.orgId, audienceConfigId: input.audienceConfigId, ...claim }
+  if (input.dryRun) {
+    await input.store.completeDryRun(finish)
+    return { status: 'succeeded', dryRun: true, ...ZERO_COUNTS }
+  }
+  if (!config.customAudienceId) {
+    const created = await transport.createWebsiteAudience(config.metaAdAccountId, token, {
+      name: config.audienceName,
+      pixelId: definition.pixelId,
+      events: definition.events,
+      retentionDays: definition.retentionDays,
+      urlContains: definition.urlContains,
+    })
+    await input.store.setRemoteAudienceId({
+      orgId: input.orgId,
+      audienceConfigId: input.audienceConfigId,
+      ...claim,
+      audienceId: created.id,
+    })
+  }
+  await input.store.commitSuccess({ ...finish, members: [] })
+  return { status: 'succeeded', dryRun: false, ...ZERO_COUNTS }
+}
+
 type DbClient = SupabaseClient<Database>
 type RpcResult = { data: unknown; error: { message: string } | null }
 type RpcCall = (name: string, params: Record<string, unknown>) => Promise<RpcResult>
@@ -333,7 +400,7 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
       adsConnectionId: data.ads_connection_id,
       metaAdAccountId: data.meta_ad_account_id,
       customAudienceId: data.custom_audience_id,
-      audienceName: data.audience_name ?? `Xphere Prospects — ${data.org_id.slice(0, 8)}`,
+      audienceName: data.audience_name ?? `Xphere Audience — ${data.org_id.slice(0, 8)}`,
       consentBasis: data.consent_basis,
       termsAcceptedAt: data.terms_accepted_at,
       termsAcceptedBy: data.terms_accepted_by,
@@ -344,6 +411,8 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
 
   async loadProjectedMembers(config: ReconcileConfig) {
     const source = sourceDefinition(config)
+    if (source.kind === 'pixel_website') return { members: [], suppressedCount: 0, invalidCount: 0 }
+    const crm = source.kind === 'crm_contacts' ? source : null
     const entities: AudienceSourceEntity[] = []
     const segmentKeys = source.kind === 'prospect_segment' ? new Set(source.entityKeys) : null
     // A scrape audience spans every source type the definition selects, so this
@@ -355,16 +424,24 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
       ? [...segmentKeys].filter((key) => key.startsWith('contact:')).map((key) => key.slice(8))
       : []
     type ContactRow = Pick<Database['public']['Tables']['contacts']['Row'],
-      'id' | 'source_type' | 'lifecycle_stage' | 'email' | 'phone' | 'phone_e164' |
+      'id' | 'source' | 'source_type' | 'lifecycle_stage' | 'tags' | 'email' | 'phone' | 'phone_e164' |
       'email_status' | 'dnd_enabled' | 'engagement_status' | 'identity_status'>
     const contacts: ContactRow[] = []
     if (!segmentKeys || contactIds.length > 0) {
       for (let offset = 0; ; offset += SOURCE_PAGE_SIZE) {
         let query = this.client
           .from('contacts')
-          .select('id, source_type, lifecycle_stage, email, phone, phone_e164, email_status, dnd_enabled, engagement_status, identity_status')
+          .select('id, source, source_type, lifecycle_stage, tags, email, phone, phone_e164, email_status, dnd_enabled, engagement_status, identity_status')
           .eq('org_id', config.orgId)
         if (sourceTypes) query = query.in('source_type', sourceTypes).eq('lifecycle_stage', 'prospect')
+        if (crm) {
+          // Same narrowing projectAudienceMember applies; pushed into the query
+          // so a tenant with thousands of contacts is not paged in whole.
+          query = query.in('lifecycle_stage', crm.lifecycleStages as CrmLifecycleStage[])
+          if (crm.sources.length > 0) query = query.in('source', crm.sources as ContactSource[])
+          if (crm.sourceTypes.length > 0) query = query.in('source_type', crm.sourceTypes)
+          if (crm.tags.length > 0) query = query.overlaps('tags', crm.tags)
+        }
         if (contactIds.length > 0) query = query.in('id', contactIds)
         const { data, error } = await query
           .order('id', { ascending: true })
@@ -382,7 +459,8 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
       'id' | 'source_type' | 'lifecycle_stage' | 'phone' | 'custom_fields' |
       'email_status' | 'engagement_status'>
     const accounts: AccountRow[] = []
-    if (!segmentKeys || accountIds.length > 0) {
+    // CRM remarketing audiences are people, never company records.
+    if (!crm && (!segmentKeys || accountIds.length > 0)) {
       for (let offset = 0; ; offset += SOURCE_PAGE_SIZE) {
         let query = this.client
           .from('accounts')
@@ -419,7 +497,8 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
       const email = normaliseEmail(contact.email)
       entities.push({
         entityType: 'contact', entityId: contact.id, sourceType: contact.source_type,
-        lifecycleStage: contact.lifecycle_stage, email: contact.email, phone: contact.phone,
+        lifecycleStage: contact.lifecycle_stage, source: contact.source, tags: contact.tags,
+        email: contact.email, phone: contact.phone,
         phoneE164: contact.phone_e164, emailStatus: contact.email_status,
         dndEnabled: contact.dnd_enabled, engagementStatus: contact.engagement_status,
         identityStatus: contact.identity_status,

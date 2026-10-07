@@ -27,11 +27,19 @@ interface AudienceScope {
 
 function changeMatchesScope(change: AudienceDirtyChange, scope: AudienceScope): boolean {
   const definition = normalizeAudienceSourceDefinition(scope.audience_kind, scope.source_definition)
-  if (definition.kind === 'xcraper_master') {
-    return matchesAudienceSourceType(change.sourceType, definition)
+  switch (definition.kind) {
+    case 'xcraper_master':
+      return matchesAudienceSourceType(change.sourceType, definition)
+    case 'prospect_segment':
+      if (!change.entityType || !change.entityId) return false
+      return definition.entityKeys.includes(`${change.entityType}:${change.entityId}`)
+    case 'crm_contacts':
+      // Any contact change can move someone in or out (stage, tags, opt-out);
+      // the reconcile pass decides membership, this only schedules it.
+      return change.entityType === 'contact'
+    case 'pixel_website':
+      return false
   }
-  if (!change.entityType || !change.entityId) return false
-  return definition.entityKeys.includes(`${change.entityType}:${change.entityId}`)
 }
 
 /**
