@@ -254,10 +254,13 @@ async function syncNotionPage(params: {
       .single()
     if (error || !inserted) throw new Error(error?.message ?? 'Failed to create Notion source')
     sourceId = inserted.id
-  } else if (placementChanged || current?.is_container !== params.isContainer) {
+  } else {
+    // Re-indexing path: also carry a rename, which activation alone would not.
     const { error } = await supabase
       .from('global_knowledge_sources')
       .update({
+        name: page.title,
+        source_url: page.url,
         platform: params.root.platform,
         notion_root_id: params.root.id,
         is_container: params.isContainer,
