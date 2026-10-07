@@ -84,5 +84,5 @@ export async function executeGbpProposeProfileChange(params: Record<string, unkn
     if (res.code === 'no_op') return JSON.stringify({ ok: true, skipped: true, reason: res.message })
     throw new Error(`gbp_propose_profile_change: ${res.message}`)
   }
-  return JSON.stringify({ ok: true, change_id: res.change.id, status: res.change.status, review_url: `/local-seo/${locationId}/profile` })
+  return JSON.stringify({ ok: true, change_id: res.change.id, status: res.change.status, review_url: `/seo/local/${locationId}/profile` })
 }

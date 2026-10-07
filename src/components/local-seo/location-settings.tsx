@@ -11,7 +11,7 @@ import {
   deleteLocation,
   findGridCenter,
   updateLocation,
-} from '@/app/(dashboard)/local-seo/actions'
+} from '@/app/(dashboard)/seo/local/actions'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,7 +134,7 @@ export function LocationSettings({
       if ('error' in res) toast.error(res.error)
       else {
         toast.success('Location deleted')
-        router.push('/local-seo')
+        router.push('/seo/local')
       }
     })
   }

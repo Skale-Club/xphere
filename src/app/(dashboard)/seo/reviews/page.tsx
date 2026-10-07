@@ -67,7 +67,7 @@ export default async function ReviewsPage({
             </p>
             <ReviewsSetupWizard triggerLabel="Configure integration" />
             <Button asChild size="sm" variant="ghost">
-              <Link href="/reviews/review-link">Just need a review link? Generate one</Link>
+              <Link href="/seo/reviews/review-link">Just need a review link? Generate one</Link>
             </Button>
           </CardContent>
         </Card>
@@ -168,11 +168,11 @@ export default async function ReviewsPage({
             )}
             {localSeoLocation && (
               <Button asChild size="sm" variant="secondary">
-                <Link href={`/local-seo/${localSeoLocation.id}/reviews`}>Reply in Local SEO</Link>
+                <Link href={`/seo/local/${localSeoLocation.id}/reviews`}>Reply in Local SEO</Link>
               </Button>
             )}
             <Button asChild size="sm" variant="secondary">
-              <Link href="/reviews/review-link">Review link</Link>
+              <Link href="/seo/reviews/review-link">Review link</Link>
             </Button>
             <RefreshButton profileId={profile.id} />
             <WidgetSettingsDialog

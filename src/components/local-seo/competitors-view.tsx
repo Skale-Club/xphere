@@ -6,7 +6,7 @@ import { Pin, PinOff, Star } from 'lucide-react'
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { toast } from 'sonner'
 
-import { togglePinnedCompetitor } from '@/app/(dashboard)/local-seo/actions'
+import { togglePinnedCompetitor } from '@/app/(dashboard)/seo/local/actions'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'

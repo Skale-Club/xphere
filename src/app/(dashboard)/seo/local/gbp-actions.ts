@@ -31,7 +31,7 @@ async function userActor(ctx: ActionCtx): Promise<GbpActor> {
 }
 
 function revalidateLocation(locationId: string) {
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
 }
 
 function changeOutcome(res: Awaited<ReturnType<typeof proposeChange>>): { status: string; message: string } | Fail {
@@ -175,7 +175,7 @@ export async function disconnectGbp(connectionId: string): Promise<{ ok: true } 
   await db.from('ads_connections').delete().eq('org_id', ctx.orgId).eq('gbp_connection_id', connectionId)
   const { error } = await db.from('gbp_connections').delete().eq('id', connectionId).eq('org_id', ctx.orgId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo', 'layout')
+  revalidatePath('/seo/local', 'layout')
   return { ok: true }
 }
 
@@ -271,7 +271,7 @@ export async function saveReplySettings(input: z.infer<typeof replySettingsSchem
     updated_at: new Date().toISOString(),
   })
   if (error) return { error: error.message }
-  revalidatePath('/local-seo', 'layout')
+  revalidatePath('/seo/local', 'layout')
   return { ok: true }
 }
 

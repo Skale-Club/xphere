@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { acknowledgeProfileSnapshot, proposeProfileEdit } from '@/app/(dashboard)/local-seo/gbp-actions'
+import { acknowledgeProfileSnapshot, proposeProfileEdit } from '@/app/(dashboard)/seo/local/gbp-actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'

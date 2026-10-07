@@ -43,12 +43,12 @@ export async function saveReport(input: ReportInput, reportId?: string): Promise
   if (reportId) {
     const { error } = await ctx.supabase.from('local_seo_reports').update(row).eq('id', reportId)
     if (error) return { error: error.message }
-    revalidatePath('/local-seo/reports')
+    revalidatePath('/seo/reports')
     return { id: reportId }
   }
   const { data, error } = await ctx.supabase.from('local_seo_reports').insert({ ...row, created_by: ctx.user.id }).select('id').single()
   if (error || !data) return { error: error?.message ?? 'Could not save.' }
-  revalidatePath('/local-seo/reports')
+  revalidatePath('/seo/reports')
   return { id: data.id }
 }
 
@@ -57,7 +57,7 @@ export async function deleteReport(reportId: string): Promise<{ ok: true } | Fai
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_reports').delete().eq('id', reportId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo/reports')
+  revalidatePath('/seo/reports')
   return { ok: true }
 }
 
@@ -69,7 +69,7 @@ export async function createReportLink(reportId: string, expiresInDays: number |
   if (!report) return { error: 'Report not found.' }
   const res = await createShareLink(createServiceRoleClient(), { orgId: ctx.orgId, reportId, expiresInDays, userId: ctx.user.id })
   if ('error' in res) return { error: res.error }
-  revalidatePath('/local-seo/reports')
+  revalidatePath('/seo/reports')
   return { url: `${await getSiteOriginFromHeaders()}/r/local-seo/${res.token}` }
 }
 
@@ -82,7 +82,7 @@ export async function revokeReportLink(shareId: string): Promise<{ ok: true } | 
     .eq('id', shareId)
     .eq('org_id', ctx.orgId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo/reports')
+  revalidatePath('/seo/reports')
   return { ok: true }
 }
 
@@ -94,7 +94,7 @@ export async function sendReportNow(reportId: string): Promise<{ ok: true } | Fa
   if (!report) return { error: 'Report not found.' }
   try {
     const res = await sendReport(admin, report)
-    revalidatePath('/local-seo/reports')
+    revalidatePath('/seo/reports')
     return res.ok ? { ok: true } : { error: res.error }
   } catch (err) {
     return { error: err instanceof Error ? err.message : 'Sending failed.' }

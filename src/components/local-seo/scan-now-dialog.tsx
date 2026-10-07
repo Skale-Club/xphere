@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Radar } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { estimateScans, runScans, type ScanEstimateView } from '@/app/(dashboard)/local-seo/actions'
+import { estimateScans, runScans, type ScanEstimateView } from '@/app/(dashboard)/seo/local/actions'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

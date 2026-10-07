@@ -1,12 +1,12 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { FileText, MapPin } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { AddLocationDialog } from '@/components/local-seo/add-location-dialog'
 import { LocationCard, type LocationCardData } from '@/components/local-seo/location-card'
 import { QuotaMeter } from '@/components/local-seo/quota-meter'
-import { Button } from '@/components/ui/button'
+import { AddTile } from '@/components/seo/add-tile'
 import { Card, CardContent } from '@/components/ui/card'
 import { getQuotaSnapshot } from '@/lib/local-seo/quota'
 import { orgRedirect } from '@/lib/org/redirect'
@@ -83,12 +83,6 @@ export default async function LocalSeoPage() {
         actions={
           <>
             <QuotaMeter used={quota.used} limit={quota.limit} />
-            <Button asChild size="sm" variant="secondary">
-              <Link href="/local-seo/reports">
-                <FileText className="h-4 w-4" />
-                Reports
-              </Link>
-            </Button>
             {canManage && <AddLocationDialog />}
           </>
         }
@@ -111,10 +105,13 @@ export default async function LocalSeoPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {cards.map((c) => (
-            <Link key={c.id} href={`/local-seo/${c.id}`} className="block">
+            <Link key={c.id} href={`/seo/local/${c.id}`} className="group block">
               <LocationCard data={c} />
             </Link>
           ))}
+          {canManage && (
+            <AddLocationDialog trigger={<AddTile label="Add a location" hint="Track another business on Google Maps" />} />
+          )}
         </div>
       )}
     </PageContainer>

@@ -9,7 +9,7 @@ import {
   createLocation,
   searchBusinessCandidates,
   type BusinessCandidate,
-} from '@/app/(dashboard)/local-seo/actions'
+} from '@/app/(dashboard)/seo/local/actions'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,7 +24,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
-export function AddLocationDialog({ triggerLabel = 'Add location' }: { triggerLabel?: string }) {
+export function AddLocationDialog({
+  triggerLabel = 'Add location',
+  trigger,
+}: {
+  triggerLabel?: string
+  /** Replaces the default button (e.g. an add tile at the end of the grid). */
+  trigger?: React.ReactNode
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -90,7 +97,7 @@ export function AddLocationDialog({ triggerLabel = 'Add location' }: { triggerLa
       toast.success('Location added')
       setOpen(false)
       reset()
-      router.push(`/local-seo/${res.id}`)
+      router.push(`/seo/local/${res.id}`)
     })
   }
 
@@ -103,10 +110,12 @@ export function AddLocationDialog({ triggerLabel = 'Add location' }: { triggerLa
       }}
     >
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
-          {triggerLabel}
-        </Button>
+        {trigger ?? (
+          <Button size="sm">
+            <Plus className="h-4 w-4" />
+            {triggerLabel}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

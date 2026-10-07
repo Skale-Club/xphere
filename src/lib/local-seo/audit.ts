@@ -196,7 +196,7 @@ export async function createTasksFromAudit(
     checks.map((c) => ({
       org_id: input.orgId,
       title: `[Local SEO] ${input.locationName}: ${c.label}`.slice(0, 255),
-      description: `${c.detail}\n\nSuggested action: ${c.action}\n\nFrom the Local SEO audit: /local-seo/${input.locationId}/audit`,
+      description: `${c.detail}\n\nSuggested action: ${c.action}\n\nFrom the Local SEO audit: /seo/local/${input.locationId}/audit`,
       priority: (c.status === 'poor' ? 'high' : 'medium') as 'high' | 'medium',
       status: 'todo' as const,
       due_date: due,

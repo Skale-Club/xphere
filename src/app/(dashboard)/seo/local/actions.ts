@@ -132,7 +132,7 @@ export async function createLocation(
       .from('local_seo_keywords')
       .insert(keywords.map((keyword) => ({ org_id: ctx.orgId, location_id: location.id, keyword })))
   }
-  revalidatePath('/local-seo')
+  revalidatePath('/seo/local')
   return { id: location.id }
 }
 
@@ -201,8 +201,8 @@ export async function updateLocation(
     })
     .eq('id', locationId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo')
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath('/seo/local')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -211,7 +211,7 @@ export async function deleteLocation(locationId: string): Promise<{ ok: true } |
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_locations').delete().eq('id', locationId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo')
+  revalidatePath('/seo/local')
   return { ok: true }
 }
 
@@ -248,7 +248,7 @@ export async function addKeywords(locationId: string, keywords: string[]): Promi
     .from('local_seo_keywords')
     .insert(fresh.map((keyword) => ({ org_id: ctx.orgId, location_id: locationId, keyword })))
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { added: fresh.length }
 }
 
@@ -257,7 +257,7 @@ export async function deleteKeyword(keywordId: string, locationId: string): Prom
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_keywords').delete().eq('id', keywordId)
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -339,7 +339,7 @@ export async function runScans(input: z.infer<typeof scanSchema>): Promise<{ sca
       // The cron tick picks the scan up.
     }
   })
-  revalidatePath(`/local-seo/${v.locationId}`, 'layout')
+  revalidatePath(`/seo/local/${v.locationId}`, 'layout')
   return { scanIds, error: lastError }
 }
 
@@ -418,7 +418,7 @@ export async function createSchedule(
     .select('id')
     .single()
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { id: data.id }
 }
 
@@ -433,7 +433,7 @@ export async function setScheduleActive(scheduleId: string, locationId: string, 
     : { is_active: false }
   const { error } = await ctx.supabase.from('local_seo_schedules').update(update).eq('id', scheduleId)
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -442,7 +442,7 @@ export async function deleteSchedule(scheduleId: string, locationId: string): Pr
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_schedules').delete().eq('id', scheduleId)
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -472,7 +472,7 @@ export async function createAlertRule(locationId: string, input: z.infer<typeof 
     .select('id')
     .single()
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { id: data.id }
 }
 
@@ -481,7 +481,7 @@ export async function deleteAlertRule(ruleId: string, locationId: string): Promi
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_alert_rules').delete().eq('id', ruleId)
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -496,7 +496,7 @@ export async function acknowledgeAlert(alertId: string): Promise<{ ok: true } | 
     .eq('id', alertId)
     .eq('org_id', ctx.orgId)
   if (error) return { error: error.message }
-  revalidatePath('/local-seo', 'layout')
+  revalidatePath('/seo/local', 'layout')
   return { ok: true }
 }
 
@@ -513,7 +513,7 @@ export async function addAnnotation(locationId: string, input: { title: string; 
     .select('id')
     .single()
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { id: data.id }
 }
 
@@ -522,7 +522,7 @@ export async function deleteAnnotation(annotationId: string, locationId: string)
   if ('error' in ctx) return { error: ctx.error }
   const { error } = await ctx.supabase.from('local_seo_annotations').delete().eq('id', annotationId)
   if (error) return { error: error.message }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { ok: true }
 }
 
@@ -552,7 +552,7 @@ export async function togglePinnedCompetitor(
     })
     if (error) return { error: error.message }
   }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { pinned: !existing }
 }
 
@@ -602,7 +602,7 @@ export async function runLocationAudit(locationId: string): Promise<{ auditId: s
   if ('error' in ctx) return { error: ctx.error }
   const res = await runAudit(createServiceRoleClient(), { orgId: ctx.orgId, locationId, userId: ctx.user.id })
   if (!res.ok) return { error: res.error }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { auditId: res.auditId, score: res.score }
 }
 
@@ -620,7 +620,7 @@ export async function createAuditTasks(auditId: string, locationId: string, chec
     locationId,
   })
   if (!res.ok) return { error: res.error }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   revalidatePath('/tasks')
   return { created: res.created }
 }
@@ -634,7 +634,7 @@ export async function runCitations(locationId: string, area: string): Promise<{ 
   if ('error' in ctx) return { error: ctx.error }
   const res = await runCitationCheck(createServiceRoleClient(), { orgId: ctx.orgId, locationId, area })
   if (!res.ok) return { error: res.error }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { found: res.found, total: res.total }
 }
 
@@ -643,6 +643,6 @@ export async function runAiVisibility(locationId: string, area: string): Promise
   if ('error' in ctx) return { error: ctx.error }
   const res = await runAiVisibilityCheck(createServiceRoleClient(), { orgId: ctx.orgId, locationId, area })
   if (!res.ok) return { error: res.error }
-  revalidatePath(`/local-seo/${locationId}`, 'layout')
+  revalidatePath(`/seo/local/${locationId}`, 'layout')
   return { mentioned: res.mentioned, total: res.total }
 }

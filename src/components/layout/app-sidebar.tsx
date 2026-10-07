@@ -67,7 +67,7 @@ const navItems = [
   { icon: CalendarDays, label: 'Calendar', href: '/calendar', active: true },
   { icon: Mail, label: 'Email', href: '/settings/email-templates', active: true },
   { icon: Sparkles, label: 'Copilot', href: '/copilot/conversations', active: true },
-  { icon: Star, label: 'Reviews', href: '/reviews', active: true },
+  { icon: Star, label: 'Reviews', href: '/seo/reviews', active: true },
 ]
 
 function getInitials(user: User): string {

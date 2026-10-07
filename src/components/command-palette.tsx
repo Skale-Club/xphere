@@ -85,8 +85,8 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
       { id: 'nav-knowledge',    label: 'Knowledge',    icon: BookOpen,        href: '/knowledge',    group: 'Navigation', keywords: ['rag', 'documents'] },
       { id: 'nav-integrations', label: 'Integrations', icon: Plug2,           href: '/integrations', group: 'Navigation' },
       { id: 'nav-members',      label: 'Members',      icon: Users,           href: '/members',      group: 'Navigation', keywords: ['team'] },
-      { id: 'nav-reviews',      label: 'Reviews',      icon: Star,            href: '/reviews',      group: 'Navigation' },
-      { id: 'nav-review-link',  label: 'Review Link',  icon: Star,            href: '/reviews/review-link', group: 'Navigation', keywords: ['google', 'review', 'link', 'avaliação'] },
+      { id: 'nav-reviews',      label: 'Reviews',      icon: Star,            href: '/seo/reviews',      group: 'Navigation' },
+      { id: 'nav-review-link',  label: 'Review Link',  icon: Star,            href: '/seo/reviews/review-link', group: 'Navigation', keywords: ['google', 'review', 'link', 'avaliação'] },
 
       // Actions
       { id: 'act-new-org',  label: 'New Organization', icon: Building2, href: '/organizations',     group: 'Actions' },

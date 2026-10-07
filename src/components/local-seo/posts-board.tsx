@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CalendarClock, ExternalLink, Plus, Repeat, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { deletePost, savePost, type PostInput } from '@/app/(dashboard)/local-seo/gbp-actions'
+import { deletePost, savePost, type PostInput } from '@/app/(dashboard)/seo/local/gbp-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'

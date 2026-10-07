@@ -26,5 +26,5 @@ export async function saveWidgetSettings(profileId: string, settings: SavedWidge
     .update({ widget_settings: settings as never })
     .eq('id', profileId)
   if (error) throw new Error(error.message)
-  revalidatePath('/reviews')
+  revalidatePath('/seo/reviews')
 }

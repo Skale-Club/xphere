@@ -13,7 +13,7 @@ import {
   syncGbpNow,
   unlinkGbpLocation,
   type GbpLocationOption,
-} from '@/app/(dashboard)/local-seo/gbp-actions'
+} from '@/app/(dashboard)/seo/local/gbp-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,7 +71,7 @@ export function GbpConnectionCard({
     else toast.error(msg)
   }, [params])
 
-  const returnPath = `/local-seo/${locationId}/settings`
+  const returnPath = `/seo/local/${locationId}/settings`
   const connectHref = `/api/local-seo/gbp/oauth?return=${encodeURIComponent(returnPath)}`
 
   function loadOptions(connectionId: string) {

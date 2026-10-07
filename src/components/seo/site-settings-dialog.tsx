@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { deleteSite, updateSite } from '@/app/(dashboard)/seo/actions'
+import { deleteSite, updateSite } from '@/app/(dashboard)/seo/website/actions'
 import { SiteCrawlFields, type Schedule } from './site-form-fields'
 
 export function SiteSettingsDialog({
@@ -51,7 +51,7 @@ export function SiteSettingsDialog({
       const res = await deleteSite(site.id)
       if (!res.ok) return void toast.error(res.error)
       toast.success('Site removed')
-      router.push('/seo')
+      router.push('/seo/website')
     })
   }
 

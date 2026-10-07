@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Bot, CheckCircle2, CircleMinus, ExternalLink, Loader2, Search, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { runAiVisibility, runCitations } from '@/app/(dashboard)/local-seo/actions'
+import { runAiVisibility, runCitations } from '@/app/(dashboard)/seo/local/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'

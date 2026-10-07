@@ -78,7 +78,7 @@ export async function MetricAvgRating() {
       trend={null}
       data={distribution}
       tone="warning"
-      href="/reviews"
+      href="/seo/reviews"
       hint={totalReviews > 0 ? `${totalReviews.toLocaleString()} reviews` : undefined}
       index={3}
     />

@@ -94,7 +94,7 @@ export async function onScanFinalized(admin: Admin, scan: ScanRow): Promise<void
   const base = {
     scan: scanPayload(scan),
     location: { id: location.id, name: location.name, business_name: location.business_name, address: location.address, place_id: location.place_id },
-    url: `/local-seo/${location.id}?keyword=${scan.keyword_id ?? ''}&scan=${scan.id}`,
+    url: `/seo/local/${location.id}?keyword=${scan.keyword_id ?? ''}&scan=${scan.id}`,
   }
   await dispatchLocalSeoWorkflowEvent(admin, scan.org_id, 'local_seo.scan_completed', scan.id, base)
 

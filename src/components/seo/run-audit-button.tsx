@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2, Play, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cancelAudit, runAudit } from '@/app/(dashboard)/seo/actions'
+import { cancelAudit, runAudit } from '@/app/(dashboard)/seo/website/actions'
 
 export function RunAuditButton({ siteId, activeAuditId }: { siteId: string; activeAuditId: string | null }) {
   const router = useRouter()

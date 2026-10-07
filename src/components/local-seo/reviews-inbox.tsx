@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Loader2, Send, Sparkles, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { deleteReply, draftReplyWithAi, submitReply } from '@/app/(dashboard)/local-seo/gbp-actions'
+import { deleteReply, draftReplyWithAi, submitReply } from '@/app/(dashboard)/seo/local/gbp-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'

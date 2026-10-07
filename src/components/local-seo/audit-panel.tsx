@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, CircleAlert, CircleMinus, ClipboardCheck, ListTodo, Loader2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { createAuditTasks, runLocationAudit } from '@/app/(dashboard)/local-seo/actions'
+import { createAuditTasks, runLocationAudit } from '@/app/(dashboard)/seo/local/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'

@@ -12,7 +12,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
-import { NAV_ITEMS as nav, NAV_GROUPS as groups } from './nav-items'
+import { NAV_ITEMS as nav, NAV_GROUPS as groups, isNavItemVisible } from './nav-items'
 
 import { createClient } from '@/lib/supabase/client'
 import { APP_NAME } from '@/lib/config'
@@ -201,12 +201,8 @@ function SidebarBody({
               n.group === g.id &&
               (!n.adminOnly || isPlatformAdmin) &&
               (!n.orgAdminOnly || isPlatformAdmin || isOrgAdmin) &&
-              // navPermissions == null → unrestricted; otherwise the user must
-              // hold the item's permission key (items without a key stay visible).
-              (navPermissions == null || !n.permission || navPermissions.includes(n.permission)) &&
-              // entitledFeatures == null → unrestricted (enforcement off); otherwise
-              // the plan must include the item's feature (items without one stay visible).
-              (entitledFeatures == null || !n.feature || entitledFeatures.includes(n.feature)),
+              // RBAC permission + plan feature (null = unrestricted for either).
+              isNavItemVisible(n, navPermissions, entitledFeatures),
           )
           if (items.length === 0) return null
           return (

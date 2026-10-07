@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 import { toast } from 'sonner'
 
-import { acknowledgeAlert, addAnnotation, deleteAnnotation } from '@/app/(dashboard)/local-seo/actions'
+import { acknowledgeAlert, addAnnotation, deleteAnnotation } from '@/app/(dashboard)/seo/local/actions'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,

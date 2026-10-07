@@ -140,7 +140,7 @@ export async function ActivitySnapshot({ range }: Props) {
       icon: Star,
       label: 'New reviews',
       value: newReviews,
-      href: '/reviews',
+      href: '/seo/reviews',
       tone: 'warning',
     },
   ]

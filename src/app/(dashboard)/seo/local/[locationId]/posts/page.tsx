@@ -22,7 +22,7 @@ export default async function LocationPostsPage({ params }: { params: Promise<{ 
       <div className="px-4 py-6 sm:px-6">
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-text-secondary">
           Connect this location to Google Business Profile in{' '}
-          <Link href={`/local-seo/${locationId}/settings`} className="text-accent underline-offset-4 hover:underline">
+          <Link href={`/seo/local/${locationId}/settings`} className="text-accent underline-offset-4 hover:underline">
             Settings
           </Link>{' '}
           to publish posts.

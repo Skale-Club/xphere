@@ -106,7 +106,7 @@ async function onNewReviews(admin: Admin, location: LocationRow, fresh: GbpRevie
     const payload = {
       review: { id: review.id, rating: review.rating, comment: review.comment, reviewer_name: review.reviewer_name },
       location: { id: location.id, name: location.name, business_name: location.business_name },
-      url: `/local-seo/${location.id}/reviews`,
+      url: `/seo/local/${location.id}/reviews`,
     }
     await dispatchLocalSeoWorkflowEvent(admin, location.org_id, 'gbp.review_received', review.id, payload, 'gbp_reviews')
     if ((review.rating ?? 5) <= 3) {
@@ -191,7 +191,7 @@ export async function syncProfile(admin: Admin, location: LocationRow): Promise<
       location.org_id,
       'gbp.google_update_detected',
       location.id,
-      { location: { id: location.id, name: location.name }, fields, by_google: newlyGoogleUpdated, url: `/local-seo/${location.id}/profile` },
+      { location: { id: location.id, name: location.name }, fields, by_google: newlyGoogleUpdated, url: `/seo/local/${location.id}/profile` },
       'local_seo_locations',
     )
     await insertNotification(location.org_id, 'local_seo_alert', {

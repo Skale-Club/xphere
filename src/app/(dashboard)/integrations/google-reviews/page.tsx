@@ -399,7 +399,7 @@ export default async function GoogleReviewsIntegrationPage() {
         )}
         <Separator className="my-3" />
         <Link
-          href="/reviews"
+          href="/seo/reviews"
           className="inline-flex items-center gap-1 text-[12px] font-medium text-accent underline-offset-4 hover:underline"
         >
           Open reviews dashboard

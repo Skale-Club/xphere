@@ -20,6 +20,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   mcp: 'MCP Server',
   sms: 'SMS',
   api: 'API',
+  seo: 'SEO',
   workspace: 'Company Info',
 }
 

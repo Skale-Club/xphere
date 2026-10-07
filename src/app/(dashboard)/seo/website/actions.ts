@@ -102,7 +102,7 @@ export async function createSite(input: z.input<typeof createSiteSchema>): Promi
     created_by: guard.userId,
   })
 
-  revalidatePath('/seo')
+  revalidatePath('/seo/website')
   return ok({ id: data.id })
 }
 
@@ -131,8 +131,8 @@ export async function updateSite(siteId: string, input: z.input<typeof updateSit
     .single()
   if (error) return err(error.message)
 
-  revalidatePath('/seo')
-  revalidatePath(`/seo/${siteId}`)
+  revalidatePath('/seo/website')
+  revalidatePath(`/seo/website/${siteId}`)
   return ok(data)
 }
 
@@ -142,7 +142,7 @@ export async function deleteSite(siteId: string): Promise<ActionResult> {
   const supabase = await createClient()
   const { error } = await supabase.from('seo_sites').delete().eq('id', siteId)
   if (error) return err(error.message)
-  revalidatePath('/seo')
+  revalidatePath('/seo/website')
   return ok(undefined)
 }
 
@@ -164,8 +164,8 @@ export async function runAudit(siteId: string): Promise<ActionResult<{ id: strin
     return err(error.message)
   }
 
-  revalidatePath('/seo')
-  revalidatePath(`/seo/${siteId}`)
+  revalidatePath('/seo/website')
+  revalidatePath(`/seo/website/${siteId}`)
   return ok({ id: data.id })
 }
 
@@ -182,8 +182,8 @@ export async function cancelAudit(auditId: string): Promise<ActionResult> {
     .select('site_id')
     .maybeSingle()
   if (error) return err(error.message)
-  if (data) revalidatePath(`/seo/${data.site_id}`)
-  revalidatePath('/seo')
+  if (data) revalidatePath(`/seo/website/${data.site_id}`)
+  revalidatePath('/seo/website')
   return ok(undefined)
 }
 
@@ -235,8 +235,8 @@ export async function setGscProperty(siteId: string, property: string | null): P
     .eq('id', siteId)
   if (error) return err(error.message)
 
-  revalidatePath(`/seo/${siteId}`)
-  revalidatePath('/seo')
+  revalidatePath(`/seo/website/${siteId}`)
+  revalidatePath('/seo/website')
   return ok(undefined)
 }
 
@@ -258,7 +258,7 @@ export async function generateSeoActionPlan(siteId: string): Promise<ActionResul
   const locale = ((await headers()).get('accept-language') ?? 'en').split(',')[0].trim() || 'en'
   try {
     const plan = await generateActionPlan(supabase, orgId as string, siteId, locale)
-    revalidatePath(`/seo/${siteId}`)
+    revalidatePath(`/seo/website/${siteId}`)
     return ok(plan)
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)

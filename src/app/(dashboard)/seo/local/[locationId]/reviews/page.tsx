@@ -44,7 +44,7 @@ export default async function LocationReviewsPage({
       <div className="space-y-4 px-4 py-6 sm:px-6">
         <div className="rounded-xl border border-dashed border-border p-5 text-sm text-text-secondary">
           Connect this location to Google Business Profile in{' '}
-          <Link href={`/local-seo/${locationId}/settings`} className="text-accent underline-offset-4 hover:underline">
+          <Link href={`/seo/local/${locationId}/settings`} className="text-accent underline-offset-4 hover:underline">
             Settings
           </Link>{' '}
           to reply to reviews from here.{scraped?.length ? ' Meanwhile, these are the reviews scraped for the widget.' : ''}

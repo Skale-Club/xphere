@@ -9,7 +9,7 @@ import { Loader2, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { generateSeoActionPlan } from '@/app/(dashboard)/seo/actions'
+import { generateSeoActionPlan } from '@/app/(dashboard)/seo/website/actions'
 import type { ActionPlan } from '@/lib/seo/action-plan'
 
 const LEVEL_BADGE = { high: 'danger', medium: 'warning', low: 'info' } as const

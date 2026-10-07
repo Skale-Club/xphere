@@ -79,7 +79,7 @@ export default async function SeoSitePage({
     .map((a) => ({ label: format(new Date(a.finished_at!), 'MMM d'), score: a.health_score! }))
 
   const summary = (latest?.summary ?? null) as Summary
-  const base = `/seo/${siteId}`
+  const base = `/seo/website/${siteId}`
 
   return (
     <PageContainer>

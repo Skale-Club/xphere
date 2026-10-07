@@ -12,7 +12,7 @@ import {
   saveReport,
   sendReportNow,
   type ReportInput,
-} from '@/app/(dashboard)/local-seo/report-actions'
+} from '@/app/(dashboard)/seo/local/report-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'

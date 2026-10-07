@@ -175,7 +175,7 @@ export function ReviewsSetupWizard({
                   )}
                 </Button>
                 <Button asChild variant="ghost">
-                  <Link href="/reviews">Open reviews dashboard</Link>
+                  <Link href="/seo/reviews">Open reviews dashboard</Link>
                 </Button>
               </div>
               <Button className="mt-1 w-full sm:w-auto" onClick={finish}>

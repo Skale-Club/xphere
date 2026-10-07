@@ -40,7 +40,7 @@ export async function PerformanceTab({
   gscError: string | null
 }) {
   const supabase = await createClient()
-  const base = `/seo/${site.id}?tab=performance`
+  const base = `/seo/website/${site.id}?tab=performance`
   const connectHref = `/api/google/search-console/connect?return=${encodeURIComponent(base)}`
 
   const { data: integration } = await supabase
@@ -260,7 +260,7 @@ export async function PerformanceTab({
             <OppRow
               key={p.url}
               label={p.url}
-              href={`/seo/${site.id}?tab=pages&page=${p.pageId}`}
+              href={`/seo/website/${site.id}?tab=pages&page=${p.pageId}`}
               meta={`${p.errors} errors · ${p.warnings} warnings`}
               value={`${p.clicks.toLocaleString()} clicks`}
             />

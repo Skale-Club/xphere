@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 
-import { getCompetitorRanks } from '@/app/(dashboard)/local-seo/actions'
+import { getCompetitorRanks } from '@/app/(dashboard)/seo/local/actions'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { usePathname } from '@/lib/org/navigation'

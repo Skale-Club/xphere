@@ -3,7 +3,6 @@ import {
   Phone,
   MessageSquare,
   Megaphone,
-  Star,
   LayoutDashboard,
   Bot,
   TrendingUp,
@@ -16,9 +15,9 @@ import {
   BarChart3,
   MonitorPlay,
   SearchCheck,
-  MapPin,
 } from 'lucide-react'
 import type { Feature } from '@/lib/billing/catalog'
+import { SEO_SECTIONS } from '@/lib/seo/sections'
 
 export type NavItem = {
   icon: React.ComponentType<{ className?: string }>
@@ -41,6 +40,12 @@ export type NavItem = {
    * items available on every plan (Dashboard, Analytics).
    */
   feature?: Feature
+  /**
+   * Alternative permission + feature pairs; the item shows when ANY pair passes.
+   * For an entry point to several gated areas (SEO = audits, Local SEO, Reviews).
+   * Takes the place of `permission` / `feature`.
+   */
+  anyOf?: { permission: string; feature: Feature }[]
 }
 
 /**
@@ -55,9 +60,9 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: MessageSquare,   label: 'Inbox',        href: '/inbox',        group: 'engage',   permission: 'chat.view',       feature: 'chat' },
   { icon: Phone,           label: 'Calls',        href: '/calls',        group: 'engage',   permission: 'calls.view',      feature: 'calls' },
   { icon: Megaphone,       label: 'Campaigns',    href: '/campaigns',    group: 'engage',   permission: 'campaigns.view',  feature: 'campaigns' },
-  { icon: BarChart3,       label: 'Analytics',    href: '/analytics',    group: 'manage',   permission: 'analytics.view' },
-  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'manage', permission: 'ads.view', feature: 'ads' },
-  { icon: SearchCheck,     label: 'SEO',          href: '/seo',          group: 'manage',   permission: 'seo.view',        feature: 'seo' },
+  { icon: BarChart3,       label: 'Analytics',    href: '/analytics',    group: 'marketing', permission: 'analytics.view' },
+  { icon: MonitorPlay,    label: 'Ads',          href: '/ads',          group: 'marketing', permission: 'ads.view',     feature: 'ads' },
+  { icon: SearchCheck,     label: 'SEO',          href: '/seo',          group: 'marketing', anyOf: SEO_SECTIONS.map(({ permission, feature }) => ({ permission, feature })) },
   { icon: Contact,         label: 'Contacts',     href: '/contacts',     group: 'sales',    permission: 'contacts.view',   feature: 'crm' },
   { icon: Building2,       label: 'Companies',    href: '/companies',    group: 'sales',    permission: 'companies.view',  feature: 'crm' },
   { icon: UserPlus,        label: 'Prospects',    href: '/prospects',    group: 'sales',    orgAdminOnly: true,            feature: 'prospects' },
@@ -67,8 +72,6 @@ export const NAV_ITEMS: NavItem[] = [
   { icon: Zap,             label: 'Workflows',    href: '/workflows',    group: 'build',    permission: 'workflows.view',  feature: 'workflows' },
   { icon: FolderKanban,    label: 'Projects',     href: '/projects',     group: 'build',    permission: 'projects.view',   feature: 'projects' },
   { icon: CalendarDays,    label: 'Calendar',     href: '/calendar',   group: 'build',    permission: 'calendar.view',   feature: 'calendar' },
-  { icon: Star,            label: 'Reviews',      href: '/reviews',      group: 'manage',   permission: 'reviews.view',    feature: 'reviews' },
-  { icon: MapPin,          label: 'Local SEO',    href: '/local-seo',    group: 'manage',   permission: 'local_seo.view',  feature: 'local_seo' },
 ]
 
 export const NAV_GROUPS: { id: string; label: string }[] = [
@@ -76,8 +79,24 @@ export const NAV_GROUPS: { id: string; label: string }[] = [
   { id: 'engage',   label: 'Engage' },
   { id: 'sales',    label: 'Sales' },
   { id: 'build',    label: 'Build' },
-  { id: 'manage',   label: 'Manage' },
+  { id: 'marketing', label: 'Marketing' },
 ]
+
+/**
+ * Whether a nav item is visible for these permission keys and plan features.
+ * `null` = unrestricted (Owner / platform / unconfigured RBAC; billing off).
+ */
+export function isNavItemVisible(
+  item: NavItem,
+  permissions: readonly string[] | null | undefined,
+  features: readonly string[] | null | undefined,
+): boolean {
+  const allowed = (permission?: string, feature?: string) =>
+    (permissions == null || !permission || permissions.includes(permission)) &&
+    (features == null || !feature || features.includes(feature))
+  if (item.anyOf) return item.anyOf.some((a) => allowed(a.permission, a.feature))
+  return allowed(item.permission, item.feature)
+}
 
 /** Match the leading path segment of `pathname` to a nav item. */
 export function findNavItemForPath(pathname: string): NavItem | null {

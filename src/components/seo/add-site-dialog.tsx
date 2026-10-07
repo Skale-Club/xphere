@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createSite } from '@/app/(dashboard)/seo/actions'
+import { createSite } from '@/app/(dashboard)/seo/website/actions'
 import { parseSiteInput } from '@/lib/seo/url'
 import { SiteCrawlFields, type Schedule } from './site-form-fields'
 
@@ -27,7 +27,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function AddSiteDialog({ suggestedUrl, variant = 'default' }: { suggestedUrl?: string | null; variant?: 'default' | 'outline' }) {
+export function AddSiteDialog({
+  suggestedUrl,
+  variant = 'default',
+  trigger,
+}: {
+  suggestedUrl?: string | null
+  variant?: 'default' | 'outline'
+  /** Replaces the default button (e.g. an add tile at the end of the grid). */
+  trigger?: React.ReactNode
+}) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [schedule, setSchedule] = React.useState<Schedule>('weekly')
@@ -47,16 +56,18 @@ export function AddSiteDialog({ suggestedUrl, variant = 'default' }: { suggested
     toast.success('Site added — the first audit starts within a minute')
     setOpen(false)
     reset()
-    router.push(`/seo/${res.data.id}`)
+    router.push(`/seo/website/${res.data.id}`)
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant={variant}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add site
-        </Button>
+        {trigger ?? (
+          <Button variant={variant} size="sm">
+            <Plus className="h-4 w-4" />
+            Add site
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

@@ -7,25 +7,51 @@ export function scoreTone(score: number | null | undefined): 'success' | 'warnin
   return 'danger'
 }
 
-const TONE_CLASS = {
-  success: 'text-success border-success/40 bg-[var(--success-muted)]',
-  warning: 'text-warning border-warning/40 bg-[var(--warning-muted)]',
-  danger: 'text-danger border-danger/40 bg-[var(--danger-muted)]',
-  muted: 'text-text-tertiary border-border bg-bg-tertiary',
+const TONE_TEXT = {
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-danger',
+  muted: 'text-text-tertiary',
 } as const
 
-/** Health score in a circle: green ≥ 80, amber ≥ 50, red below. */
+const SIZES = {
+  md: { box: 56, stroke: 5, text: 'text-base' },
+  lg: { box: 96, stroke: 7, text: 'text-3xl' },
+} as const
+
+/** Health score as a progress ring: green ≥ 80, amber ≥ 50, red below. */
 export function ScoreBadge({ score, size = 'md' }: { score: number | null | undefined; size?: 'md' | 'lg' }) {
+  const { box, stroke, text } = SIZES[size]
+  const r = (box - stroke) / 2
+  const circumference = 2 * Math.PI * r
+  const pct = score === null || score === undefined ? 0 : Math.max(0, Math.min(100, score)) / 100
+  const tone = TONE_TEXT[scoreTone(score)]
+
   return (
     <div
-      className={cn(
-        'flex shrink-0 items-center justify-center rounded-full border-2 font-semibold tabular-nums',
-        size === 'lg' ? 'h-24 w-24 text-3xl' : 'h-12 w-12 text-base',
-        TONE_CLASS[scoreTone(score)],
-      )}
+      className={cn('relative flex shrink-0 items-center justify-center', tone)}
+      style={{ width: box, height: box }}
+      role="img"
       aria-label={score === null || score === undefined ? 'No score yet' : `Health score ${score} of 100`}
     >
-      {score ?? '—'}
+      <svg width={box} height={box} viewBox={`0 0 ${box} ${box}`} className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx={box / 2} cy={box / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-bg-tertiary" />
+        {pct > 0 && (
+          <circle
+            cx={box / 2}
+            cy={box / 2}
+            r={r}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${circumference * pct} ${circumference}`}
+          />
+        )}
+      </svg>
+      <span className={cn('relative font-semibold tabular-nums', text, score == null ? 'text-text-tertiary' : 'text-text-primary')}>
+        {score ?? '—'}
+      </span>
     </div>
   )
 }

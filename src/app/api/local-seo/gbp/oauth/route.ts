@@ -18,7 +18,7 @@ const GBP_CALLBACK_PATH = '/api/local-seo/gbp/callback'
 
 /** Only same-site dashboard paths may be returned to. */
 function safeReturn(raw: string | null): string {
-  return raw && raw.startsWith('/local-seo') && !raw.startsWith('//') ? raw : '/local-seo'
+  return raw && raw.startsWith('/seo/local') && !raw.startsWith('//') ? raw : '/seo/local'
 }
 
 export async function GET(request: NextRequest): Promise<Response> {

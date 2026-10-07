@@ -11,7 +11,7 @@ import {
   deleteAlertRule,
   deleteSchedule,
   setScheduleActive,
-} from '@/app/(dashboard)/local-seo/actions'
+} from '@/app/(dashboard)/seo/local/actions'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'

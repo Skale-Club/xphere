@@ -61,7 +61,7 @@ function getNavigationTarget(notification: NotificationRow): string {
     case 'flow_failed':
       return '/workflows/logs'
     case 'local_seo_alert':
-      return `/local-seo/${payload.location_id ?? ''}/${payload.target === 'profile' ? 'profile' : 'trends'}`
+      return `/seo/local/${payload.location_id ?? ''}/${payload.target === 'profile' ? 'profile' : 'trends'}`
     default:
       return '/'
   }

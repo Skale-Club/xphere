@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { ClipboardPaste, Copy, ExternalLink, Loader2, MapPin, Share2, Star, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { generateReviewLink } from '@/app/(dashboard)/reviews/review-link/actions'
+import { generateReviewLink } from '@/app/(dashboard)/seo/reviews/review-link/actions'
 import type { ReviewLinkPlace, ReviewLinkResult } from '@/lib/reviews/review-link'
 import { extractUrl } from '@/lib/reviews/review-link'
 import { Button } from '@/components/ui/button'

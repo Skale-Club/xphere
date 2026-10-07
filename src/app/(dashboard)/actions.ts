@@ -179,7 +179,7 @@ export async function getActivityFeed(
         title: `${r.rating}★ review from ${r.reviewer_name ?? 'anonymous'}`,
         description: r.text ?? undefined,
         timestamp: r.first_seen_at,
-        href: '/reviews',
+        href: '/seo/reviews',
         channel: null,
       })
     }

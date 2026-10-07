@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Check, RotateCcw, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { approveGbpChange, rejectGbpChange, rollbackGbpChange } from '@/app/(dashboard)/local-seo/gbp-actions'
+import { approveGbpChange, rejectGbpChange, rollbackGbpChange } from '@/app/(dashboard)/seo/local/gbp-actions'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 

@@ -7,7 +7,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { listGscPropertiesForSite, setGscProperty, type GscPropertyOptions } from '@/app/(dashboard)/seo/actions'
+import { listGscPropertiesForSite, setGscProperty, type GscPropertyOptions } from '@/app/(dashboard)/seo/website/actions'
 
 /** Pick which Search Console property feeds this site (Domain or URL-prefix). */
 export function GscPropertyPicker({ siteId, current }: { siteId: string; current: string | null }) {

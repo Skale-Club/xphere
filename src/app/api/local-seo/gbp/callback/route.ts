@@ -36,7 +36,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   } catch {
     stored = {}
   }
-  const returnTo = stored.returnTo?.startsWith('/local-seo') ? stored.returnTo : '/local-seo'
+  const returnTo = stored.returnTo?.startsWith('/seo/local') ? stored.returnTo : '/seo/local'
   const back = (status: string) => NextResponse.redirect(new URL(`${returnTo}${returnTo.includes('?') ? '&' : '?'}gbp=${status}`, origin))
 
   try {

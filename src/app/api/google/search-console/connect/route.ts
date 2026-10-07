@@ -34,7 +34,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (!user) return NextResponse.redirect(`${origin}/`)
 
   const requested = request.nextUrl.searchParams.get('return')
-  const returnTo = requested && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/seo'
+  const returnTo = requested && requested.startsWith('/') && !requested.startsWith('//') ? requested : '/seo/website'
 
   if (!(await can('seo.manage')) && !(await can('integrations.manage'))) {
     return NextResponse.redirect(`${origin}${withParam(returnTo, 'gsc_error', 'forbidden')}`)

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   jar.set(GSC_STATE_COOKIE, '', { maxAge: 0, path: '/' })
   jar.set(GSC_RETURN_COOKIE, '', { maxAge: 0, path: '/' })
 
-  const returnTo = storedReturn && storedReturn.startsWith('/') && !storedReturn.startsWith('//') ? storedReturn : '/seo'
+  const returnTo = storedReturn && storedReturn.startsWith('/') && !storedReturn.startsWith('//') ? storedReturn : '/seo/website'
   const [storedState, storedOrg] = stored.split('.')
   const orgId = isOrgId(storedOrg) ? storedOrg : null
   // Land back in the tab's org, not whichever org is the user's default.

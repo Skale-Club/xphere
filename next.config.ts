@@ -34,6 +34,22 @@ const nextConfig: NextConfig = {
       // notifications and bookmarks with /chat URLs keep working. Note: /api/chat/*
       // is unaffected — this only matches the /chat page path.
       { source: '/chat', destination: '/inbox', permanent: true },
+      // SEO, Local SEO and Reviews merged under /seo (tabs). Old URLs live on in
+      // stored notifications, task descriptions, emails and bookmarks. Config
+      // redirects run before the proxy strips the per-tab org prefix, so each rule
+      // also has an /o/:org form. Temporary (307) so browsers don't pin them.
+      ...[
+        ['/local-seo/reports', '/seo/reports'],
+        ['/local-seo', '/seo/local'],
+        ['/local-seo/:path*', '/seo/local/:path*'],
+        ['/reviews', '/seo/reviews'],
+        ['/reviews/:path*', '/seo/reviews/:path*'],
+        // Website audits moved from /seo/<site-id> to /seo/website/<site-id>.
+        ['/seo/:siteId([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})', '/seo/website/:siteId'],
+      ].flatMap(([source, destination]) => [
+        { source, destination, permanent: false },
+        { source: `/o/:org${source}`, destination: `/o/:org${destination}`, permanent: false },
+      ]),
     ]
   },
   async rewrites() {

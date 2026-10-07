@@ -19,7 +19,7 @@ const TABS = [
 
 export function LocationTabs({ locationId }: { locationId: string }) {
   const pathname = usePathname()
-  const base = `/local-seo/${locationId}`
+  const base = `/seo/local/${locationId}`
   const active = pathname.slice(base.length).split('/').filter(Boolean)[0] ?? ''
 
   return (

@@ -95,7 +95,7 @@ export const gbpTools: McpToolDef[] = [
       return {
         change_id: res.change.id,
         status: res.change.status,
-        approve_at: `/local-seo/${location_id}/${reply ? 'reviews' : 'profile'}`,
+        approve_at: `/seo/local/${location_id}/${reply ? 'reviews' : 'profile'}`,
         next_step: 'A person with Local SEO approval rights must approve this change before it reaches Google.',
       }
     },

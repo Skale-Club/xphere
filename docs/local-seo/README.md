@@ -1,7 +1,7 @@
 # Local SEO — runbook
 
 Module plan: [`.planning/local-seo/SPEC.md`](../../.planning/local-seo/SPEC.md).
-Code: `src/lib/local-seo/`, UI under `/local-seo`.
+Code: `src/lib/local-seo/`, UI under `/seo/local`.
 
 ## What runs where
 

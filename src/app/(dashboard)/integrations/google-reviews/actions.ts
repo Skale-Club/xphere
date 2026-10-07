@@ -119,7 +119,7 @@ export async function selectPlaceId(input: {
   if (error) return { error: error.message }
 
   revalidatePath('/integrations/google-reviews')
-  revalidatePath('/reviews')
+  revalidatePath('/seo/reviews')
   return { success: true }
 }
 
@@ -170,7 +170,7 @@ export async function refreshNow(input: { profileId?: string } = {}): Promise<{
       .eq('id', profile.id)
 
     revalidatePath('/integrations/google-reviews')
-    revalidatePath('/reviews')
+    revalidatePath('/seo/reviews')
     return {
       newReviews: summary.newReviews,
       upserted: summary.upserted,
@@ -219,6 +219,6 @@ export async function disconnect(): Promise<{ error?: string; success?: boolean 
   if (error) return { error: error.message }
 
   revalidatePath('/integrations/google-reviews')
-  revalidatePath('/reviews')
+  revalidatePath('/seo/reviews')
   return { success: true }
 }

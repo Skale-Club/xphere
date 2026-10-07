@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, Star } from 'lucide-react'
 
-import { getPointDetail, type PointDetail } from '@/app/(dashboard)/local-seo/actions'
+import { getPointDetail, type PointDetail } from '@/app/(dashboard)/seo/local/actions'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
