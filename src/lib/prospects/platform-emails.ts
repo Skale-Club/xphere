@@ -17,8 +17,7 @@
 // KEEP IN SYNC with the other two copies of this list:
 //   - Xmail:   src/server/lib/platform-emails.ts
 //   - Xcraper: backend/src/services/emailPlaceholders.ts
-// Xphere's list is a superset of Xmail's 15 domains: getsquire.com, mytime.com and bookedin.com
-// are extra booking platforms (barbershop/salon marketplaces) that Xmail does not list yet.
+// All three lists carry the same 19 domains since 2026-10-07; add a new platform to all three.
 
 export const PLATFORM_EMAIL_DOMAINS: readonly string[] = [
   // Mirrors Xmail's list exactly
@@ -41,6 +40,8 @@ export const PLATFORM_EMAIL_DOMAINS: readonly string[] = [
   'getsquire.com',
   'mytime.com',
   'bookedin.com',
+  // Xcraper lists it too (2026-10-07): the three lists must match.
+  'booksy.net',
 ]
 
 /**

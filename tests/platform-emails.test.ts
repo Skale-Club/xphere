@@ -11,7 +11,7 @@ describe('isPlatformEmail', () => {
   it('matches every listed domain, including the Xphere-only additions', () => {
     for (const domain of PLATFORM_EMAIL_DOMAINS) expect(isPlatformEmail(`support@${domain}`)).toBe(true)
     expect(PLATFORM_EMAIL_DOMAINS).toEqual(expect.arrayContaining(['getsquire.com', 'mytime.com', 'bookedin.com']))
-    expect(PLATFORM_EMAIL_DOMAINS).toHaveLength(18)
+    expect(PLATFORM_EMAIL_DOMAINS).toHaveLength(19)
   })
 
   it('matches subdomains of a platform domain', () => {
