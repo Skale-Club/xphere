@@ -72,7 +72,9 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: Request) {
-  if (request.headers.get('authorization')) logMcpRequest(request, 200, null)
+  // TEMP (2026-10-07): log every GET while diagnosing a credential probe that
+  // leaves no trace; revert to the authorization-only condition afterwards.
+  logMcpRequest(request, 200, null)
   // Discovery / health response. The real MCP traffic comes over POST.
   // Streamable HTTP allows GET for server-initiated SSE, but in stateless mode
   // we just expose metadata.
@@ -148,7 +150,9 @@ export async function POST(request: Request) {
 
   try {
     const response = await transport.handleRequest(await withMcpAccept(request, body))
-    if (response.status >= 400) logMcpRequest(request, response.status, rpcMethodOf(body))
+    // TEMP (2026-10-07): log successes too while diagnosing a credential probe;
+    // restore the `response.status >= 400` condition afterwards.
+    logMcpRequest(request, response.status, rpcMethodOf(body))
     return withCors(response)
   } finally {
     // Ensure transport resources are released | server.close() also closes it.

@@ -57,8 +57,22 @@ function botDefense(request: NextRequest): NextResponse | null {
  * in getUser() at the gate.
  */
 export async function proxy(request: NextRequest) {
+  // Browsers never send an Authorization header to a page, so one here is an
+  // API client or credential probe aimed at the wrong path. Log its shape
+  // (never the credential) so it can be told apart from a real failure.
+  const authHeader = request.headers.get('authorization')
+  if (authHeader) {
+    console.warn(
+      `[proxy] ${request.method} ${request.nextUrl.pathname} with auth=${authHeader.split(' ')[0] || 'raw'}` +
+        ` ua="${request.headers.get('user-agent') ?? ''}"`,
+    )
+  }
+
   const blocked = botDefense(request)
-  if (blocked) return blocked
+  if (blocked) {
+    if (authHeader) console.warn(`[proxy] blocked ${request.nextUrl.pathname} with status ${blocked.status}`)
+    return blocked
+  }
 
   // Per-tab org (see src/lib/org/request-org.ts). `/o/<org-id>/<route>` is
   // rewritten to `/<route>` with the org forwarded in a request header; the
