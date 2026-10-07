@@ -11017,6 +11017,7 @@ export interface Database {
         Args: {
           query_embedding: number[]
           filter?: Json
+          match_count?: number
         }
         Returns: Array<{
           id: number
