@@ -160,14 +160,16 @@ export function ChangesView({
 
   return (
     <div className="space-y-4 p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-[18px] font-semibold text-text-primary">Changes</h1>
-          <p className="text-[12.5px] text-text-secondary">
+          <p className="max-w-2xl text-[12.5px] text-text-secondary">
             Every write to Google Ads, Meta Ads or Google Business Profile — from the dashboard, workflows or an AI client — passes through here.
           </p>
         </div>
-        <PoliciesPanel accounts={accounts} canAdmin={canAdmin} />
+        <div className="shrink-0">
+          <PoliciesPanel accounts={accounts} canAdmin={canAdmin} />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">

@@ -15,12 +15,13 @@ const TONE_TEXT = {
 } as const
 
 const SIZES = {
+  sm: { box: 40, stroke: 4, text: 'text-[13px]' },
   md: { box: 56, stroke: 5, text: 'text-base' },
   lg: { box: 96, stroke: 7, text: 'text-3xl' },
 } as const
 
 /** Health score as a progress ring: green ≥ 80, amber ≥ 50, red below. */
-export function ScoreBadge({ score, size = 'md' }: { score: number | null | undefined; size?: 'md' | 'lg' }) {
+export function ScoreBadge({ score, size = 'md' }: { score: number | null | undefined; size?: 'sm' | 'md' | 'lg' }) {
   const { box, stroke, text } = SIZES[size]
   const r = (box - stroke) / 2
   const circumference = 2 * Math.PI * r

@@ -3,11 +3,10 @@ import { SearchCheck } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/server'
 import { can } from '@/lib/rbac/server'
-import { PageContainer } from '@/components/layout/page-header'
+import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { Card, CardContent } from '@/components/ui/card'
 import { AddSiteDialog } from '@/components/seo/add-site-dialog'
-import { AddTile } from '@/components/seo/add-tile'
-import { SiteCard, type SiteCardData } from '@/components/seo/site-card'
+import { SiteList, type SiteRow } from '@/components/seo/site-list'
 import { selectAll } from '@/lib/seo/select-all'
 import { addDays, isoDate } from '@/lib/seo/gsc/dates'
 
@@ -71,40 +70,29 @@ export default async function SeoPage() {
     else if (!previousCompleted.has(a.site_id)) previousCompleted.set(a.site_id, a.health_score)
   }
 
+  const rows: SiteRow[] = sites.map((site) => {
+    const last = latestCompleted.get(site.id)
+    const running = active.get(site.id)
+    const prev = previousCompleted.get(site.id)
+    const sev = (last?.summary as Summary)?.by_severity
+    return {
+      id: site.id,
+      name: site.name,
+      host: site.host,
+      score: last?.health_score ?? null,
+      delta: last?.health_score != null && prev != null ? last.health_score - prev : null,
+      severity: last ? { error: sev?.error ?? 0, warning: sev?.warning ?? 0, notice: sev?.notice ?? 0 } : null,
+      pagesCrawled: last?.pages_crawled ?? null,
+      auditedAt: last?.finished_at ?? null,
+      clicks30: site.gsc_property ? (clicks28.get(site.id) ?? 0) : null,
+      running: running ? { crawled: running.pages_crawled, discovered: running.pages_discovered } : null,
+    }
+  })
+
   return (
     <PageContainer>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {sites.map((site) => {
-          const last = latestCompleted.get(site.id)
-          const running = active.get(site.id)
-          const prev = previousCompleted.get(site.id)
-          const sev = (last?.summary as Summary)?.by_severity
-          const data: SiteCardData = {
-            name: site.name,
-            host: site.host,
-            score: last?.health_score ?? null,
-            delta: last?.health_score != null && prev != null ? last.health_score - prev : null,
-            severity: last ? { error: sev?.error ?? 0, warning: sev?.warning ?? 0, notice: sev?.notice ?? 0 } : null,
-            pagesCrawled: last?.pages_crawled ?? null,
-            auditedAt: last?.finished_at ?? null,
-            clicks30: site.gsc_property ? (clicks28.get(site.id) ?? 0) : null,
-            running: running
-              ? {
-                  status: running.status as 'pending' | 'running',
-                  stage: running.stage,
-                  crawled: running.pages_crawled,
-                  discovered: running.pages_discovered,
-                }
-              : null,
-          }
-          return (
-            <Link key={site.id} href={`/seo/website/${site.id}`} className="group block">
-              <SiteCard data={data} />
-            </Link>
-          )
-        })}
-        {canManage && <AddSiteDialog trigger={<AddTile label="Add a site" hint="Crawl another website and track its health over time" />} />}
-      </div>
+      <PageHeader actions={canManage ? <AddSiteDialog variant="outline" /> : undefined} />
+      <SiteList rows={rows} />
     </PageContainer>
   )
 }

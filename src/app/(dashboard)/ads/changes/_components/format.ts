@@ -106,3 +106,22 @@ export function formatDateTime(iso: string | null): string {
 export function isMachineActor(actorType: string): boolean {
   return actorType !== 'user'
 }
+
+/**
+ * Who asked for the change, in words. MCP clients are recorded as
+ * `oauth:<client_id>:<user8>` (src/lib/mcp/auth.ts) — readable only in the
+ * detail sheet, so the list says "AI client (MCP)" and keeps the raw label as
+ * a tooltip.
+ */
+export function actorDisplay(actorType: string, actorLabel: string | null): string {
+  if (actorLabel?.startsWith('oauth:')) return 'AI client (MCP)'
+  if (actorType === 'user') return actorLabel ?? 'Team member'
+  if (actorType === 'workflow') return actorLabel ? `Workflow · ${actorLabel}` : 'Workflow'
+  if (actorType === 'system') return actorLabel ?? 'Automation'
+  return actorLabel ?? 'AI'
+}
+
+/** Dot colour for a risk level, matching riskBadgeVariant. */
+export function riskDotClass(risk: number): string {
+  return risk >= 4 ? 'bg-danger' : risk === 3 ? 'bg-warning' : risk === 2 ? 'bg-info' : 'bg-text-tertiary'
+}

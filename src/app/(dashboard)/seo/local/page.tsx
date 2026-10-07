@@ -1,12 +1,10 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { MapPin } from 'lucide-react'
 
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { AddLocationDialog } from '@/components/local-seo/add-location-dialog'
-import { LocationCard, type LocationCardData } from '@/components/local-seo/location-card'
+import { LocationList, type LocationRow } from '@/components/local-seo/location-list'
 import { QuotaMeter } from '@/components/local-seo/quota-meter'
-import { AddTile } from '@/components/seo/add-tile'
 import { Card, CardContent } from '@/components/ui/card'
 import { getQuotaSnapshot } from '@/lib/local-seo/quota'
 import { orgRedirect } from '@/lib/org/redirect'
@@ -43,7 +41,7 @@ export default async function LocalSeoPage() {
   const keywordCount = new Map<string, number>()
   for (const k of keywords ?? []) keywordCount.set(k.location_id, (keywordCount.get(k.location_id) ?? 0) + 1)
 
-  const cards: LocationCardData[] = (locations ?? []).map((l) => {
+  const cards: LocationRow[] = (locations ?? []).map((l) => {
     const own = (scans ?? []).filter((s) => s.location_id === l.id)
     // Latest finished scan per keyword, then averaged — one number per location.
     const latestByKeyword = new Map<string, (typeof own)[number]>()
@@ -103,16 +101,7 @@ export default async function LocalSeoPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {cards.map((c) => (
-            <Link key={c.id} href={`/seo/local/${c.id}`} className="group block">
-              <LocationCard data={c} />
-            </Link>
-          ))}
-          {canManage && (
-            <AddLocationDialog trigger={<AddTile label="Add a location" hint="Track another business on Google Maps" />} />
-          )}
-        </div>
+        <LocationList rows={cards} />
       )}
     </PageContainer>
   )

@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { MapPin } from 'lucide-react'
 
-import { LocationTabs } from '@/components/local-seo/location-tabs'
 import { createClient, getUser } from '@/lib/supabase/server'
 
 export default async function LocationLayout({
@@ -24,7 +23,8 @@ export default async function LocationLayout({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-secondary px-4 py-3 sm:px-6">
+      {/* The location's pages are listed under it in the SEO sub-sidebar. */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-border-subtle bg-bg-secondary px-4 py-3 sm:px-6">
         <div className="min-w-0">
           <h1 className="truncate text-[15px] font-semibold text-text-primary">{location.name}</h1>
           {location.address && (
@@ -34,7 +34,6 @@ export default async function LocationLayout({
             </p>
           )}
         </div>
-        <LocationTabs locationId={location.id} />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
     </div>

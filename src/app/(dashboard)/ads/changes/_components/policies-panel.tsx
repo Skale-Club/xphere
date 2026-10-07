@@ -1,30 +1,35 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, ShieldCheck } from 'lucide-react'
+import {
+  Bot,
+  Globe,
+  Loader2,
+  Lock,
+  RotateCcw,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserCheck,
+  Wallet,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { PlatformMark } from '@/components/ads/platform-mark'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/types/database'
 import type { EffectivePolicy } from '@/lib/ads/commands/policies'
-import { platformLabel } from './format'
+import { platformLabel, riskLabel } from './format'
 
 type PolicyDbRow = Database['public']['Tables']['ads_account_policies']['Row']
 
@@ -60,11 +65,11 @@ const BLANK_FORM: FormState = {
 }
 
 const AI_MODE_HELP: Record<AiModeChoice, string> = {
-  inherit: 'Uses whatever the broader scope has set.',
-  read_only: 'The AI can read this account but never propose a change.',
-  propose: 'The AI can prepare a diff; a human approves it in Ads → Changes.',
+  inherit: 'Follow the broader scope.',
+  read_only: 'Can read the account, never propose a change.',
+  propose: 'Prepares changes; a person approves them here in Changes.',
   execute_with_confirmation:
-    'An MCP client (e.g. Codex) may apply a change after echoing the confirmation token it received at preview — its tool instructions still tell it to ask the operator first.',
+    'May apply a change after echoing the token it got at preview. Its instructions still tell it to ask you first.',
 }
 
 function rowToForm(row: PolicyDbRow | undefined): FormState {
@@ -183,6 +188,19 @@ export function PoliciesPanel({ accounts, canAdmin }: { accounts: Account[]; can
     }
   }
 
+  const scope = scopes.find((s) => s.key === scopeKey) ?? scopes[0]
+  const parentLabel =
+    scope.platform === null
+      ? 'the built-in defaults'
+      : scope.adAccountId === null
+        ? 'All platforms'
+        : `All ${platformLabel(scope.platform)}`
+  const overrides = countOverrides(form)
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }))
+  const rowFor = (s: Scope) => rows.find((r) => r.platform === s.platform && r.ad_account_id === s.adAccountId)
+  const defaultScopes = scopes.filter((s) => s.adAccountId === null)
+  const accountScopes = scopes.filter((s) => s.adAccountId !== null)
+
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -191,154 +209,208 @@ export function PoliciesPanel({ accounts, canAdmin }: { accounts: Account[]; can
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[720px]">
-          <DialogHeader>
-            <DialogTitle>Ad account guardrails</DialogTitle>
-            <DialogDescription>
-              Budget ceilings, protected campaigns and what the AI may do — org-wide defaults with per-account overrides. Empty fields inherit from the broader scope.
-            </DialogDescription>
+        <DialogContent className="flex h-[min(720px,90vh)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[960px]">
+          <DialogHeader className="shrink-0 border-b border-border-subtle px-6 py-5">
+            <div className="flex items-center gap-3 pr-8">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <ShieldCheck className="h-[18px] w-[18px]" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <DialogTitle>Guardrails</DialogTitle>
+                <DialogDescription className="text-[12.5px]">
+                  Limits on what can change in your ad accounts and how much the AI may do on its own. Set org-wide defaults, then override them per platform or account.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {!canAdmin ? (
-            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[12.5px] text-amber-400">
+            <div className="m-6 rounded-lg border border-warning/25 bg-warning/10 px-4 py-3 text-[12.5px] text-warning">
               You need the <span className="font-medium">ads.admin</span> permission to view or change guardrails.
             </div>
           ) : loading ? (
-            <div className="flex justify-center py-14">
+            <div className="flex flex-1 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
             </div>
           ) : (
-            <div className="grid grid-cols-[200px_1fr] gap-5">
-              {/* Scope list */}
-              <div className="space-y-1">
-                {scopes.map((s) => (
-                  <button
-                    key={s.key}
-                    onClick={() => setScopeKey(s.key)}
-                    className={cn(
-                      'block w-full truncate rounded-md px-2.5 py-1.5 text-left text-[12.5px] transition-colors',
-                      s.key === scopeKey
-                        ? 'bg-bg-tertiary font-medium text-text-primary'
-                        : 'text-text-secondary hover:bg-bg-secondary hover:text-text-primary',
-                    )}
-                    title={s.label}
-                  >
-                    {s.label}
-                  </button>
+            <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+              {/* Scopes */}
+              <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-border-subtle bg-bg-secondary/40 p-2 sm:w-[248px] sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-3">
+                <ScopeHeading>Defaults</ScopeHeading>
+                {defaultScopes.map((s) => (
+                  <ScopeButton key={s.key} scope={s} active={s.key === scopeKey} customized={countOverrides(rowToForm(rowFor(s))) > 0} onClick={() => setScopeKey(s.key)} />
                 ))}
-              </div>
+                {accountScopes.length > 0 && <ScopeHeading className="sm:mt-3">Accounts</ScopeHeading>}
+                {accountScopes.map((s) => (
+                  <ScopeButton key={s.key} scope={s} active={s.key === scopeKey} customized={countOverrides(rowToForm(rowFor(s))) > 0} onClick={() => setScopeKey(s.key)} />
+                ))}
+              </nav>
 
               {/* Form */}
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max_daily_budget">Max daily budget</Label>
-                    <Input
-                      id="max_daily_budget"
-                      type="number"
-                      min="0"
-                      value={form.max_daily_budget}
-                      onChange={(e) => setForm((f) => ({ ...f, max_daily_budget: e.target.value }))}
-                      placeholder={defaults ? `Inherit (${defaults.maxDailyBudget})` : 'Inherit'}
-                    />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-6 py-4">
+                  <div className="min-w-0">
+                    <div className="truncate text-[14px] font-semibold text-text-primary">{scopeName(scope)}</div>
+                    <div className="text-[12px] text-text-tertiary">Anything left on Inherit follows {parentLabel}.</div>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max_budget_increase_pct">Max budget increase per change (%)</Label>
-                    <Input
-                      id="max_budget_increase_pct"
-                      type="number"
-                      min="0"
-                      value={form.max_budget_increase_pct}
-                      onChange={(e) => setForm((f) => ({ ...f, max_budget_increase_pct: e.target.value }))}
-                      placeholder={defaults ? `Inherit (${defaults.maxBudgetIncreasePct})` : 'Inherit'}
-                    />
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-bg-tertiary px-2 py-0.5 text-[11px] text-text-secondary">
+                      {overrides === 0 ? 'Inherits everything' : `${overrides} override${overrides === 1 ? '' : 's'}`}
+                    </span>
+                    {overrides > 0 && (
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={() => setForm({ ...BLANK_FORM })}>
+                        <RotateCcw className="h-3 w-3" />
+                        Reset
+                      </Button>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <TriStateField
-                    label="Allow enabling"
-                    value={form.allow_enable}
-                    onChange={(v) => setForm((f) => ({ ...f, allow_enable: v }))}
-                  />
-                  <TriStateField
-                    label="Allow bidding changes"
-                    value={form.allow_bidding_changes}
-                    onChange={(v) => setForm((f) => ({ ...f, allow_bidding_changes: v }))}
-                  />
-                  <TriStateField
-                    label="Allow bulk changes"
-                    value={form.allow_bulk}
-                    onChange={(v) => setForm((f) => ({ ...f, allow_bulk: v }))}
-                  />
-                </div>
+                <div className="divide-y divide-border-subtle">
+                  <FormSection icon={Wallet} title="Budget" description="Ceilings checked before any budget change is sent.">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <NumberField
+                        id="max_daily_budget"
+                        label="Max daily budget"
+                        value={form.max_daily_budget}
+                        onChange={(v) => set('max_daily_budget', v)}
+                        min={0}
+                        inherited={defaults ? defaults.maxDailyBudget.toLocaleString() : null}
+                        suffix="/ day"
+                      />
+                      <NumberField
+                        id="max_budget_increase_pct"
+                        label="Max increase per change"
+                        value={form.max_budget_increase_pct}
+                        onChange={(v) => set('max_budget_increase_pct', v)}
+                        min={0}
+                        inherited={defaults ? `${defaults.maxBudgetIncreasePct}%` : null}
+                        suffix="%"
+                      />
+                    </div>
+                  </FormSection>
 
-                <div className="space-y-1.5">
-                  <Label>AI mode</Label>
-                  <Select value={form.ai_mode} onValueChange={(v) => setForm((f) => ({ ...f, ai_mode: v as AiModeChoice }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="inherit">Inherit</SelectItem>
-                      <SelectItem value="read_only">Read only</SelectItem>
-                      <SelectItem value="propose">Propose</SelectItem>
-                      <SelectItem value="execute_with_confirmation">Execute with confirmation</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11.5px] text-text-tertiary">{AI_MODE_HELP[form.ai_mode]}</p>
-                </div>
+                  <FormSection icon={SlidersHorizontal} title="What can change" description="Kinds of change that are refused outright when blocked.">
+                    <div className="divide-y divide-border-subtle rounded-lg border border-border-subtle">
+                      <TriStateRow
+                        label="Turn things on"
+                        hint="Enable paused campaigns, ad groups, ads and keywords"
+                        value={form.allow_enable}
+                        inherited={defaults?.allowEnable}
+                        onChange={(v) => set('allow_enable', v)}
+                      />
+                      <TriStateRow
+                        label="Bidding changes"
+                        hint="Bid strategies, targets and manual bids"
+                        value={form.allow_bidding_changes}
+                        inherited={defaults?.allowBiddingChanges}
+                        onChange={(v) => set('allow_bidding_changes', v)}
+                      />
+                      <TriStateRow
+                        label="Bulk changes"
+                        hint="Several changes submitted together as one batch"
+                        value={form.allow_bulk}
+                        inherited={defaults?.allowBulk}
+                        onChange={(v) => set('allow_bulk', v)}
+                      />
+                    </div>
+                  </FormSection>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="require_approval_min_risk">Require approval at risk level ≥</Label>
-                    <Input
-                      id="require_approval_min_risk"
-                      type="number"
-                      min="1"
-                      max="5"
-                      value={form.require_approval_min_risk}
-                      onChange={(e) => setForm((f) => ({ ...f, require_approval_min_risk: e.target.value }))}
-                      placeholder={defaults ? `Inherit (${defaults.requireApprovalMinRisk})` : 'Inherit'}
+                  <FormSection icon={Bot} title="AI autonomy" description="How far an AI client (Copilot, or Codex over MCP) may go here.">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {AI_MODES.map((m) => {
+                        const selected = form.ai_mode === m.value
+                        return (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => set('ai_mode', m.value)}
+                            aria-pressed={selected}
+                            className={cn(
+                              'flex flex-col gap-1 rounded-lg border px-3 py-2.5 text-left transition-colors',
+                              selected
+                                ? 'border-accent/60 bg-accent/[0.06] ring-1 ring-accent/30'
+                                : 'border-border-subtle hover:border-border hover:bg-bg-secondary/60',
+                            )}
+                          >
+                            <span className="flex items-center gap-2 text-[12.5px] font-medium text-text-primary">
+                              <span className={cn('flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border', selected ? 'border-accent' : 'border-border')}>
+                                {selected && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                              </span>
+                              {m.label}
+                              {m.value === 'inherit' && defaults && (
+                                <span className="font-normal text-text-tertiary">· {AI_MODE_NAME[defaults.aiMode as keyof typeof AI_MODE_NAME] ?? defaults.aiMode}</span>
+                              )}
+                            </span>
+                            <span className="pl-[22px] text-[11.5px] leading-snug text-text-tertiary">{AI_MODE_HELP[m.value]}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </FormSection>
+
+                  <FormSection icon={UserCheck} title="Approvals" description="When a change needs a second person with approval rights before it runs.">
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-[12.5px]">Needs approval from risk level</Label>
+                        <div>
+                          <Segmented
+                            value={form.require_approval_min_risk === '' ? 'inherit' : form.require_approval_min_risk}
+                            onChange={(v) => set('require_approval_min_risk', v === 'inherit' ? '' : v)}
+                            options={[
+                              { value: 'inherit', label: 'Inherit', hint: defaults ? riskOptionLabel(defaults.requireApprovalMinRisk) : undefined },
+                              ...[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: riskOptionLabel(n) })),
+                            ]}
+                          />
+                        </div>
+                        <p className="text-[11.5px] text-text-tertiary">
+                          Levels go Reversible → Targeting → Strategy → Structural; the chosen one and everything above it wait for approval. Never lets every change run.
+                        </p>
+                      </div>
+                      <div className="sm:max-w-[50%]">
+                        <NumberField
+                          id="approval_ttl_minutes"
+                          label="Approval window"
+                          value={form.approval_ttl_minutes}
+                          onChange={(v) => set('approval_ttl_minutes', v)}
+                          min={5}
+                          max={10080}
+                          inherited={defaults ? formatMinutes(defaults.approvalTtlMinutes) : null}
+                          suffix="min"
+                          hint={form.approval_ttl_minutes !== '' ? `Expires after ${formatMinutes(Number(form.approval_ttl_minutes))} without approval` : undefined}
+                        />
+                      </div>
+                    </div>
+                  </FormSection>
+
+                  <FormSection
+                    icon={Lock}
+                    title="Protected campaigns"
+                    description="Campaigns nothing may touch. Protection adds up across scopes: removing an ID here does not unprotect it where another scope lists it."
+                  >
+                    <ChipInput
+                      value={form.protected_campaign_ids}
+                      onChange={(v) => set('protected_campaign_ids', v)}
+                      placeholder="Type a campaign ID and press Enter"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="approval_ttl_minutes">Approval window (minutes)</Label>
-                    <Input
-                      id="approval_ttl_minutes"
-                      type="number"
-                      min="5"
-                      max="10080"
-                      value={form.approval_ttl_minutes}
-                      onChange={(e) => setForm((f) => ({ ...f, approval_ttl_minutes: e.target.value }))}
-                      placeholder={defaults ? `Inherit (${defaults.approvalTtlMinutes})` : 'Inherit'}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="protected_campaign_ids">Protected campaign IDs</Label>
-                  <Input
-                    id="protected_campaign_ids"
-                    value={form.protected_campaign_ids}
-                    onChange={(e) => setForm((f) => ({ ...f, protected_campaign_ids: e.target.value }))}
-                    placeholder="Comma-separated campaign IDs, e.g. 123456, 789012"
-                  />
-                  <p className="text-[11.5px] text-text-tertiary">
-                    Protection accumulates across scopes — clearing this list here does not unprotect a campaign another scope protects.
-                  </p>
+                  </FormSection>
                 </div>
               </div>
             </div>
           )}
 
           {canAdmin && !loading && (
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
-                Close
-              </Button>
-              <Button variant="primary" onClick={save} loading={saving}>
-                Save guardrails
-              </Button>
-            </DialogFooter>
+            <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border-subtle bg-bg-secondary/40 px-6 py-3.5">
+              <span className="hidden truncate text-[12px] text-text-tertiary sm:block">Saves the overrides for {scopeName(scope)}.</span>
+              <div className="ml-auto flex items-center gap-2">
+                <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
+                  Close
+                </Button>
+                <Button variant="primary" onClick={save} loading={saving}>
+                  Save guardrails
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -346,26 +418,258 @@ export function PoliciesPanel({ accounts, canAdmin }: { accounts: Account[]; can
   )
 }
 
-function TriStateField({
+// ─── Pieces ────────────────────────────────────────────────────────────────────
+
+const AI_MODES: { value: AiModeChoice; label: string }[] = [
+  { value: 'inherit', label: 'Inherit' },
+  { value: 'read_only', label: 'Read only' },
+  { value: 'propose', label: 'Propose' },
+  { value: 'execute_with_confirmation', label: 'Execute with confirmation' },
+]
+
+const AI_MODE_NAME: Record<Exclude<AiModeChoice, 'inherit'>, string> = {
+  read_only: 'Read only',
+  propose: 'Propose',
+  execute_with_confirmation: 'Execute with confirmation',
+}
+
+function scopeName(scope: Scope): string {
+  if (scope.platform === null) return 'All platforms'
+  if (scope.adAccountId === null) return `All ${platformLabel(scope.platform)}`
+  return scope.label.replace(/^[^·]+·\s*/, '')
+}
+
+function riskOptionLabel(n: number): string {
+  return n >= 5 ? 'Never' : riskLabel(n)
+}
+
+function formatMinutes(min: number): string {
+  if (!Number.isFinite(min) || min <= 0) return '—'
+  if (min % 1440 === 0) return `${min / 1440} day${min === 1440 ? '' : 's'}`
+  if (min % 60 === 0) return `${min / 60} h`
+  return `${min} min`
+}
+
+function countOverrides(f: FormState): number {
+  return (
+    [f.max_daily_budget, f.max_budget_increase_pct, f.require_approval_min_risk, f.approval_ttl_minutes].filter((v) => v !== '').length +
+    [f.allow_enable, f.allow_bidding_changes, f.allow_bulk, f.ai_mode].filter((v) => v !== 'inherit').length +
+    (f.protected_campaign_ids.trim() ? 1 : 0)
+  )
+}
+
+function ScopeHeading({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('hidden px-2 pb-1 text-[10.5px] font-semibold uppercase tracking-wider text-text-tertiary sm:block', className)}>
+      {children}
+    </div>
+  )
+}
+
+function ScopeButton({ scope, active, customized, onClick }: { scope: Scope; active: boolean; customized: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={scope.label}
+      className={cn(
+        'relative flex shrink-0 items-center gap-2.5 rounded-[7px] px-2.5 py-1.5 text-left text-[12.5px] transition-colors sm:w-full',
+        active ? 'bg-accent/10 text-text-primary' : 'text-text-secondary hover:bg-bg-tertiary hover:text-text-primary',
+      )}
+    >
+      {active && <span className="absolute left-0 top-1/2 hidden h-[60%] w-[2.5px] -translate-y-1/2 rounded-r-full bg-accent sm:block" />}
+      {scope.platform ? (
+        <PlatformMark platform={scope.platform} className="h-6 w-6 rounded-md [&_img]:h-3.5 [&_img]:w-3.5 [&_svg]:h-3.5 [&_svg]:w-3.5" />
+      ) : (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-tertiary">
+          <Globe className="h-3.5 w-3.5 text-text-secondary" />
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate font-medium">{scopeName(scope)}</span>
+      {customized && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" title="Has overrides" />}
+    </button>
+  )
+}
+
+function FormSection({
+  icon: Icon,
+  title,
+  description,
+  children,
+}: {
+  icon: LucideIcon
+  title: string
+  description: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="space-y-3 px-6 py-5">
+      <div className="flex items-start gap-2.5">
+        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-text-tertiary" />
+        <div>
+          <h3 className="text-[13px] font-semibold text-text-primary">{title}</h3>
+          <p className="text-[12px] text-text-tertiary">{description}</p>
+        </div>
+      </div>
+      <div className="sm:pl-[26px]">{children}</div>
+    </section>
+  )
+}
+
+function NumberField({
+  id,
   label,
   value,
   onChange,
+  inherited,
+  suffix,
+  min,
+  max,
+  hint,
 }: {
+  id: string
   label: string
-  value: TriState
-  onChange: (v: TriState) => void
+  value: string
+  onChange: (v: string) => void
+  inherited: string | null
+  suffix?: string
+  min?: number
+  max?: number
+  hint?: string
 }) {
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <Select value={value} onValueChange={(v) => onChange(v as TriState)}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="inherit">Inherit</SelectItem>
-          <SelectItem value="true">Allow</SelectItem>
-          <SelectItem value="false">Don&apos;t allow</SelectItem>
-        </SelectContent>
-      </Select>
+      <Label htmlFor={id} className="text-[12.5px]">{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Inherit"
+          className={cn('tabular-nums', suffix && 'pr-14')}
+        />
+        {suffix && (
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[12px] text-text-tertiary">{suffix}</span>
+        )}
+      </div>
+      <p className="text-[11.5px] text-text-tertiary">
+        {hint ?? (value === '' ? `Inherited${inherited ? `: ${inherited}` : ''}` : inherited ? `Default ${inherited}` : ' ')}
+      </p>
+    </div>
+  )
+}
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (v: string) => void
+  options: { value: string; label: string; hint?: string }[]
+}) {
+  return (
+    <div className="inline-flex max-w-full flex-wrap gap-1 rounded-lg bg-bg-tertiary p-1">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={cn(
+            'flex h-7 items-center gap-1 rounded-[6px] px-2.5 text-[12px] font-medium transition-all',
+            value === o.value ? 'bg-bg-primary text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary',
+          )}
+        >
+          {o.label}
+          {o.hint && <span className="font-normal text-text-tertiary">· {o.hint}</span>}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function TriStateRow({
+  label,
+  hint,
+  value,
+  inherited,
+  onChange,
+}: {
+  label: string
+  hint: string
+  value: TriState
+  inherited: boolean | undefined
+  onChange: (v: TriState) => void
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-3.5 py-3">
+      <div className="min-w-0">
+        <div className="text-[12.5px] font-medium text-text-primary">{label}</div>
+        <div className="text-[11.5px] text-text-tertiary">{hint}</div>
+      </div>
+      <Segmented
+        value={value}
+        onChange={(v) => onChange(v as TriState)}
+        options={[
+          { value: 'inherit', label: 'Inherit', hint: inherited === undefined ? undefined : inherited ? 'on' : 'off' },
+          { value: 'true', label: 'Allow' },
+          { value: 'false', label: 'Block' },
+        ]}
+      />
+    </div>
+  )
+}
+
+/** Campaign IDs as removable chips over the comma-separated form value. */
+function ChipInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  const [draft, setDraft] = useState('')
+  const ids = value.split(',').map((s) => s.trim()).filter(Boolean)
+  const commit = (raw: string) => {
+    const add = raw.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+    if (!add.length) return
+    onChange([...new Set([...ids, ...add])].join(', '))
+    setDraft('')
+  }
+  return (
+    <div className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-lg border border-border bg-bg-primary px-2 py-1.5 focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/20">
+      {ids.map((id) => (
+        <span key={id} className="inline-flex items-center gap-1 rounded-md bg-bg-tertiary py-0.5 pl-2 pr-1 font-mono text-[11.5px] text-text-primary">
+          <Lock className="h-2.5 w-2.5 text-text-tertiary" />
+          {id}
+          <button
+            type="button"
+            onClick={() => onChange(ids.filter((x) => x !== id).join(', '))}
+            className="rounded p-0.5 text-text-tertiary hover:bg-bg-secondary hover:text-text-primary"
+            aria-label={`Unprotect ${id}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault()
+            commit(draft)
+          } else if (e.key === 'Backspace' && draft === '' && ids.length) {
+            onChange(ids.slice(0, -1).join(', '))
+          }
+        }}
+        onBlur={() => commit(draft)}
+        onPaste={(e) => {
+          e.preventDefault()
+          commit(e.clipboardData.getData('text'))
+        }}
+        placeholder={ids.length ? '' : placeholder}
+        aria-label="Protected campaign IDs"
+        className="min-w-[160px] flex-1 bg-transparent px-1 py-0.5 text-[12.5px] text-text-primary outline-none placeholder:text-text-tertiary"
+      />
     </div>
   )
 }
