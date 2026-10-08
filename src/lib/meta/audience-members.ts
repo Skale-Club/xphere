@@ -1,6 +1,10 @@
 import { normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { normalizePhone, sha256Hex } from '@/lib/meta/graph'
-import { matchesAudienceSourceType, type AudienceSourceDefinition } from '@/lib/meta/audience-source'
+import {
+  matchesAudienceSourceType,
+  matchesCrmContactsDefinition,
+  type AudienceSourceDefinition,
+} from '@/lib/meta/audience-source'
 import type { Json } from '@/types/database'
 
 export type AudienceEntityType = 'contact' | 'account'
@@ -14,6 +18,9 @@ export interface AudienceSourceEntity {
   entityId: string
   sourceType: string | null
   lifecycleStage: string | null
+  /** contacts.source (channel of origin) — read by `crm_contacts` scopes. */
+  source?: string | null
+  tags?: string[] | null
   email: string | null
   phone: string | null
   phoneE164?: string | null
@@ -61,10 +68,22 @@ function entityKey(entity: Pick<AudienceSourceEntity, 'entityType' | 'entityId'>
 }
 
 function isSelected(entity: AudienceSourceEntity, source: AudienceSourceDefinition) {
-  if (source.kind === 'xcraper_master') {
-    return matchesAudienceSourceType(entity.sourceType, source) && entity.lifecycleStage === 'prospect'
+  switch (source.kind) {
+    case 'xcraper_master':
+      return matchesAudienceSourceType(entity.sourceType, source) && entity.lifecycleStage === 'prospect'
+    case 'prospect_segment':
+      return source.entityKeys.includes(entityKey(entity))
+    case 'crm_contacts':
+      return entity.entityType === 'contact' && matchesCrmContactsDefinition({
+        lifecycleStage: entity.lifecycleStage,
+        source: entity.source ?? null,
+        sourceType: entity.sourceType,
+        tags: entity.tags ?? null,
+      }, source)
+    case 'pixel_website':
+      // Meta builds Pixel audiences itself; no CRM entity is ever a member.
+      return false
   }
-  return source.entityKeys.includes(entityKey(entity))
 }
 
 function accountEmail(entity: AudienceSourceEntity): string | null {

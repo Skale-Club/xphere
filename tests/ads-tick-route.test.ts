@@ -108,6 +108,8 @@ vi.mock('@/lib/obs/logger', () => ({
 }))
 
 vi.mock('@/lib/api-error', () => ({ captureApiError: vi.fn() }))
+// Expiry notifications have their own suite (tests/ads-expiry-notify.test.ts).
+vi.mock('@/lib/ads/expiry-notify', () => ({ planExpiryNotices: vi.fn(() => []), sendExpiryNotices: vi.fn(async () => 0) }))
 
 vi.mock('@/lib/ads/snapshot-daily', () => ({
   captureDailyInsights: vi.fn(async () => []),
@@ -177,7 +179,7 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
     const res = await GET(makeRequest())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 1 })
+    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 1, noticesSent: 0 })
 
     // The only writer for the expired branch is markConnectionError — the
     // hand-rolled `.update({ status: 'error', ... })` this test guards
@@ -214,7 +216,7 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
     const res = await GET(makeRequest())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.expiry).toEqual({ expiringSoon: 1, expired: 0 })
+    expect(body.expiry).toEqual({ expiringSoon: 1, expired: 0, noticesSent: 0 })
 
     expect(markConnectionErrorMock).not.toHaveBeenCalled()
     expect(supaState.updateCalls).toHaveLength(1)
@@ -256,7 +258,7 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
     expect(res.status).toBe(200)
     const body = await res.json()
     // Only the meta row is flagged — the google row never reaches the loop.
-    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 1 })
+    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 1, noticesSent: 0 })
     expect(markConnectionErrorMock).toHaveBeenCalledTimes(1)
     expect(markConnectionErrorMock).toHaveBeenCalledWith(
       expect.objectContaining({ platform: 'meta', adAccountId: 'act_meta' }),
@@ -281,7 +283,7 @@ describe('GET /api/cron/ads-tick — expiry watch writes health, never status', 
     const res = await GET(makeRequest())
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 0 })
+    expect(body.expiry).toEqual({ expiringSoon: 0, expired: 0, noticesSent: 0 })
     expect(markConnectionErrorMock).not.toHaveBeenCalled()
     expect(supaState.updateCalls).toHaveLength(0)
   })

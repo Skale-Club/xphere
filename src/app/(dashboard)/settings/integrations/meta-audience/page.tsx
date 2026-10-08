@@ -17,7 +17,7 @@ export default async function MetaAudiencePage() {
         eyebrow="Ads"
         eyebrowIcon={Users}
         title="Meta Custom Audiences"
-        description="Preview and reconcile eligible Xcraper prospects with tenant-owned Meta audiences. Identifiers are normalized and hashed inside Xphere."
+        description="Prospecting and remarketing audiences on tenant-owned Meta ad accounts: Xcraper prospects, CRM leads and customers, and Pixel website visitors. Identifiers are normalized and hashed inside Xphere."
       />
       {!result.ok ? (
         <div className="flex items-center gap-3 rounded-[12px] border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">

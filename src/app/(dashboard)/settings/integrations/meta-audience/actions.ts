@@ -7,7 +7,17 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { getRbacContext } from '@/lib/rbac/server'
 import { OrgOAuthProvider, type AdsConnectionQueryClient } from '@/lib/meta/audience-provider'
-import { audienceSourceTypes, DEFAULT_SCRAPE_SOURCE_TYPES, normalizeAudienceSourceDefinition } from '@/lib/meta/audience-source'
+import {
+  AUDIENCE_KINDS,
+  CRM_LIFECYCLE_STAGES,
+  DEFAULT_SCRAPE_SOURCE_TYPES,
+  isAudienceDefinitionValid,
+  MAX_PIXEL_RETENTION_DAYS,
+  normalizeAudienceSourceDefinition,
+  type AudienceKind,
+} from '@/lib/meta/audience-source'
+import { listAdAccountPixels, type AdAccountPixel } from '@/lib/meta/custom-audiences'
+import { REMARKETING_PACK, remarketingPackName } from '@/lib/meta/remarketing-pack'
 import {
   reconcileMetaAudience,
   SupabaseAudienceReconcileStore,
@@ -45,7 +55,7 @@ export interface MetaAudienceConfigRow {
   meta_ad_account_id: string
   custom_audience_id: string | null
   audience_name: string | null
-  audience_kind: 'xcraper_master' | 'prospect_segment'
+  audience_kind: AudienceKind
   source_definition: Json
   sync_enabled: boolean
   terms_accepted_at: string | null
@@ -84,6 +94,13 @@ export interface MetaAudienceRunRow {
   errorMessage: string | null
   createdAt: string
   completedAt: string | null
+}
+
+const AUDIENCE_KIND_LABELS: Record<AudienceKind, string> = {
+  xcraper_master: 'Xcraper prospects',
+  prospect_segment: 'Saved prospect segment',
+  crm_contacts: 'CRM leads and customers',
+  pixel_website: 'Website visitors (Pixel)',
 }
 
 export interface MetaAudienceDashboardData {
@@ -141,12 +158,11 @@ function entityKeysFromDefinition(definition: Json): string[] {
  * Ask the same resolver every other reader asks (normalizeAudienceSourceDefinition
  * tolerates both shapes) instead of re-deriving the answer from the raw JSON.
  */
-function configSourceValid(config: MetaAudienceConfigRow): boolean {
-  if (config.audience_kind === 'xcraper_master') {
-    const definition = normalizeAudienceSourceDefinition(config.audience_kind, config.source_definition)
-    return (audienceSourceTypes(definition) ?? []).length > 0
+function configSourceValid(config: Pick<MetaAudienceConfigRow, 'audience_kind' | 'source_definition'>): boolean {
+  if (config.audience_kind === 'prospect_segment') {
+    return entityKeysFromDefinition(config.source_definition).length > 0
   }
-  return entityKeysFromDefinition(config.source_definition).length > 0
+  return isAudienceDefinitionValid(normalizeAudienceSourceDefinition(config.audience_kind, config.source_definition))
 }
 
 async function safePreflight(
@@ -158,7 +174,7 @@ async function safePreflight(
     return { ok: false, code: 'CONNECTION_REQUIRED', error: 'Select a tenant Meta connection.' }
   }
   if (!configSourceValid(config)) {
-    return { ok: false, code: 'INVALID_SCOPE', error: 'Choose a valid Xcraper or saved-segment scope.' }
+    return { ok: false, code: 'INVALID_SCOPE', error: 'Choose a valid audience source scope.' }
   }
   if (requireTerms && (!config.terms_accepted_at || !config.terms_accepted_by)) {
     return { ok: false, code: 'TERMS_NOT_ACCEPTED', error: 'Accept the Meta Customer List terms before enabling writes.' }
@@ -247,16 +263,29 @@ export async function getMetaAudienceConfig(): Promise<MetaAudienceConfigRow | n
   return result.ok ? result.data.configs[0] ?? null : null
 }
 
+const tokenList = z.array(z.string().trim().min(1).max(100)).max(50).default([])
+const PIXEL_ID = /^\d{5,20}$/
+
 const saveSchema = z.object({
   id: z.string().uuid().optional().nullable(),
   ads_connection_id: z.string().uuid(),
   audience_name: z.string().trim().min(1).max(200),
-  audience_kind: z.enum(['xcraper_master', 'prospect_segment']),
+  audience_kind: z.enum(AUDIENCE_KINDS as [AudienceKind, ...AudienceKind[]]),
   saved_segment_id: z.string().uuid().optional().nullable(),
+  // crm_contacts
+  lifecycle_stages: z.array(z.enum(CRM_LIFECYCLE_STAGES)).max(10).default([]),
+  sources: tokenList,
+  source_types: tokenList,
+  tags: tokenList,
+  // pixel_website
+  pixel_id: z.string().trim().regex(PIXEL_ID, 'Choose a Meta Pixel.').optional().nullable(),
+  pixel_events: tokenList,
+  retention_days: z.number().int().min(1).max(MAX_PIXEL_RETENTION_DAYS).optional().nullable(),
+  url_contains: z.string().trim().max(200).optional().nullable(),
   terms_accepted: z.boolean().default(false),
 })
 
-export type SaveMetaAudienceConfigInput = z.infer<typeof saveSchema>
+export type SaveMetaAudienceConfigInput = z.input<typeof saveSchema>
 
 export async function saveMetaAudienceConfig(input: SaveMetaAudienceConfigInput): Promise<ActionResult> {
   const parsed = saveSchema.safeParse(input)
@@ -278,6 +307,35 @@ export async function saveMetaAudienceConfig(input: SaveMetaAudienceConfigInput)
   // has to mean both. Written as the plural form so the saved scope says so
   // explicitly instead of relying on the reader's default.
   let sourceDefinition: Json = { kind: 'xcraper_master', sourceTypes: [...DEFAULT_SCRAPE_SOURCE_TYPES] }
+  if (parsed.data.audience_kind === 'crm_contacts') {
+    if (parsed.data.lifecycle_stages.length === 0) {
+      return { ok: false, code: 'INVALID_SCOPE', error: 'Choose at least one lifecycle stage.' }
+    }
+    sourceDefinition = {
+      kind: 'crm_contacts',
+      lifecycleStages: parsed.data.lifecycle_stages,
+      sources: parsed.data.sources,
+      sourceTypes: parsed.data.source_types,
+      tags: parsed.data.tags,
+    }
+  }
+  if (parsed.data.audience_kind === 'pixel_website') {
+    if (!parsed.data.pixel_id || parsed.data.pixel_events.length === 0) {
+      return { ok: false, code: 'INVALID_SCOPE', error: 'Choose a Pixel and at least one event.' }
+    }
+    const pixels = await pixelsForConnection(orgId, connection.id, connection.ad_account_id)
+    if (!pixels.ok) return pixels.result
+    if (!pixels.pixels.some((pixel) => pixel.id === parsed.data.pixel_id)) {
+      return { ok: false, code: 'INVALID_SCOPE', error: 'That Pixel is not shared with the selected ad account.' }
+    }
+    sourceDefinition = {
+      kind: 'pixel_website',
+      pixelId: parsed.data.pixel_id,
+      events: parsed.data.pixel_events,
+      retentionDays: parsed.data.retention_days ?? 30,
+      urlContains: parsed.data.url_contains || null,
+    }
+  }
   if (parsed.data.audience_kind === 'prospect_segment') {
     if (!parsed.data.saved_segment_id) return { ok: false, code: 'INVALID_SCOPE', error: 'Choose a saved prospect segment.' }
     const { data: segment } = await supabase
@@ -371,7 +429,7 @@ export async function previewMetaAudience(id: string): Promise<
       phones: projected.members.filter((member) => member.phoneHash).length,
       suppressed: projected.suppressedCount,
       invalid: projected.invalidCount,
-      scope: config.audience_kind === 'xcraper_master' ? 'Xcraper prospects' : 'Saved prospect segment',
+      scope: AUDIENCE_KIND_LABELS[config.audience_kind] ?? config.audience_kind,
     },
   }
 }
@@ -421,4 +479,144 @@ export async function runMetaAudience(id: string, dryRun: boolean): Promise<Acti
   if (result.status === 'skipped') return { ok: false, code: 'SYNC_BUSY', error: 'Another reconciliation is already running.' }
   if (result.status === 'failed') return { ok: false, code: result.errorCode || 'META_FAILURE', error: result.errorMessage }
   return { ok: true, run: result }
+}
+
+// ─── Pixels and the remarketing pack ─────────────────────────────────────────
+
+/** Resolve the tenant token for one connection and list the Pixels its ad account can use. */
+async function pixelsForConnection(
+  orgId: string,
+  connectionId: string,
+  adAccountId: string,
+): Promise<{ ok: true; pixels: AdAccountPixel[] } | { ok: false; result: ActionResult }> {
+  try {
+    const service = createServiceRoleClient()
+    const provider = new OrgOAuthProvider(service as unknown as AdsConnectionQueryClient)
+    const connection = await provider.getConnection(orgId, adAccountId, connectionId)
+    return { ok: true, pixels: await listAdAccountPixels(adAccountId, connection.token) }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not read Pixels from Meta.'
+    return { ok: false, result: { ok: false, code: 'META_FAILURE', error: message.slice(0, 200) } }
+  }
+}
+
+export async function listMetaPixels(connectionId: string): Promise<ActionResult & { pixels?: AdAccountPixel[] }> {
+  if (!z.string().uuid().safeParse(connectionId).success) {
+    return { ok: false, code: 'CONNECTION_NOT_FOUND', error: 'Select a Meta connection.' }
+  }
+  const auth = await requireAudienceAdmin()
+  if (!auth.ok) return auth.result
+  const { data: connection } = await auth.context.supabase
+    .from('ads_connections')
+    .select('id, ad_account_id')
+    .eq('id', connectionId)
+    .eq('org_id', auth.context.orgId)
+    .eq('platform', 'meta')
+    .maybeSingle()
+  if (!connection) return { ok: false, code: 'CONNECTION_NOT_FOUND', error: 'Select a Meta connection from this workspace.' }
+  const result = await pixelsForConnection(auth.context.orgId, connection.id, connection.ad_account_id)
+  if (!result.ok) return result.result
+  return { ok: true, pixels: result.pixels }
+}
+
+const packSchema = z.object({
+  ads_connection_id: z.string().uuid(),
+  pixel_id: z.string().trim().regex(PIXEL_ID).optional().nullable(),
+  terms_accepted: z.boolean(),
+})
+
+export type CreateRemarketingPackInput = z.input<typeof packSchema>
+
+function scopeKey(kind: string, definition: unknown): string {
+  return `${kind}:${JSON.stringify(normalizeAudienceSourceDefinition(kind, definition))}`
+}
+
+/**
+ * Create the standard remarketing audiences for one ad account in one click:
+ * Pixel visitors / form submitters (when a Pixel is chosen) plus CRM leads and
+ * customers. An audience whose kind and scope already exist on that account is
+ * skipped, so running it twice is a no-op. New audiences start enabled only
+ * when the connection passes the same preflight a manual Enable does.
+ */
+export async function createRemarketingPack(
+  input: CreateRemarketingPackInput,
+): Promise<ActionResult & { created?: number; skipped?: number; enabled?: boolean }> {
+  const parsed = packSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, code: 'INVALID_SCOPE', error: parsed.error.issues[0]?.message ?? 'Invalid input.' }
+  if (!parsed.data.terms_accepted) {
+    return { ok: false, code: 'TERMS_NOT_ACCEPTED', error: 'Confirm the right to use this data for advertising first.' }
+  }
+  const auth = await requireAudienceAdmin()
+  if (!auth.ok) return auth.result
+  const { orgId, userId, supabase } = auth.context
+
+  const { data: connection } = await supabase
+    .from('ads_connections')
+    .select('id, ad_account_id')
+    .eq('id', parsed.data.ads_connection_id)
+    .eq('org_id', orgId)
+    .eq('platform', 'meta')
+    .maybeSingle()
+  if (!connection) return { ok: false, code: 'CONNECTION_NOT_FOUND', error: 'Select a Meta connection from this workspace.' }
+
+  let pixel: AdAccountPixel | null = null
+  if (parsed.data.pixel_id) {
+    const pixels = await pixelsForConnection(orgId, connection.id, connection.ad_account_id)
+    if (!pixels.ok) return pixels.result
+    pixel = pixels.pixels.find((item) => item.id === parsed.data.pixel_id) ?? null
+    if (!pixel) return { ok: false, code: 'INVALID_SCOPE', error: 'That Pixel is not shared with the selected ad account.' }
+  }
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from('meta_audience_config')
+    .select('audience_kind, source_definition')
+    .eq('org_id', orgId)
+    .eq('meta_ad_account_id', connection.ad_account_id)
+  if (existingError) return { ok: false, code: 'DATABASE_ERROR', error: 'Could not read existing audiences.' }
+  const existing = new Set((existingRows ?? []).map((row) => scopeKey(row.audience_kind, row.source_definition)))
+
+  const { data: org } = await supabase.from('organizations').select('name').eq('id', orgId).maybeSingle()
+  const brand = org?.name ?? 'Xphere'
+  const candidates: Array<{ kind: AudienceKind; label: string; definition: Record<string, unknown> }> = []
+  for (const preset of REMARKETING_PACK) {
+    if (preset.kind === 'pixel_website') {
+      if (pixel) candidates.push({ kind: preset.kind, label: preset.label, definition: { kind: preset.kind, pixelId: pixel.id, ...preset.definition } })
+    } else {
+      candidates.push({ kind: preset.kind, label: preset.label, definition: { kind: preset.kind, ...preset.definition } })
+    }
+  }
+  const rows = candidates.filter((row) => !existing.has(scopeKey(row.kind, row.definition)))
+  if (rows.length === 0) return { ok: true, created: 0, skipped: candidates.length, enabled: false }
+
+  const now = new Date().toISOString()
+  // Only start syncing when a manual Enable on the same connection would be allowed.
+  const preflight = await safePreflight(auth.context, {
+    ads_connection_id: connection.id,
+    meta_ad_account_id: connection.ad_account_id,
+    audience_kind: rows[0].kind,
+    source_definition: rows[0].definition as unknown as Json,
+    terms_accepted_at: now,
+    terms_accepted_by: userId,
+  } as MetaAudienceConfigRow, true)
+  const enabled = preflight.ok
+
+  const { error } = await supabase.from('meta_audience_config').insert(rows.map((row) => ({
+    org_id: orgId,
+    ads_connection_id: connection.id,
+    meta_business_id: null,
+    meta_ad_account_id: connection.ad_account_id,
+    audience_name: remarketingPackName(brand, row.label),
+    audience_kind: row.kind,
+    source_definition: row.definition as Json,
+    terms_accepted_at: now,
+    terms_accepted_by: userId,
+    sync_enabled: enabled,
+    operational_status: enabled ? ('dirty' as const) : ('draft' as const),
+    dirty_at: now,
+    dirty_reason: 'remarketing_pack',
+    next_sync_at: now,
+  })))
+  if (error) return { ok: false, code: 'DATABASE_ERROR', error: 'Could not create the remarketing audiences.' }
+  revalidatePath('/settings/integrations/meta-audience')
+  return { ok: true, created: rows.length, skipped: candidates.length - rows.length, enabled }
 }

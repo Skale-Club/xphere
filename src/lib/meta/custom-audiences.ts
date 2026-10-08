@@ -44,6 +44,72 @@ export async function createCustomAudience(
   })
 }
 
+// ─── Website (Pixel) audiences ────────────────────────────────────────────────
+// Rule-based: Meta keeps membership current from Pixel events, so Xphere only
+// creates the audience once and never uploads members.
+// https://developers.facebook.com/docs/marketing-api/audiences/guides/website-custom-audiences
+
+export interface WebsiteAudienceRuleInput {
+  pixelId: string
+  events: string[]
+  retentionDays: number
+  urlContains?: string | null
+}
+
+const DAY_SECONDS = 86_400
+
+export function buildWebsiteAudienceRule(input: WebsiteAudienceRuleInput): Record<string, unknown> {
+  if (input.events.length === 0) throw new Error('A website audience needs at least one Pixel event')
+  const eventFilter = input.events.length === 1
+    ? { field: 'event', operator: 'eq', value: input.events[0] }
+    : { operator: 'or', filters: input.events.map((event) => ({ field: 'event', operator: 'eq', value: event })) }
+  const filters: Record<string, unknown>[] = [eventFilter]
+  if (input.urlContains) filters.push({ field: 'url', operator: 'i_contains', value: input.urlContains })
+  return {
+    inclusions: {
+      operator: 'or',
+      rules: [{
+        event_sources: [{ id: input.pixelId, type: 'pixel' }],
+        retention_seconds: input.retentionDays * DAY_SECONDS,
+        filter: { operator: 'and', filters },
+      }],
+    },
+  }
+}
+
+export async function createWebsiteCustomAudience(
+  adAccountId: string,
+  token: string,
+  opts: WebsiteAudienceRuleInput & { name: string; description?: string },
+): Promise<{ id: string }> {
+  return graphPost<{ id: string }>(`${adAccountId}/customaudiences`, token, {
+    name: opts.name,
+    description: opts.description ?? 'Xphere website remarketing',
+    rule: buildWebsiteAudienceRule(opts),
+    // Backfill from Pixel history inside the retention window, not only new hits.
+    prefill: true,
+  })
+}
+
+export interface AdAccountPixel {
+  id: string
+  name: string
+  lastFiredTime: string | null
+}
+
+export async function listAdAccountPixels(adAccountId: string, token: string): Promise<AdAccountPixel[]> {
+  const result = await graphGet<{ data?: Array<{ id: string; name?: string; last_fired_time?: string }> }>(
+    `${adAccountId}/adspixels`,
+    token,
+    { fields: 'id,name,last_fired_time', limit: '100' },
+  )
+  return (result.data ?? []).map((pixel) => ({
+    id: pixel.id,
+    name: pixel.name ?? pixel.id,
+    lastFiredTime: pixel.last_fired_time ?? null,
+  }))
+}
+
 export async function getAudienceStatus(
   audienceId: string,
   token: string,

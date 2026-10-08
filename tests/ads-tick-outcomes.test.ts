@@ -31,6 +31,8 @@ vi.mock('@/lib/obs/logger', () => ({
   createLogger: () => ({ warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), child: vi.fn() }),
 }))
 vi.mock('@/lib/api-error', () => ({ captureApiError: vi.fn() }))
+// Expiry notifications have their own suite (tests/ads-expiry-notify.test.ts).
+vi.mock('@/lib/ads/expiry-notify', () => ({ planExpiryNotices: vi.fn(() => []), sendExpiryNotices: vi.fn(async () => 0) }))
 vi.mock('@/lib/ads/connection-health', () => ({
   EXPIRY_WARNING_DAYS: 7,
   daysUntilExpiry: () => null,

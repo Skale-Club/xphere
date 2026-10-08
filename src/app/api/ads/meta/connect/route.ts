@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'node:crypto'
 
 import {
+  META_ADS_OAUTH_RETURN_COOKIE,
   META_ADS_OAUTH_STATE_COOKIE,
   META_ADS_OAUTH_STATE_MAX_AGE_SECONDS,
   buildMetaAdsAuthUrl,
+  safeReturnPath,
 } from '@/lib/ads/meta-oauth'
 import { resolveRequestOrigin } from '@/lib/site-url'
 import { getUser } from '@/lib/supabase/server'
@@ -42,6 +44,15 @@ export async function GET(request: NextRequest): Promise<Response> {
     secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: META_ADS_OAUTH_STATE_MAX_AGE_SECONDS,
+  })
+  // ?return=/settings/integrations → land back on the page that started it.
+  const returnPath = safeReturnPath(request.nextUrl.searchParams.get('return'))
+  res.cookies.set(META_ADS_OAUTH_RETURN_COOKIE, returnPath ?? '', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: returnPath ? META_ADS_OAUTH_STATE_MAX_AGE_SECONDS : 0,
   })
   return res
 }

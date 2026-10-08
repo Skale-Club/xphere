@@ -6,6 +6,17 @@ export const META_ADS_CALLBACK_PATH = '/api/ads/meta/callback'
 export const META_ADS_CALLBACK_URI = `https://xphere.app${META_ADS_CALLBACK_PATH}`
 export const META_ADS_OAUTH_STATE_COOKIE = 'meta_ads_oauth_state'
 export const META_ADS_OAUTH_STATE_MAX_AGE_SECONDS = 60 * 10
+/** In-app path to land on after a successful connect (default /ads). */
+export const META_ADS_OAUTH_RETURN_COOKIE = 'meta_ads_oauth_return'
+
+/**
+ * Accept only a same-site, prefix-free dashboard path ("/settings/integrations"),
+ * never a full URL or protocol-relative "//host" — the value ends up in a redirect.
+ */
+export function safeReturnPath(value: string | null | undefined): string | null {
+  if (!value || value.length > 200) return null
+  return /^\/(?!\/)[A-Za-z0-9/_-]*$/.test(value) ? value : null
+}
 
 export const META_ADS_OAUTH_SCOPES = [
   'ads_read',

@@ -126,7 +126,7 @@ export interface InboundEmailRouteRow {
   created_at: string
 }
 
-export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert'
+export type NotificationType = 'new_conversation' | 'missed_call' | 'flow_failed' | 'new_message' | 'incoming_call' | 'handoff_requested' | 'local_seo_alert' | 'ads_connection_expiring'
 
 export type CampaignStatus = 'draft' | 'scheduled' | 'in_progress' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped'
 export type CampaignContactStatus = 'pending' | 'calling' | 'completed' | 'failed' | 'no_answer'
@@ -9068,7 +9068,7 @@ export interface Database {
           ads_connection_id: string | null
           custom_audience_id: string | null
           audience_name: string | null
-          audience_kind: 'xcraper_master' | 'prospect_segment'
+          audience_kind: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition: Json
           sync_enabled: boolean
           terms_accepted_at: string | null
@@ -9095,7 +9095,7 @@ export interface Database {
           ads_connection_id?: string | null
           custom_audience_id?: string | null
           audience_name?: string | null
-          audience_kind?: 'xcraper_master' | 'prospect_segment'
+          audience_kind?: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition?: Json
           sync_enabled?: boolean
           terms_accepted_at?: string | null
@@ -9122,7 +9122,7 @@ export interface Database {
           ads_connection_id?: string | null
           custom_audience_id?: string | null
           audience_name?: string | null
-          audience_kind?: 'xcraper_master' | 'prospect_segment'
+          audience_kind?: 'xcraper_master' | 'prospect_segment' | 'crm_contacts' | 'pixel_website'
           source_definition?: Json
           sync_enabled?: boolean
           terms_accepted_at?: string | null

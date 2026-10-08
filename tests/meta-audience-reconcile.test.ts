@@ -69,6 +69,7 @@ function harness(overrides: {
   }
   const transport = {
     createAudience: vi.fn(async () => ({ id: 'audience-created' })),
+    createWebsiteAudience: vi.fn(async () => ({ id: 'website-audience-created' })),
     syncHashes: vi.fn(async (_audienceId: string, _token: string, _entries: unknown[], operation: string) => {
       order.push(operation)
       if (overrides.sendFailure) throw overrides.sendFailure

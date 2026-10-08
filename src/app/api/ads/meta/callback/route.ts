@@ -3,11 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 
 import { encrypt } from '@/lib/crypto'
 import {
+  META_ADS_OAUTH_RETURN_COOKIE,
   META_ADS_OAUTH_STATE_COOKIE,
   exchangeCodeForShortLivedToken,
   exchangeShortLivedTokenForLongLivedToken,
   fetchMetaAdsAdAccounts,
   fetchMetaUserScopedId,
+  safeReturnPath,
 } from '@/lib/ads/meta-oauth'
 import { resolveRequestOrigin } from '@/lib/site-url'
 import { createClient, getUser } from '@/lib/supabase/server'
@@ -28,6 +30,7 @@ const COOKIE_CLEAR = {
 function redirect(request: NextRequest, path: string) {
   const res = NextResponse.redirect(new URL(path, resolveRequestOrigin(request)))
   res.cookies.set(META_ADS_OAUTH_STATE_COOKIE, '', COOKIE_CLEAR)
+  res.cookies.set(META_ADS_OAUTH_RETURN_COOKIE, '', COOKIE_CLEAR)
   return res
 }
 
@@ -103,7 +106,10 @@ export async function GET(request: NextRequest): Promise<Response> {
 
     if (error) throw new Error(error.message)
 
-    return redirect(request, '/ads?connected=true')
+    // Back to where the (re)connect started — e.g. Settings → Integrations —
+    // else /ads. The connect route already validated the stored path.
+    const returnPath = safeReturnPath(jar.get(META_ADS_OAUTH_RETURN_COOKIE)?.value)
+    return redirect(request, `${returnPath ?? '/ads'}?connected=true`)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[ads/meta/callback:oauth-exchange-failed]', err instanceof Error ? err.message : err)
