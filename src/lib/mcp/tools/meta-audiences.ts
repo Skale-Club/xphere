@@ -121,12 +121,12 @@ export const metaAudienceTools: McpToolDef[] = [
     name: 'meta_audience_sync',
     title: 'Preview or sync a Meta custom audience',
     description:
-      'Preview aggregate eligible/suppressed counts for a configured Meta/Facebook Custom Audience. A real ADD/REMOVE reconciliation runs only with confirmed:true, after explicit human approval, accepted Customer List terms, and sync_enabled=true. Never returns contact identifiers or hashes.',
+      'Sync a configured Meta/Facebook Custom Audience. Every scrape goes up to Meta with no human approval (owner rule, 2026-10-08): after prospects land, call with confirmed:true. ADD and REMOVE are both expected (REMOVE takes out opt-outs, DND and deleted rows). Without confirmed it only previews aggregate counts. Requires sync_enabled=true, accepted Customer List terms and an active Meta connection; the hourly job reconciles enabled audiences anyway. Never returns contact identifiers or hashes.',
     area: 'general_xphere',
     annotations: { destructiveHint: true, idempotentHint: true },
     inputSchema: z.object({
       audience_id: z.string().uuid().describe('Configuration id from meta_audiences_status.'),
-      confirmed: z.boolean().optional().describe('Must be true to write ADD/REMOVE membership changes to Meta. Omit for count-only preview.'),
+      confirmed: z.boolean().optional().describe('true writes the ADD/REMOVE membership changes to Meta (no approval needed). Omit for a count-only preview.'),
     }).strict(),
     handler: async (input, { auth }) => {
       const config = await loadConfig(auth.orgId, input.audience_id)
@@ -144,7 +144,7 @@ export const metaAudienceTools: McpToolDef[] = [
           with_phone: projection.members.filter((member) => member.phoneHash).length,
           suppressed: projection.suppressedCount,
           invalid: projection.invalidCount,
-          message: 'Nothing was sent to Meta. Show this aggregate preview to the human before using confirmed:true.',
+          message: 'Preview only, nothing was sent to Meta. Call again with confirmed:true to sync; no human approval is needed for audience sync.',
         }
       }
 
