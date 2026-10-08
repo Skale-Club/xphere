@@ -9,7 +9,8 @@
 // are not yet available in the standalone output. The actual browser
 // and parser are only needed when analyzeWebsite() is called.
 import type { BrandColor, RawExtraction } from './types'
-import { discoverBooking, type BookingCandidate } from './booking-discovery'
+import { discoverBooking, mergeHopBooking, pickInternalBookingHop, type BookingDiscovery } from './booking-discovery'
+import { collectBookingCandidates } from './booking-candidates'
 import { withBrowserSlot } from './concurrency'
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 }
@@ -312,35 +313,10 @@ async function extractWithBrowser(url: string): Promise<RawExtraction> {
     const { colors: brandColors, cssVars: rawCssVars } = await extractColors(desktopPage)
     const logoUrl = await extractLogo(desktopPage, resolvedUrl)
 
-    const bookingCandidates = await desktopPage.evaluate(() => {
-      const candidates: Array<{ url: string; label?: string; source: 'link' | 'iframe' | 'form' }> = []
-      const add = (raw: string | null, label: string | null, source: 'link' | 'iframe' | 'form') => {
-        if (!raw) return
-        try {
-          candidates.push({
-            url: new URL(raw, document.baseURI).href,
-            label: label?.replace(/\s+/g, ' ').trim().slice(0, 160) || undefined,
-            source,
-          })
-        } catch {
-          // Ignore malformed and non-navigation URLs.
-        }
-      }
-      document.querySelectorAll('a[href]').forEach((node) => {
-        const element = node as HTMLAnchorElement
-        add(element.getAttribute('href'), element.innerText || element.getAttribute('aria-label'), 'link')
-      })
-      document.querySelectorAll('iframe[src]').forEach((node) => {
-        const element = node as HTMLIFrameElement
-        add(element.getAttribute('src'), element.title, 'iframe')
-      })
-      document.querySelectorAll('form[action]').forEach((node) => {
-        const element = node as HTMLFormElement
-        add(element.getAttribute('action'), element.getAttribute('aria-label'), 'form')
-      })
-      return candidates.slice(0, 300)
-    }) as BookingCandidate[]
-    const booking = discoverBooking(resolvedUrl, bookingCandidates)
+    // Booking is read from the rendered HTML (links, iframes, scripts, data-*/onclick, inline JSON)
+    // so detection is testable on fixtures; see booking-candidates.ts.
+    let booking = discoverBooking(resolvedUrl, await collectBookingCandidates(html, resolvedUrl))
+    booking = await followInternalBookingPage(desktopCtx, resolvedUrl, booking)
 
     // Detect mobile responsiveness via viewport meta tag
     const isMobileResponsive = await desktopPage.evaluate(() => {
@@ -398,6 +374,37 @@ async function extractWithBrowser(url: string): Promise<RawExtraction> {
   } finally {
     clearTimeout(watchdog)
     await closeBrowser(browser, url)
+  }
+}
+
+/** Max time spent on the one internal booking page we follow. Best effort: never fails the analysis. */
+const BOOKING_HOP_TIMEOUT_MS = 15_000
+
+/** When the home page only links to an internal /book, /appointments... page, open that single
+ *  page and look for a provider there (Squarespace/Wix sites often put the widget on a sub-page).
+ *  One hop at most, same browser context, errors swallowed: the home-page result stands. */
+async function followInternalBookingPage(
+  ctx: import('playwright').BrowserContext,
+  pageUrl: string,
+  booking: BookingDiscovery
+): Promise<BookingDiscovery> {
+  const hopUrl = pickInternalBookingHop(pageUrl, booking)
+  if (!hopUrl) return booking
+  const hopPage = await ctx.newPage().catch(() => null)
+  if (!hopPage) return booking
+  try {
+    hopPage.setDefaultTimeout(BOOKING_HOP_TIMEOUT_MS)
+    await hopPage.goto(hopUrl, { waitUntil: 'domcontentloaded', timeout: BOOKING_HOP_TIMEOUT_MS })
+    await hopPage.waitForLoadState('networkidle', { timeout: 6_000 }).catch(() => {})
+    await hopPage.waitForTimeout(1_000) // booking widgets mount after load
+    const hopFinalUrl = hopPage.url()
+    const hop = discoverBooking(hopFinalUrl, await collectBookingCandidates(await hopPage.content(), hopFinalUrl))
+    return mergeHopBooking(booking, hopUrl, hop)
+  } catch (err) {
+    console.warn(`[website-analyzer] booking hop failed for ${hopUrl}:`, err instanceof Error ? err.message : err)
+    return { ...booking, followedUrl: hopUrl }
+  } finally {
+    await hopPage.close().catch(() => {})
   }
 }
 
