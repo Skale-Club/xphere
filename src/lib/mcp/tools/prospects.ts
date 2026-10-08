@@ -925,31 +925,42 @@ export async function importVerifiedProspectsToXmail(
   }
 }
 
+/** Rows counted by prospects_list. The default 1000 made `total` read exactly 1000 once the org passed it. */
+const LIST_COUNT_CAP = 10_000
+
 export const prospectsTools: McpToolDef[] = [
   {
     name: 'prospects_list',
     title: 'List / preview prospects',
     description:
-      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before enrolling — it reports how many match and how many have a usable email. Always run this first and show the human the count before calling prospects_enroll_in_campaign. Rows whose email belongs to a booking platform (booksy.com, vagaro.com, ...) carry platform_email:true and are counted in the top-level platform_email: that is the platform's support address, not the business's, so it is never verified, imported or enrolled.",
+      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before enrolling — it reports how many match, how many have a usable email (the campaign backlog) and how many have a phone (with_phone / phone_only: the Meta-audience and future call backlog; every scraped business is kept, email or not). Always run this first and show the human the count before calling prospects_enroll_in_campaign. Rows whose email belongs to a booking platform (booksy.com, vagaro.com, ...) carry platform_email:true and are counted in the top-level platform_email: that is the platform's support address, not the business's, so it is never verified, imported or enrolled.",
     area: 'general_xphere',
     inputSchema: z
       .object({
         ...filterShape,
         has_email: z.boolean().optional().describe('Only count/return prospects that have a usable email address.'),
+        has_phone: z.boolean().optional().describe('Only return prospects with a phone number (the Meta-audience and future call backlog).'),
         limit: z.number().int().positive().max(200).optional(),
         offset: z.number().int().nonnegative().optional(),
       })
       .strict(),
     handler: async (input, { auth }) => {
-      const all = await resolveProspects(auth.orgId, input)
+      const all = await resolveProspects(auth.orgId, input, { cap: LIST_COUNT_CAP })
       const rawWithEmail = all.filter((p) => p.email)
-      const withEmail = await resolveProspects(auth.orgId, input, { requireEmail: true })
-      const pool = input.has_email ? withEmail : all
+      const withEmail = await resolveProspects(auth.orgId, input, { requireEmail: true, cap: LIST_COUNT_CAP })
+      // Every scraped business is kept, email or not (owner rule, 2026-10-08): email goes to
+      // campaigns, phone feeds the Meta audience and the future call campaign. Report both backlogs.
+      const withPhone = all.filter((p) => p.phone)
+      const pool = input.has_email ? withEmail : input.has_phone ? withPhone : all
       const limit = input.limit ?? 50
       const offset = input.offset ?? 0
       return {
         total: all.length,
+        // true when the count hit LIST_COUNT_CAP: the real number is at least this.
+        capped: all.length >= LIST_COUNT_CAP,
         with_email: withEmail.length,
+        with_phone: withPhone.length,
+        phone_only: withPhone.filter((p) => !p.email).length,
         blocked_from_email: rawWithEmail.length - withEmail.length,
         // Subset of with_email whose address belongs to a booking platform (booksy.com...): not the
         // business's own mailbox, so it is never verified, imported or enrolled. Each row below

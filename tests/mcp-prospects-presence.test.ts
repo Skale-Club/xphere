@@ -70,4 +70,22 @@ describe('prospects_list web-presence contract', () => {
       booking_platform: 'Booksy',
     })
   })
+
+  it('reports the phone backlog next to the email backlog (every scraped business is kept)', async () => {
+    const base = { domain: null, website: null, address: null, score: 50, source_type: 'xcraper', engagement_status: 'not_contacted' }
+    const rows = [
+      { ...base, id: 'a', name: 'Email and phone', phone: '+15085550001', custom_fields: { email: 'a@shop-a.example' } },
+      { ...base, id: 'b', name: 'Phone only', phone: '+15085550002', custom_fields: {} },
+      { ...base, id: 'c', name: 'Phone only too', phone: '+15085550003', custom_fields: {} },
+      { ...base, id: 'd', name: 'Nothing', phone: null, custom_fields: {} },
+    ]
+    const { query } = accountsQuery(rows)
+    createServiceRoleClient.mockReturnValue({ from: vi.fn(() => query) })
+    const tool = prospectsTools.find((candidate) => candidate.name === 'prospects_list')!
+    const all = await tool.handler(tool.inputSchema.parse({ kind: 'company' }), { auth: { orgId: 'org-1' } } as never) as Record<string, unknown>
+    expect(all).toMatchObject({ total: 4, with_email: 1, with_phone: 3, phone_only: 2, capped: false })
+
+    const phones = await tool.handler(tool.inputSchema.parse({ kind: 'company', has_phone: true }), { auth: { orgId: 'org-1' } } as never) as Record<string, unknown>
+    expect((phones.prospects as Array<Record<string, unknown>>).map((p) => p.id)).toEqual(['a', 'b', 'c'])
+  })
 })
