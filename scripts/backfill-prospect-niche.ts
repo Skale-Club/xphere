@@ -30,7 +30,7 @@
 // DO NOT point this at production without the owner's go-ahead (CLAUDE.md: never point a local
 // process at the production database by accident); it reads .env.local for the Supabase keys.
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { markMetaAudiencesDirty } from '@/lib/meta/audience-dirty'
@@ -46,7 +46,10 @@ import {
 } from '@/lib/prospects/niche-backfill'
 
 function loadEnv() {
-  const text = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8')
+  // .env.local is a local convenience; in CI (GitHub Actions) the variables come from secrets.
+  const file = resolve(process.cwd(), '.env.local')
+  if (!existsSync(file)) return
+  const text = readFileSync(file, 'utf8')
   for (const line of text.split('\n')) {
     const t = line.trim()
     if (!t || t.startsWith('#')) continue
