@@ -3,6 +3,7 @@ import { normalizePhone, sha256Hex } from '@/lib/meta/graph'
 import {
   matchesAudienceSourceType,
   matchesCrmContactsDefinition,
+  matchesXcraperFacets,
   type AudienceSourceDefinition,
 } from '@/lib/meta/audience-source'
 import type { Json } from '@/types/database'
@@ -70,7 +71,10 @@ function entityKey(entity: Pick<AudienceSourceEntity, 'entityType' | 'entityId'>
 function isSelected(entity: AudienceSourceEntity, source: AudienceSourceDefinition) {
   switch (source.kind) {
     case 'xcraper_master':
-      return matchesAudienceSourceType(entity.sourceType, source) && entity.lifecycleStage === 'prospect'
+      // Niche / category facets (one audience per niche); no facet configured = unchanged.
+      return matchesAudienceSourceType(entity.sourceType, source)
+        && entity.lifecycleStage === 'prospect'
+        && matchesXcraperFacets(entity.customFields, source)
     case 'prospect_segment':
       return source.entityKeys.includes(entityKey(entity))
     case 'crm_contacts':

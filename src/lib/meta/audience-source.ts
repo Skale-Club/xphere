@@ -15,6 +15,15 @@
  * earlier path). Both are the same act of scraping a business off Google Maps,
  * and an audience of "everyone we scraped" has to contain both.
  *
+ * `xcraper_master` can be narrowed by two optional facets, one audience per niche (the owner
+ * prospects several business niches and ads for one must never reach another):
+ *  - `niches`: slugs ("barbershop", "nail_salon"); a prospect matches when ANY of its niches
+ *    (custom_fields.niches, plus the single custom_fields.niche) is listed;
+ *  - `categories`: Google Maps categories, matched case-insensitively against
+ *    custom_fields.category.
+ * Both set means both must match. Absent or empty means "no filter" and the stored shape is left
+ * exactly as it was, so an audience saved before these facets existed keeps its membership.
+ *
  * `crm_contacts` selects inbound CRM contacts (website forms, API, inbox
  * channels, imports) by lifecycle stage, with optional source / source-type /
  * tag narrowing. It is the remarketing counterpart of the prospect audiences:
@@ -24,6 +33,8 @@
  * events (visitors, form submitters) with a rule Xphere creates once; there is
  * nothing to project, hash or upload, so it never selects a CRM entity.
  */
+
+import { nichesFromCustomFields } from '@/lib/prospects/niche'
 
 export const DEFAULT_SCRAPE_SOURCE_TYPES = ['xcraper', 'google-maps'] as const
 
@@ -61,8 +72,17 @@ export interface PixelWebsiteDefinition {
   urlContains: string | null
 }
 
+export interface XcraperMasterDefinition {
+  kind: 'xcraper_master'
+  sourceTypes: string[]
+  /** Niche slugs; absent = no niche filter. */
+  niches?: string[]
+  /** Google Maps categories; absent = no category filter. */
+  categories?: string[]
+}
+
 export type AudienceSourceDefinition =
-  | { kind: 'xcraper_master'; sourceTypes: string[] }
+  | XcraperMasterDefinition
   | { kind: 'prospect_segment'; entityKeys: string[] }
   | CrmContactsDefinition
   | PixelWebsiteDefinition
@@ -136,7 +156,26 @@ export function normalizeAudienceSourceDefinition(
     }
   }
 
-  return { kind: 'xcraper_master', sourceTypes: readSourceTypes(record) }
+  const niches = [...new Set(strings(record.niches).map((niche) => niche.trim().toLowerCase()))]
+  const categories = dedupeCaseInsensitive(strings(record.categories).map((category) => category.trim()))
+  return {
+    kind: 'xcraper_master',
+    sourceTypes: readSourceTypes(record),
+    ...(niches.length > 0 ? { niches } : {}),
+    ...(categories.length > 0 ? { categories } : {}),
+  }
+}
+
+function dedupeCaseInsensitive(values: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const value of values) {
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(value)
+  }
+  return out
 }
 
 /** Whether Xphere uploads hashed members for this audience (vs Meta building it from Pixel events). */
@@ -186,4 +225,31 @@ export function matchesAudienceSourceType(
 ): boolean {
   if (definition.kind !== 'xcraper_master') return false
   return typeof sourceType === 'string' && definition.sourceTypes.includes(sourceType)
+}
+
+/**
+ * Whether a prospect passes an `xcraper_master` definition's niche / category facets.
+ * No facet set = passes. An entity with no custom fields (a contact) cannot satisfy a facet.
+ */
+export function matchesXcraperFacets(
+  customFields: unknown,
+  definition: AudienceSourceDefinition,
+): boolean {
+  if (definition.kind !== 'xcraper_master') return false
+  const wantedNiches = definition.niches ?? []
+  const wantedCategories = definition.categories ?? []
+
+  if (wantedNiches.length > 0) {
+    const entityNiches = nichesFromCustomFields(customFields)
+    if (!entityNiches.some((niche) => wantedNiches.includes(niche))) return false
+  }
+
+  if (wantedCategories.length > 0) {
+    const category = asRecord(customFields).category
+    if (typeof category !== 'string') return false
+    const normalized = category.trim().toLowerCase()
+    if (!wantedCategories.some((wanted) => wanted.toLowerCase() === normalized)) return false
+  }
+
+  return true
 }

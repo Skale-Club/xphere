@@ -112,6 +112,36 @@ describe('Meta audience operator actions', () => {
     }))
   })
 
+  it('re-saving a niche audience keeps its niche and category filters', async () => {
+    const connection = builder({ maybeSingle: { data: { id: CONFIG.ads_connection_id, ad_account_id: 'act_123' }, error: null } })
+    const nicheScope = {
+      kind: 'xcraper_master', sourceTypes: ['xcraper', 'google-maps'], niches: ['barbershop'], categories: ['Barber shop'],
+    }
+    const config = builder({ maybeSingle: { data: { ...CONFIG, source_definition: nicheScope }, error: null } })
+    const from = vi.fn((table: string) => {
+      if (table === 'ads_connections') return connection
+      if (table === 'meta_audience_config') return config
+      throw new Error(`unexpected table ${table}`)
+    })
+    createClientMock.mockResolvedValue(authClient(from))
+    const { saveMetaAudienceConfig } = await import('@/app/(dashboard)/settings/integrations/meta-audience/actions')
+    const result = await saveMetaAudienceConfig({
+      id: CONFIG.id,
+      ads_connection_id: CONFIG.ads_connection_id,
+      audience_name: 'Renamed',
+      audience_kind: 'xcraper_master',
+      terms_accepted: false,
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(config.update).toHaveBeenCalledWith(expect.objectContaining({
+      audience_name: 'Renamed',
+      source_definition: nicheScope,
+    }))
+    // Same scope: the remote audience is kept, not reset.
+    expect(config.update.mock.calls[0][0]).not.toHaveProperty('custom_audience_id')
+  })
+
   it('creates a second audience from an explicitly scoped saved prospect segment', async () => {
     const segmentId = '44444444-4444-4444-8444-444444444444'
     const connection = builder({ maybeSingle: { data: { id: CONFIG.ads_connection_id, ad_account_id: 'act_123' }, error: null } })

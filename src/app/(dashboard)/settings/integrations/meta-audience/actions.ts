@@ -357,6 +357,19 @@ export async function saveMetaAudienceConfig(input: SaveMetaAudienceConfigInput)
     : { data: null, error: null }
   if (parsed.data.id && !existing.data) return { ok: false, code: 'CONFIG_NOT_FOUND', error: 'Audience configuration was not found.' }
   const prior = existing.data as MetaAudienceConfigRow | null
+  // Re-saving a scrape audience must not widen it: the form has no niche / category fields (those
+  // are set by meta_audience_create_niche), and rebuilding the scope from defaults would drop them
+  // and reset the remote audience.
+  if (prior && parsed.data.audience_kind === 'xcraper_master' && prior.audience_kind === 'xcraper_master') {
+    const priorScope = normalizeAudienceSourceDefinition('xcraper_master', prior.source_definition)
+    if (priorScope.kind === 'xcraper_master') {
+      sourceDefinition = {
+        ...(sourceDefinition as Record<string, Json>),
+        ...(priorScope.niches ? { niches: priorScope.niches } : {}),
+        ...(priorScope.categories ? { categories: priorScope.categories } : {}),
+      }
+    }
+  }
   const resetRemote = Boolean(prior && (
     prior.ads_connection_id !== connection.id ||
     prior.meta_ad_account_id !== connection.ad_account_id ||

@@ -8,6 +8,11 @@ export interface AudienceDirtyChange {
   sourceType?: string | null
   entityType?: AudienceEntityType
   entityId?: string
+  /**
+   * Niches the changed entity belongs to after the change. When given, a niche-filtered scrape
+   * audience is scheduled only if they overlap; when omitted, no niche narrowing is applied.
+   */
+  niches?: string[]
 }
 
 export interface MarkMetaAudiencesDirtyInput {
@@ -16,6 +21,7 @@ export interface MarkMetaAudiencesDirtyInput {
   sourceType?: string | null
   entityType?: AudienceEntityType
   entityId?: string
+  niches?: string[]
   changes?: AudienceDirtyChange[]
 }
 
@@ -28,8 +34,16 @@ interface AudienceScope {
 function changeMatchesScope(change: AudienceDirtyChange, scope: AudienceScope): boolean {
   const definition = normalizeAudienceSourceDefinition(scope.audience_kind, scope.source_definition)
   switch (definition.kind) {
-    case 'xcraper_master':
-      return matchesAudienceSourceType(change.sourceType, definition)
+    case 'xcraper_master': {
+      if (!matchesAudienceSourceType(change.sourceType, definition)) return false
+      // Only narrows when the caller knows the entity's niches: an entity with none can never
+      // belong to a niche audience, so scheduling it would be a wasted Meta round trip.
+      const audienceNiches = definition.niches ?? []
+      if (audienceNiches.length > 0 && change.niches !== undefined) {
+        return change.niches.some((niche) => audienceNiches.includes(niche))
+      }
+      return true
+    }
     case 'prospect_segment':
       if (!change.entityType || !change.entityId) return false
       return definition.entityKeys.includes(`${change.entityType}:${change.entityId}`)
@@ -61,7 +75,7 @@ export async function markMetaAudiencesDirty(
 
   const shorthand: AudienceDirtyChange | null =
     input.sourceType || input.entityType || input.entityId
-      ? { sourceType: input.sourceType, entityType: input.entityType, entityId: input.entityId }
+      ? { sourceType: input.sourceType, entityType: input.entityType, entityId: input.entityId, niches: input.niches }
       : null
   const changes = input.changes ?? (shorthand ? [shorthand] : [])
   const scopes = (data ?? []) as AudienceScope[]

@@ -419,6 +419,10 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
     // filters with `.in`, not `.eq`. Narrowing it to a single value here would
     // silently drop entities that projectAudienceMember would have accepted.
     const sourceTypes = audienceSourceTypes(source)
+    // A niche / category facet is read from the company's custom fields. People (contacts) carry
+    // neither, so a faceted scrape audience can never select one: do not page them in at all.
+    const hasFacets = source.kind === 'xcraper_master'
+      && ((source.niches?.length ?? 0) > 0 || (source.categories?.length ?? 0) > 0)
 
     const contactIds = segmentKeys
       ? [...segmentKeys].filter((key) => key.startsWith('contact:')).map((key) => key.slice(8))
@@ -427,7 +431,7 @@ export class SupabaseAudienceReconcileStore implements AudienceReconcileStore {
       'id' | 'source' | 'source_type' | 'lifecycle_stage' | 'tags' | 'email' | 'phone' | 'phone_e164' |
       'email_status' | 'dnd_enabled' | 'engagement_status' | 'identity_status'>
     const contacts: ContactRow[] = []
-    if (!segmentKeys || contactIds.length > 0) {
+    if (!hasFacets && (!segmentKeys || contactIds.length > 0)) {
       for (let offset = 0; ; offset += SOURCE_PAGE_SIZE) {
         let query = this.client
           .from('contacts')
