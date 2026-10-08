@@ -1,0 +1,47 @@
+name: Backfill prospect niche
+# Manual only. Tags existing scraped accounts with custom_fields.niche/niches from the query of the
+# scrape runs that found them (scripts/backfill-prospect-niche.ts). Dry run unless `apply` is set.
+# Runs here so the Supabase service-role key never leaves GitHub secrets (2026-10-08).
+on:
+  workflow_dispatch:
+    inputs:
+      org:
+        description: 'Organization name or id to scope the run (empty = every org)'
+        required: false
+        default: 'Skale Club'
+      apply:
+        description: 'Write the niches (false = dry run, prints counts only)'
+        type: boolean
+        default: false
+concurrency:
+  group: backfill-prospect-niche
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  backfill:
+    name: Backfill niches
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backfill
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ORG: ${{ inputs.org }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          args=()
+          if [ -n "$ORG" ]; then args+=(--org "$ORG"); fi
+          if [ "$APPLY" = "true" ]; then args+=(--apply); fi
+          npx tsx scripts/backfill-prospect-niche.ts "${args[@]}"
