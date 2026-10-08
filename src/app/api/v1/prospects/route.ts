@@ -33,6 +33,7 @@ import {
 } from '@/lib/prospects/recommended-channel'
 import { runAnalysis } from '@/services/website-analyzer'
 import { mergePresentJson, mergeProspectCustomFields } from '@/lib/prospects/web-presence-merge'
+import { nichesFromCustomFields, withMergedNiches } from '@/lib/prospects/niche'
 import { withDerivedLocation } from '@/lib/prospects/location-from-address'
 import { registerExternalRunWithXmail } from '@/lib/xmail/external-run-mapping'
 import { DEFAULT_STALE_MINUTES, isAnalysisRowStale } from '@/services/website-analyzer/staleness'
@@ -100,7 +101,13 @@ function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex')
 }
 
-type IngestOutcome = { id: string; kind: 'person' | 'company'; action: 'created' | 'updated' | 'skipped' }
+type IngestOutcome = {
+  id: string
+  kind: 'person' | 'company'
+  action: 'created' | 'updated' | 'skipped'
+  /** Niches the stored company now belongs to (union across scrapes); undefined for people. */
+  niches?: string[]
+}
 
 async function mapWithConcurrency<T, R>(
   items: T[],
@@ -261,6 +268,8 @@ export async function POST(request: Request): Promise<Response> {
             sourceType,
             entityType: outcome.kind === 'company' ? 'account' : 'contact',
             entityId: outcome.id,
+            // Lets niche-filtered audiences be scheduled only when this company can belong to them.
+            ...(outcome.niches ? { niches: outcome.niches } : {}),
           })
         }
         // Auto-trigger website analysis for newly created company prospects that have a domain
@@ -275,7 +284,12 @@ export async function POST(request: Request): Promise<Response> {
       return null
     }
   })
-  results.push(...outcomes.filter((outcome): outcome is IngestOutcome => outcome !== null))
+  // `niches` is internal (it only feeds the audience scheduling above); the response keeps its shape.
+  results.push(
+    ...outcomes
+      .filter((outcome): outcome is IngestOutcome => outcome !== null)
+      .map(({ id, kind, action }): IngestOutcome => ({ id, kind, action })),
+  )
 
   const created = results.filter((r) => r.action === 'created').length
   const updated = results.filter((r) => r.action === 'updated').length
@@ -609,7 +623,15 @@ async function ingestCompany(
     if (p.intent_level) patch.intent_level = p.intent_level
     if (p.qualification_status) patch.qualification_status = p.qualification_status
     if (p.score !== undefined) patch.score = p.score
-    patch.custom_fields = withDerivedLocation(mergeProspectCustomFields(existing.custom_fields, p.custom_fields))
+    // Niches are a union across scrapes: a business found by two niche scrapes belongs to both,
+    // and a re-push never drops one it already had.
+    patch.custom_fields = withDerivedLocation(
+      withMergedNiches(
+        mergeProspectCustomFields(existing.custom_fields, p.custom_fields),
+        existing.custom_fields,
+        p.custom_fields,
+      ),
+    )
     patch.source_payload = mergePresentJson(existing.source_payload, p.source_payload)
 
     // Fill the channel only when it is still empty, so a re-import can heal a row
@@ -639,9 +661,12 @@ async function ingestCompany(
       .eq('org_id', orgId)
     if (error) throw new Error('Could not update prospect account')
     await recordImport(supabase, orgId, 'account', existing.id, sourceType, runId)
-    return { id: existing.id, kind: 'company', action: 'updated' }
+    return { id: existing.id, kind: 'company', action: 'updated', niches: nichesFromCustomFields(patch.custom_fields) }
   }
 
+  const companyCustomFields = withDerivedLocation(
+    withMergedNiches((p.custom_fields ?? {}) as Record<string, unknown>, undefined, p.custom_fields),
+  )
   const websiteFromCustomFields =
     typeof p.custom_fields?.website === 'string' ? (p.custom_fields.website as string).trim() || null : null
 
@@ -674,7 +699,7 @@ async function ingestCompany(
       // record lands on this row instead of creating a second one.
       ...(sourceId ? { external_source: sourceType, external_id: sourceId } : {}),
       source_payload: (p.source_payload ?? {}) as Json,
-      custom_fields: withDerivedLocation((p.custom_fields ?? {}) as Record<string, unknown>),
+      custom_fields: companyCustomFields,
     })
     .select('id')
     .single()
@@ -684,5 +709,5 @@ async function ingestCompany(
     return null
   }
   await recordImport(supabase, orgId, 'account', data.id, sourceType, runId)
-  return { id: data.id, kind: 'company', action: 'created' }
+  return { id: data.id, kind: 'company', action: 'created', niches: nichesFromCustomFields(companyCustomFields) }
 }
