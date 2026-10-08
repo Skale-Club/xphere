@@ -26,6 +26,7 @@ import { loadSourceRunIdsForEntities } from '@/lib/xmail/source-runs'
 import { isDndBlocked, loadEmailSuppressions, normalizeOutreachEmail } from '@/lib/prospects/outreach-eligibility'
 import { matchesFranchiseBrand } from '@/lib/prospects/franchise-brands'
 import { isPlatformEmail } from '@/lib/prospects/platform-emails'
+import { isValidNiche, NICHE_FORMAT_MESSAGE, nichesFromCustomFields } from '@/lib/prospects/niche'
 import type { WebsiteInsights } from '@/services/website-analyzer/outreach-insights'
 import {
   verifyProspectsBatch,
@@ -65,6 +66,8 @@ const filterShape = {
     .describe("Company web presence. Use 'no_owned_website' for every business without an independent domain, or an exact type such as 'booking_platform' or 'none'."),
   booking_platform: z.string().trim().min(1).max(80).optional()
     .describe("Only companies using this booking provider, e.g. 'Booksy', 'TheCut', or 'GlossGenius'."),
+  niche: z.string().trim().refine(isValidNiche, { message: NICHE_FORMAT_MESSAGE }).optional()
+    .describe("Only prospects that belong to this niche (slug stamped by Xcraper, e.g. 'barbershop', 'nail_salon'). A business found by several niche scrapes belongs to each of them."),
 }
 
 type Filters = {
@@ -76,6 +79,7 @@ type Filters = {
   engagement?: string
   web_presence?: 'owned_website' | 'no_owned_website' | 'booking_platform' | 'social_profile' | 'directory_listing' | 'link_hub' | 'none'
   booking_platform?: string
+  niche?: string
 }
 
 type ResolvedProspect = {
@@ -97,6 +101,8 @@ type ResolvedProspect = {
   web_presence_platform?: string | null
   booking_platform?: string | null
   booking_url?: string | null
+  /** Niche slugs this prospect belongs to (custom_fields.niches plus the single niche). */
+  niches?: string[]
   emailDndBlocked?: boolean
   /** Persisted verification (migration 1264) — read directly, never re-verified by the import tool. */
   email_status?: string | null
@@ -258,6 +264,24 @@ async function fetchRows(query: unknown, cap: number): Promise<Array<Record<stri
   return rows
 }
 
+/**
+ * PostgREST `or` filter for "belongs to this niche": the `niches` array contains it, or the legacy
+ * single `niche` equals it. Safe to interpolate: the slug is validated by the tool schema.
+ */
+function nicheOrFilter(niche: string): string {
+  return `custom_fields.cs.{"niches":["${niche}"]},custom_fields.cs.{"niche":"${niche}"}`
+}
+
+/** Prospect counts per niche. A business in two niches counts in both; no niche = 'unclassified'. */
+function nicheSummary(prospects: ResolvedProspect[]): Record<string, number> {
+  const byNiche: Record<string, number> = {}
+  for (const prospect of prospects) {
+    const niches = prospect.niches && prospect.niches.length > 0 ? prospect.niches : ['unclassified']
+    for (const niche of niches) byNiche[niche] = (byNiche[niche] ?? 0) + 1
+  }
+  return byNiche
+}
+
 async function resolveProspects(
   orgId: string,
   f: Filters,
@@ -282,6 +306,7 @@ async function resolveProspects(
     if (f.qualification) q = q.eq('qualification_status', f.qualification)
     if (f.engagement) q = q.eq('engagement_status', f.engagement)
     if (opts.requireEmail) q = q.not('email', 'is', null)
+    if (f.niche) q = q.or(nicheOrFilter(f.niche))
     if (opts.sourceIds) q = q.in('prospect_source_id', opts.sourceIds)
     const data = await fetchRows(q, cap)
     for (const r of data) {
@@ -308,6 +333,7 @@ async function resolveProspects(
         web_presence_platform: null,
         booking_platform: null,
         booking_url: null,
+        niches: nichesFromCustomFields(customFields),
         emailDndBlocked: isDndBlocked(
           r.dnd_enabled as boolean | null,
           r.dnd_channels as string[] | null,
@@ -339,6 +365,7 @@ async function resolveProspects(
       q = q.eq('custom_fields->>web_presence_type', f.web_presence)
     }
     if (f.booking_platform) q = q.ilike('custom_fields->>booking_platform', f.booking_platform)
+    if (f.niche) q = q.or(nicheOrFilter(f.niche))
     if (opts.sourceIds) q = q.in('prospect_source_id', opts.sourceIds)
     const data = await fetchRows(q, cap)
     for (const r of data) {
@@ -373,6 +400,7 @@ async function resolveProspects(
         web_presence_platform: stringField(customFields.web_presence_platform),
         booking_platform: stringField(customFields.booking_platform),
         booking_url: stringField(customFields.booking_url),
+        niches: nichesFromCustomFields(customFields),
         emailDndBlocked: false,
         email_status: (r.email_status as string | null) ?? null,
         email_verified_at: (r.email_verified_at as string | null) ?? null,
@@ -963,7 +991,7 @@ export const prospectsTools: McpToolDef[] = [
     name: 'prospects_list',
     title: 'List / preview prospects',
     description:
-      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before enrolling — it reports how many match, how many have a usable email (the campaign backlog) and how many have a phone (with_phone / phone_only: the Meta-audience and future call backlog; every scraped business is kept, email or not). Always run this first and show the human the count before calling prospects_enroll_in_campaign. Rows whose email belongs to a booking platform (booksy.com, vagaro.com, ...) carry platform_email:true and are counted in the top-level platform_email: that is the platform's support address, not the business's, so it is never verified, imported or enrolled.",
+      "List prospects (lifecycle_stage='prospect') with score/source filters, sorted by score (hottest first). Use this to PREVIEW an outreach audience before enrolling — it reports how many match, how many have a usable email (the campaign backlog) and how many have a phone (with_phone / phone_only: the Meta-audience and future call backlog; every scraped business is kept, email or not). Always run this first and show the human the count before calling prospects_enroll_in_campaign. Pass niche (e.g. 'barbershop') to list one niche only; by_niche counts the matching prospects per niche (a business found by two niche scrapes counts in both; 'unclassified' = scraped before niches existed). Rows whose email belongs to a booking platform (booksy.com, vagaro.com, ...) carry platform_email:true and are counted in the top-level platform_email: that is the platform's support address, not the business's, so it is never verified, imported or enrolled.",
     area: 'general_xphere',
     inputSchema: z
       .object({
@@ -997,6 +1025,8 @@ export const prospectsTools: McpToolDef[] = [
         // carries the same flag as `platform_email`.
         platform_email: withEmail.filter((p) => isPlatformEmail(p.email)).length,
         web_presence_summary: presenceSummary(all),
+        // Counts per niche across the matching prospects (a business in two niches counts in both).
+        by_niche: nicheSummary(all),
         emailable_note:
           withEmail.length === 0 && all.length > 0
             ? rawWithEmail.length > 0

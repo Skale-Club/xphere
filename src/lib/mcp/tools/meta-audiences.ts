@@ -6,6 +6,11 @@ import {
   SupabaseAudienceReconcileStore,
   type ReconcileConfig,
 } from '@/lib/meta/audience-reconcile'
+import {
+  normalizeAudienceSourceDefinition,
+  type XcraperMasterDefinition,
+} from '@/lib/meta/audience-source'
+import { isValidNiche, NICHE_FORMAT_MESSAGE, nicheAudienceTitle } from '@/lib/prospects/niche'
 import type { McpToolDef } from '../tool-types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,12 +72,35 @@ function reconcileConfig(config: AudienceConfigRow): ReconcileConfig {
   }
 }
 
+/** Prefix of the audience name a niche audience gets when the caller gives none. */
+export const NICHE_AUDIENCE_NAME_PREFIX = 'Skale Club - Prospects - '
+
+/** Niche / category facets of a scrape audience; empty arrays mean "no filter". */
+function audienceFacets(config: Pick<AudienceConfigRow, 'audience_kind' | 'source_definition'>) {
+  const definition = normalizeAudienceSourceDefinition(config.audience_kind, config.source_definition)
+  return definition.kind === 'xcraper_master'
+    ? { niches: definition.niches ?? [], categories: definition.categories ?? [] }
+    : { niches: [] as string[], categories: [] as string[] }
+}
+
+function nicheAudienceSummary(config: AudienceConfigRow) {
+  return {
+    id: config.id,
+    name: config.audience_name,
+    kind: config.audience_kind,
+    ...audienceFacets(config),
+    sync_enabled: config.sync_enabled,
+    remote_audience_created: Boolean(config.custom_audience_id),
+    operational_status: config.operational_status,
+  }
+}
+
 export const metaAudienceTools: McpToolDef[] = [
   {
     name: 'meta_audiences_status',
     title: 'List Meta custom audiences',
     description:
-      'List this workspace Meta/Facebook Custom Audience configurations (kind: xcraper_master/prospect_segment = prospecting, crm_contacts = CRM leads/customers, pixel_website = Pixel website visitors), consent readiness, connection status, and recent aggregate sync results. Returns no contact identifiers, hashes, or access tokens.',
+      'List this workspace Meta/Facebook Custom Audience configurations (kind: xcraper_master/prospect_segment = prospecting, crm_contacts = CRM leads/customers, pixel_website = Pixel website visitors), consent readiness, connection status, and recent aggregate sync results. Prospect audiences also show their niches / categories filter (empty = takes every scraped prospect). Returns no contact identifiers, hashes, or access tokens.',
     area: 'general_xphere',
     inputSchema: z.object({}).strict(),
     handler: async (_input, { auth }) => {
@@ -93,6 +121,9 @@ export const metaAudienceTools: McpToolDef[] = [
             id: config.id,
             name: config.audience_name,
             kind: config.audience_kind,
+            // Scrape audiences only: the niche slugs / Google Maps categories this audience is
+            // filtered to. Empty = no filter (the audience takes every scraped prospect).
+            ...audienceFacets(config),
             sync_enabled: config.sync_enabled,
             terms_accepted: Boolean(config.terms_accepted_at && config.terms_accepted_by),
             operational_status: config.operational_status,
@@ -173,6 +204,129 @@ export const metaAudienceTools: McpToolDef[] = [
         return { error: result.errorCode || 'meta_audience_sync_failed', detail: result.errorMessage }
       }
       return { synced: true, audience_id: config.id, ...result }
+    },
+  },
+  {
+    name: 'meta_audience_create_niche',
+    title: 'Create a Meta custom audience for one prospect niche',
+    description:
+      "Create the Meta/Facebook Custom Audience (\"bag\") for ONE prospect niche, so ads for barbershops never reach nail salons. The niche is the slug Xcraper stamps on every scrape (lowercase, singular English, e.g. \"barbershop\", \"nail_salon\"). The audience takes the scraped prospects whose niches include it (optionally also limited to Google Maps categories). It reuses the ad account, consent basis and accepted Customer List terms of this workspace's existing enabled prospect audience, so it needs no human approval (owner rule, 2026-10-08); it refuses when there is no such accepted audience or the Meta connection is not usable. The audience starts enabled and marked dirty: the hourly job creates it on Meta and uploads the members, or call meta_audience_sync with confirmed:true to do it now. Idempotent: if an audience for this niche already exists it is returned, not duplicated. Returns no contact identifiers.",
+    area: 'general_xphere',
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    inputSchema: z.object({
+      niche: z.string().trim().refine(isValidNiche, { message: NICHE_FORMAT_MESSAGE })
+        .describe('Niche slug, e.g. "barbershop" or "nail_salon".'),
+      name: z.string().trim().min(1).max(200).optional()
+        .describe('Audience name shown in Meta. Default: "Skale Club - Prospects - <Niche Title>", e.g. "Skale Club - Prospects - Barbershops".'),
+      categories: z.array(z.string().trim().min(1).max(100)).max(50).optional()
+        .describe('Optional Google Maps categories (case-insensitive, exact match on the scraped category) to narrow the niche, e.g. ["Barber shop"]. Omit to take every business scraped for the niche.'),
+    }).strict(),
+    handler: async (input, { auth }) => {
+      const service = db()
+      const { data, error } = await service
+        .from('meta_audience_config')
+        .select(configColumns)
+        .eq('org_id', auth.orgId)
+        .eq('audience_kind', 'xcraper_master')
+        .order('created_at', { ascending: true })
+      if (error) return { error: 'meta_audience_status_unavailable', detail: 'Could not read Meta audience configurations.' }
+
+      const masters = ((data ?? []) as AudienceConfigRow[]).filter((config) => config.audience_kind === 'xcraper_master').map((config) => ({
+        config,
+        definition: normalizeAudienceSourceDefinition(config.audience_kind, config.source_definition) as XcraperMasterDefinition,
+      }))
+
+      // Idempotent: an audience filtered to exactly this niche already exists.
+      const existing = masters.find(({ definition }) =>
+        definition.niches?.length === 1 && definition.niches[0] === input.niche,
+      )
+      if (existing) {
+        const requested = [...new Set(((input.categories ?? []) as string[]).map((category) => category.toLowerCase()))].sort()
+        const stored = [...new Set((existing.definition.categories ?? []).map((category) => category.toLowerCase()))].sort()
+        const categoriesDiffer = input.categories !== undefined && JSON.stringify(requested) !== JSON.stringify(stored)
+        return {
+          created: false,
+          audience: nicheAudienceSummary(existing.config),
+          message: categoriesDiffer
+            ? 'An audience for this niche already exists and was returned unchanged; its categories differ from the ones requested (edit it in Settings > Integrations > Meta audience).'
+            : 'An audience for this niche already exists; nothing was created.',
+        }
+      }
+
+      // Reuse the connection, consent basis and terms a human already accepted. Prefer the plain
+      // master (no niche filter) so every niche audience clones the same, original configuration.
+      const donors = masters
+        .filter(({ config }) =>
+          config.sync_enabled && config.ads_connection_id && config.terms_accepted_at && config.terms_accepted_by,
+        )
+        .sort((a, b) =>
+          ((a.definition.niches?.length ?? 0) + (a.definition.categories?.length ?? 0)) -
+          ((b.definition.niches?.length ?? 0) + (b.definition.categories?.length ?? 0)),
+        )
+      const donor = donors[0]
+      if (!donor) {
+        return {
+          error: 'meta_audience_master_required',
+          detail: 'There is no enabled prospect audience with accepted Meta Customer List terms to reuse. A human must enable and accept the terms on the main prospect audience first (Settings > Integrations > Meta audience).',
+        }
+      }
+      const base = donor.config
+
+      const { data: connection, error: connectionError } = await service
+        .from('ads_connections')
+        .select('id, status, usable, ad_account_id, token_expires_at')
+        .eq('id', base.ads_connection_id)
+        .eq('org_id', auth.orgId)
+        .eq('platform', 'meta')
+        .maybeSingle()
+      if (connectionError || !connection || connection.ad_account_id !== base.meta_ad_account_id) {
+        return { error: 'meta_audience_connection_not_found', detail: 'The Meta connection of the main prospect audience is not available in this workspace.' }
+      }
+      if (!connection.usable) {
+        return { error: 'meta_audience_connection_inactive', detail: 'Reconnect the Meta account of the main prospect audience first.' }
+      }
+      const expires = connection.token_expires_at ? Date.parse(connection.token_expires_at) : Number.NaN
+      if (!Number.isFinite(expires) || expires <= Date.now()) {
+        return { error: 'meta_audience_connection_expired', detail: 'The Meta token of the main prospect audience expired. Reconnect it first.' }
+      }
+
+      // Same normalizer every reader uses: de-duplicates categories, drops an empty list.
+      const sourceDefinition = normalizeAudienceSourceDefinition('xcraper_master', {
+        sourceTypes: donor.definition.sourceTypes,
+        niches: [input.niche],
+        categories: input.categories ?? [],
+      })
+      const now = new Date().toISOString()
+      const { data: created, error: insertError } = await service
+        .from('meta_audience_config')
+        .insert({
+          org_id: auth.orgId,
+          ads_connection_id: base.ads_connection_id,
+          meta_business_id: null,
+          meta_ad_account_id: base.meta_ad_account_id,
+          audience_name: input.name ?? `${NICHE_AUDIENCE_NAME_PREFIX}${nicheAudienceTitle(input.niche)}`,
+          audience_kind: 'xcraper_master',
+          source_definition: sourceDefinition,
+          consent_basis: base.consent_basis,
+          terms_accepted_at: base.terms_accepted_at,
+          terms_accepted_by: base.terms_accepted_by,
+          sync_enabled: true,
+          operational_status: 'dirty',
+          dirty_at: now,
+          dirty_reason: 'niche_audience_created',
+          next_sync_at: now,
+        })
+        .select(configColumns)
+        .single()
+      if (insertError || !created) {
+        return { error: 'meta_audience_create_failed', detail: 'Could not create the niche audience configuration.' }
+      }
+
+      return {
+        created: true,
+        audience: nicheAudienceSummary(created as AudienceConfigRow),
+        message: 'Niche audience created, enabled and queued. The hourly job creates it on Meta and uploads its members; call meta_audience_sync with confirmed:true to do it now.',
+      }
     },
   },
 ]
