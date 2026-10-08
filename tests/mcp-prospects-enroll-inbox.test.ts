@@ -12,8 +12,7 @@
 //   - email_account_id given explicitly: refuse BEFORE calling Xmail if that
 //     account is reported campaignSenderEligible===false.
 //
-// Does not re-test confirmed:true's does-not-activate-campaign-governance
-// behavior (out of scope for this item) — only the inbox-selection gate.
+// Also pins the governance boundary: successful enrollment stays inactive.
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -21,15 +20,15 @@ const { createServiceRoleClient } = vi.hoisted(() => ({ createServiceRoleClient:
 const {
   isXmailConfigured,
   xmailBulkImportLeads,
+  xmailListCampaigns,
   xmailListEmailAccounts,
   xmailAddLeadsToCampaign,
-  xmailActivateCampaign,
 } = vi.hoisted(() => ({
   isXmailConfigured: vi.fn(() => true),
   xmailBulkImportLeads: vi.fn(),
+  xmailListCampaigns: vi.fn(),
   xmailListEmailAccounts: vi.fn(),
   xmailAddLeadsToCampaign: vi.fn(),
-  xmailActivateCampaign: vi.fn(),
 }))
 const { loadWebsiteInsightsForAccounts } = vi.hoisted(() => ({
   loadWebsiteInsightsForAccounts: vi.fn(async () => new Map()),
@@ -53,10 +52,9 @@ vi.mock('@/lib/xmail/source-runs', () => ({ loadSourceRunIdsForEntities }))
 vi.mock('@/lib/xmail/client', () => ({
   isXmailConfigured,
   xmailBulkImportLeads,
-  xmailListCampaigns: vi.fn(),
+  xmailListCampaigns,
   xmailListEmailAccounts,
   xmailAddLeadsToCampaign,
-  xmailActivateCampaign,
   xmailNotifyVerificationComplete: vi.fn(),
 }))
 
@@ -122,15 +120,16 @@ describe('prospects_enroll_in_campaign — campaignSenderEligible inbox gate (It
   beforeEach(() => {
     vi.clearAllMocks()
     isXmailConfigured.mockReturnValue(true)
+    xmailListCampaigns.mockResolvedValue({
+      ok: true,
+      campaigns: [{ id: CAMPAIGN_ID, name: 'Pilot', status: 'draft' }],
+    })
     ;(verifyProspectsBatch as ReturnType<typeof vi.fn>).mockResolvedValue({
       results: [{ kind: 'contact', id: 'c-ok', email: 'ada@example.com', result: { status: 'ok', risk: 'low', provider: 'millionverifier', verifiedAt: 'x', cached: true }, sendable: true }],
       aggregate: { ok: 1, catch_all: 0, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
     })
     xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-1'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
     xmailAddLeadsToCampaign.mockResolvedValue({ ok: true, added: 1 })
-    // Deliberately not ok — keeps markEnrolled's DB insert out of scope for
-    // these tests, which only care about which emailAccountId was chosen.
-    xmailActivateCampaign.mockResolvedValue({ ok: false, error: 'sequence missing' })
   })
 
   it('email_account_id omitted + no account reports campaignSenderEligible (older Xmail): fails instead of guessing', async () => {
@@ -182,6 +181,22 @@ describe('prospects_enroll_in_campaign — campaignSenderEligible inbox gate (It
 
     expect(result.error).toBeUndefined()
     expect(xmailAddLeadsToCampaign).toHaveBeenCalledWith(CAMPAIGN_ID, ['lead-1'], '33333333-3333-3333-3333-333333333333')
+    expect(result).toMatchObject({ campaign_activated: false, activation_required: true })
+  })
+
+  it('refuses an active campaign before importing or enrolling any lead', async () => {
+    createServiceRoleClient.mockReturnValue(makeDb({ contacts: [contact({ id: 'c-ok' })], accounts: [] }))
+    xmailListCampaigns.mockResolvedValue({
+      ok: true,
+      campaigns: [{ id: CAMPAIGN_ID, name: 'Already live', status: 'active' }],
+    })
+
+    const input = tool().inputSchema.parse({ campaign_id: CAMPAIGN_ID, confirmed: true })
+    const result = (await tool().handler(input, { auth: { orgId: 'org-1' } } as never)) as Record<string, unknown>
+
+    expect(result).toMatchObject({ error: 'campaign_not_inactive', campaign_status: 'active' })
+    expect(xmailBulkImportLeads).not.toHaveBeenCalled()
+    expect(xmailAddLeadsToCampaign).not.toHaveBeenCalled()
   })
 
   it('email_account_id given explicitly and Xmail reports it campaignSenderEligible:false: refuses before calling Xmail', async () => {

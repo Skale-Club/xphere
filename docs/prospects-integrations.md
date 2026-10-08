@@ -63,19 +63,18 @@ status plus a `blocked` count.
 deliberately sendable), disposable/invalid/bounced→false.
 
 **Wired into outreach**: `prospects_enroll_in_campaign` verifies every
-candidate before importing to Xmail and filters out non-sendable ones; its
+candidate before enrollment and filters out non-sendable ones; its
 dry-run preview reports `{ verified_ok, catch_all, unknown, blocked_invalid,
-blocked_no_credits }` so the human approves knowing exactly what will send.
-`prospect_send_message` verifies the single prospect (cache-first) before
-sending on `channel: 'email'`. In both tools, if verification is blocked for
-lack of credits the response sets `verification_unavailable: true` with a
-loud warning — nothing is sent unverified.
+blocked_no_credits }`. A confirmed call only stages leads in a `draft` or
+`paused` Xmail campaign; it refuses active campaigns and never activates or
+sends. If verification is blocked for lack of credits the response sets
+`verification_unavailable: true` and nothing is enrolled.
 
-**Consent gate**: before verification or import, both MCP outreach paths honor
+**Consent gate**: before verification or import, the MCP outreach path honors
 contact-level `dnd_enabled`/`dnd_channels` and the organization-scoped
-`email_unsubscribes` table. Bulk preview reports `blocked_from_email`; direct
-messages return `dnd_blocked` or `email_suppressed`. Suppression lookup fails
-closed, so an unavailable consent check cannot turn into a send.
+`email_unsubscribes` table. Bulk preview reports `blocked_from_email`.
+Suppression lookup fails closed, so an unavailable consent check cannot turn
+into enrollment.
 
 **`email_verification_status`** (MCP tool) returns
 `getVerificationCreditStatus()` (per-provider configured/credits/ok, plus
@@ -154,7 +153,6 @@ A bulk action only appears when its service is configured.
 | Service | Env (on Xphere) | What Xphere calls |
 |---------|-----------------|-------------------|
 | Xmail | `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | Lead import/enrollment plus `POST {XMAIL_API_URL}/api/outreach/prospecting/external-runs` for Journey registration (`x-user-id`, `x-service-key`) |
-| Xmail (1:1 send) | same as above, plus optional `XMAIL_ESTIMATE_FROM` | `POST {XMAIL_API_URL}/api/outreach/send-message` (`x-user-id`, `x-service-key`) — used by the `prospect_send_message` MCP tool |
 | Xpot | `XPOT_API_URL`, `XPOT_API_KEY` | `POST {XPOT_API_URL}/api/xpot/inbound/prospects` (Bearer) |
 
 ## The four integrations
@@ -176,15 +174,10 @@ bounced/unsubscribed` onto the timeline and `engagement_status`. **Replies updat
 engagement only — never lifecycle.** Xmail needs no code changes: point an Xmail
 webhook at the Xphere endpoint (with the workspace API key) and set `x-user-id`.
 
-**`prospect_send_message` (MCP tool)** is the reusable "door" for a single 1:1
-message to one prospect — e.g. dropping an estimate link into their inbox —
-as opposed to bulk campaign enrollment. Email sends through Xmail's native
-info@ inbox (`POST /api/outreach/send-message`, defaulting `from` to
-`XMAIL_ESTIMATE_FROM` or `info@skale.club`); SMS sends through the org's
-connected Twilio number. Gated by `confirmed:true` — the agent must preview
-(no `confirmed`) and get human approval before it actually sends. On success
-it logs a `sent` row in `prospect_engagement_events` and sets
-`engagement_status='contacted'` on the prospect, same as the bulk path.
+The Hermes-facing Xphere MCP exposes no direct 1:1 email or SMS send tool.
+Direct prospect replies remain human-controlled. Campaign enrollment accepts
+only inactive campaigns; first activation is requested and executed through
+Xmail's durable interactive approval flow.
 
 ### Meta/Facebook Custom Audiences
 

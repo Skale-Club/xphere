@@ -6,13 +6,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { createServiceRoleClient } = vi.hoisted(() => ({ createServiceRoleClient: vi.fn() }))
-const { isXmailConfigured, xmailBulkImportLeads, xmailListEmailAccounts, xmailAddLeadsToCampaign, xmailActivateCampaign, xmailNotifyVerificationComplete } =
+const { isXmailConfigured, xmailBulkImportLeads, xmailListCampaigns, xmailListEmailAccounts, xmailAddLeadsToCampaign, xmailNotifyVerificationComplete } =
   vi.hoisted(() => ({
     isXmailConfigured: vi.fn(() => true),
     xmailBulkImportLeads: vi.fn(),
+    xmailListCampaigns: vi.fn(),
     xmailListEmailAccounts: vi.fn(),
     xmailAddLeadsToCampaign: vi.fn(),
-    xmailActivateCampaign: vi.fn(),
     xmailNotifyVerificationComplete: vi.fn(),
   }))
 const { getMillionVerifierCredits } = vi.hoisted(() => ({ getMillionVerifierCredits: vi.fn() }))
@@ -33,10 +33,9 @@ vi.mock('@/lib/xmail/source-runs', () => ({ loadSourceRunIdsForEntities: vi.fn(a
 vi.mock('@/lib/xmail/client', () => ({
   isXmailConfigured,
   xmailBulkImportLeads,
-  xmailListCampaigns: vi.fn(),
+  xmailListCampaigns,
   xmailListEmailAccounts,
   xmailAddLeadsToCampaign,
-  xmailActivateCampaign,
   xmailNotifyVerificationComplete,
 }))
 
@@ -110,6 +109,7 @@ describe('platform_email across the prospects tools', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isXmailConfigured.mockReturnValue(true)
+    xmailListCampaigns.mockResolvedValue({ ok: true, campaigns: [{ id: CAMPAIGN_ID, name: 'Pilot', status: 'draft' }] })
     realisticBatch()
   })
 
@@ -149,7 +149,6 @@ describe('platform_email across the prospects tools', () => {
     xmailListEmailAccounts.mockResolvedValue({ ok: true, accounts: [{ id: '22222222-2222-2222-2222-222222222222', email: 's@x.example', campaignSenderEligible: true }] })
     xmailBulkImportLeads.mockResolvedValue({ ok: true, imported: 1, leadIds: ['lead-own'], skippedPlatformEmails: [], duplicatesInPayload: 0 })
     xmailAddLeadsToCampaign.mockResolvedValue({ ok: true, added: 1 })
-    xmailActivateCampaign.mockResolvedValue({ ok: false, error: 'sequence missing' })
 
     const input = tool('prospects_enroll_in_campaign').inputSchema.parse({ campaign_id: CAMPAIGN_ID, confirmed: true })
     const result = (await tool('prospects_enroll_in_campaign').handler(input, ctx)) as Record<string, unknown>
@@ -160,6 +159,7 @@ describe('platform_email across the prospects tools', () => {
     expect(sent).toEqual(['owner@independentshop.example'])
     expect(result.enrolled).toBe(1)
     expect(result.platform_email).toBe(1)
+    expect(result).toMatchObject({ campaign_activated: false, activation_required: true })
   })
 
   it('prospects_verify reports platform_email apart from invalid, labels the row, and notifies Xmail with a consistent invalid total', async () => {

@@ -17,7 +17,6 @@ vi.mock('@/lib/xmail/client', () => ({
   xmailListCampaigns: vi.fn(),
   xmailListEmailAccounts: vi.fn(),
   xmailAddLeadsToCampaign: vi.fn(),
-  xmailActivateCampaign: vi.fn(),
 }))
 vi.mock('@/lib/xmail/website-insights', () => ({
   loadWebsiteInsightsForAccounts: vi.fn(async () => new Map()),

@@ -1,12 +1,12 @@
 // MCP tools for the prospecting "back of funnel": list/score-filter prospects and
 // enrol them into an Xmail outreach campaign on command (e.g. "email everyone I
-// scraped above 50 points"). The user's command IS the approval — but
-// `prospects_enroll_in_campaign` is gated by `confirmed:true`, so the agent must
-// preview with `prospects_list` and get the human's go-ahead before enrolling.
+// scraped above 50 points"). `confirmed:true` authorizes reversible staging
+// into an INACTIVE campaign only. Starting delivery remains behind Xmail's
+// durable, interactive approval ledger.
 //
 // Sending is owned by XMAIL's outreach engine (verified domains, sequences,
 // sending limits, open/click/reply tracking). Xphere only orchestrates: push the
-// prospects in as leads and enrol them in a pre-built campaign, then activate it.
+// prospects in as leads and enrol them in a pre-built, inactive campaign.
 // Engagement flows back to Xphere via the /api/integrations/xmail/events webhook.
 
 import { z } from 'zod'
@@ -17,7 +17,6 @@ import {
   xmailListCampaigns,
   xmailListEmailAccounts,
   xmailAddLeadsToCampaign,
-  xmailActivateCampaign,
   xmailNotifyVerificationComplete,
   type XmailLead,
 } from '@/lib/xmail/client'
@@ -419,31 +418,6 @@ async function resolveProspects(
     const email = normalizeOutreachEmail(prospect.email)
     return Boolean(email && !prospect.emailDndBlocked && !suppressedEmails.has(email))
   })
-}
-
-/** Mark enrolled prospects as contacted + log a timeline event (bulk). */
-async function markEnrolled(orgId: string, recipients: ResolvedProspect[], campaignId: string): Promise<void> {
-  const nowIso = new Date().toISOString()
-  const contactIds = recipients.filter((p) => p.kind === 'person').map((p) => p.id)
-  const accountIds = recipients.filter((p) => p.kind === 'company').map((p) => p.id)
-  if (contactIds.length) {
-    await db().from('contacts').update({ engagement_status: 'contacted', last_contacted_at: nowIso, updated_at: nowIso }).in('id', contactIds)
-  }
-  if (accountIds.length) {
-    await db().from('accounts').update({ engagement_status: 'contacted', last_contacted_at: nowIso, updated_at: nowIso }).in('id', accountIds)
-  }
-  await db()
-    .from('prospect_engagement_events')
-    .insert(
-      recipients.map((p) => ({
-        org_id: orgId,
-        entity_type: p.kind === 'person' ? 'contact' : 'account',
-        entity_id: p.id,
-        event_type: 'contacted',
-        source_platform: 'xmail',
-        payload: { xmail_campaign: campaignId, action: 'enrolled' },
-      })),
-    )
 }
 
 // ── prospects_verify (Fase 34) ──────────────────────────────────────────────
@@ -979,7 +953,7 @@ export async function importVerifiedProspectsToXmail(
     ...summary,
     ...(pushed.retainedPlatformEmail > 0 ? { retained_platform_email: pushed.retainedPlatformEmail } : {}),
     message:
-      `Imported ${pushed.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next (with its own confirmed:true) to start outreach.${heldBackSuffix}${platformSuffix}`,
+      `Imported ${pushed.imported} prospect(s) into Xmail as lead(s). Nothing was enrolled or activated — call prospects_enroll_in_campaign next to stage the approved audience in an inactive campaign, then use Xmail's formal activation approval.${heldBackSuffix}${platformSuffix}`,
   }
 }
 
@@ -1064,9 +1038,9 @@ export const prospectsTools: McpToolDef[] = [
   },
   {
     name: 'prospects_enroll_in_campaign',
-    title: 'Enrol already-imported prospects into an Xmail campaign (starts sending)',
+    title: 'Enrol already-imported prospects into an inactive Xmail campaign',
     description:
-      "Enrol prospects matching the filters into an existing Xmail outreach campaign, and activate it so Xmail STARTS SENDING REAL EMAIL. This is the only tool that can start outreach — it requires the matching prospects to already be staged in Xmail (via prospects_import_to_xmail); prospects that have not been imported yet are skipped, not auto-imported, and both the dry run and the confirmed result report how many were skipped for that reason and name prospects_import_to_xmail as the step to run first. SAFETY: only runs when confirmed:true — first call prospects_list to preview the count and xmail_outreach_status to pick the campaign, tell the human, and only set confirmed:true after they approve. Xmail handles the actual sending, sequences, suppression and tracking. Caps at " + HARD_MAX + " prospects per call. NOTE: the dry run (confirmed omitted) DOES verify emails as a side effect, but it has no per-run filter and never persists a verification summary against a run — for verification-only work (nothing to enrol yet, or you just want the numbers for one scrape run), use prospects_verify instead.",
+      "Enrol prospects matching the filters into an existing INACTIVE Xmail outreach campaign. This tool never activates a campaign and never sends email. It refuses active/completed/archived campaigns, requires matching prospects to already be staged via prospects_import_to_xmail, and skips records that were not imported. After enrolment, use Xmail's formal campaign activation request; only the interactive approval in Xmail/Telegram may start delivery. SAFETY: only enrols when confirmed:true after the audience preview is shown. Caps at " + HARD_MAX + " prospects per call. NOTE: the dry run (confirmed omitted) DOES verify emails as a side effect, but it has no per-run filter and never persists a verification summary against a run — for verification-only work, use prospects_verify instead.",
     area: 'general_xphere',
     annotations: { destructiveHint: true, idempotentHint: false },
     inputSchema: z
@@ -1075,7 +1049,7 @@ export const prospectsTools: McpToolDef[] = [
         campaign_id: z.string().uuid().describe('The Xmail campaign id to enrol into (from xmail_outreach_status).'),
         email_account_id: z.string().uuid().optional().describe('Sending inbox id. If omitted, the first available inbox is used.'),
         max: z.number().int().positive().max(HARD_MAX).optional().describe(`Hard cap on prospects (default ${DEFAULT_MAX}).`),
-        confirmed: z.boolean().optional().describe('Must be true to actually enrol + activate. Leave false/absent for a dry run.'),
+        confirmed: z.boolean().optional().describe('Must be true to enrol into an inactive campaign. This never activates or sends. Leave false/absent for a dry run.'),
       })
       .strict(),
     handler: async (input, { auth }) => {
@@ -1130,6 +1104,26 @@ export const prospectsTools: McpToolDef[] = [
 
       if (!isXmailConfigured()) {
         return { error: 'Xmail outreach is not wired up (XMAIL_API_URL / XMAIL_USER_ID / XMAIL_ORG_ID not set).' }
+      }
+
+      // A lead added to an active campaign can send immediately. Refuse that
+      // state before importing, verifying or mutating anything. Activation of
+      // this draft/paused campaign must happen later through Xmail's durable
+      // outreach_action_approvals flow.
+      const campaigns = await xmailListCampaigns()
+      if (!campaigns.ok) {
+        return { error: `Could not verify the Xmail campaign state: ${campaigns.error}` }
+      }
+      const campaign = campaigns.campaigns.find((candidate) => candidate.id === campaign_id)
+      if (!campaign) {
+        return { error: 'campaign_not_found', detail: `Campaign ${campaign_id} was not found in the configured Xmail organization.` }
+      }
+      if (!['draft', 'paused'].includes(campaign.status)) {
+        return {
+          error: 'campaign_not_inactive',
+          campaign_status: campaign.status,
+          detail: `Refusing to enrol into a ${campaign.status} campaign. Use a draft or paused campaign so no message can send before formal Xmail approval.`,
+        }
       }
 
       const cap = Math.min(max ?? DEFAULT_MAX, HARD_MAX)
@@ -1256,17 +1250,13 @@ export const prospectsTools: McpToolDef[] = [
       const add = await xmailAddLeadsToCampaign(campaign_id, imp.leadIds, inboxId)
       if (!add.ok) return { error: `Enrolment failed: ${add.error}`, imported: imp.imported }
 
-      const act = await xmailActivateCampaign(campaign_id)
-      if (act.ok) await markEnrolled(auth.orgId, recipients.map((r) => r.prospect), campaign_id)
-
       return {
         matched: recipients.length,
         imported: imp.imported,
         enrolled: add.added,
-        campaign_activated: act.ok,
-        activation_note: act.ok
-          ? undefined
-          : `Leads enrolled, but the campaign could not be activated: ${act.error}. Fix it in Xmail (needs a sequence + a sending inbox per lead), then activate.`,
+        campaign_activated: false,
+        activation_required: true,
+        activation_note: 'Leads are staged in an inactive campaign. Request activation with the Xmail approval tool; only the interactive Xmail/Telegram approval may start sending.',
         not_yet_imported: notYetImported || undefined,
         platform_email: platformEmail || undefined,
         verification: { total_checked: staged.length, ...verification },
@@ -1276,7 +1266,7 @@ export const prospectsTools: McpToolDef[] = [
             ? { total_matched: allWithEmail.length, cap, remaining: allWithEmail.length - cap }
             : undefined,
         message:
-          `Enrolled ${add.added} prospect(s) into the campaign${act.ok ? ' and activated it — Xmail will start sending.' : ' (activation pending — see activation_note).'}` +
+          `Enrolled ${add.added} prospect(s) into the inactive campaign. Nothing was sent; formal Xmail activation approval is still required.` +
           (notYetImported > 0
             ? ` ${notYetImported} matching prospect(s) were skipped because they have not been imported yet — run prospects_import_to_xmail for them.`
             : '') +
@@ -1291,12 +1281,12 @@ export const prospectsTools: McpToolDef[] = [
   },
   // ── prospects_import_to_xmail (Fase 37) ─────────────────────────────────
   //
-  // Splits "push into Xmail as a lead" apart from "enrol in a campaign and
-  // maybe activate it". Evidence (2026-09-08): three production runs
+  // Splits "push into Xmail as a lead" apart from "enrol in an inactive
+  // campaign". Evidence (2026-09-08): three production runs
   // verified 80 sendable addresses (69 ok, 9 catch_all, 2 unknown) and NONE
   // reached Xmail, because prospects_enroll_in_campaign's confirmed:true was
-  // the only path that ever imported anything — and it also enrols and can
-  // activate sending in the same call. This tool imports ONLY prospects with
+  // the only path that ever imported anything. That coupling has since been
+  // removed: enrollment cannot activate or send. This tool imports ONLY prospects with
   // email_status='ok' (verified, persisted by prospects_verify or a prior
   // enroll dry run — never re-verified here), never enrols, never touches
   // campaign state, and is a no-op for anything already staged.
@@ -1311,7 +1301,7 @@ export const prospectsTools: McpToolDef[] = [
     name: 'prospects_import_to_xmail',
     title: 'Stage verified prospects as Xmail leads (imports nothing to a campaign, sends nothing)',
     description:
-      "Import prospects matching the filters into Xmail as leads — REVERSIBLE, sends nothing, never enrols into a campaign, never touches campaign state. Only prospects with a persisted email_status of exactly 'ok' are imported automatically; 'catch_all' and 'unknown' are deliberately held back for a human decision (their counts are always reported, never silently dropped), prospects whose email belongs to a booking platform (platform_email, e.g. help.us@booksy.com) are held back whatever their email_status, and prospects that were never verified (email_status is null) are reported too with a nudge to run prospects_verify first — this tool never verifies as a side effect. Already-imported prospects (tracked internally) are skipped on a repeat call, so it's safe to call again after a fresh scrape or verification pass. Requires at least one of external_run_id or source_type. SAFETY: without confirmed:true this only previews the counts — nothing is imported. Once staged here, call prospects_enroll_in_campaign (its own confirmed:true, separately) to actually start outreach — that is the only tool that sends anything. Caps at " + HARD_MAX + ' prospects per call.',
+      "Import prospects matching the filters into Xmail as leads — REVERSIBLE, sends nothing, never enrols into a campaign, never touches campaign state. Only prospects with a persisted email_status of exactly 'ok' are imported automatically; 'catch_all' and 'unknown' are deliberately held back for a human decision (their counts are always reported, never silently dropped), prospects whose email belongs to a booking platform (platform_email, e.g. help.us@booksy.com) are held back whatever their email_status, and prospects that were never verified (email_status is null) are reported too with a nudge to run prospects_verify first — this tool never verifies as a side effect. Already-imported prospects (tracked internally) are skipped on a repeat call, so it's safe to call again after a fresh scrape or verification pass. Requires at least one of external_run_id or source_type. SAFETY: without confirmed:true this only previews the counts — nothing is imported. Once staged here, prospects_enroll_in_campaign can attach the audience to an inactive campaign; Xmail's formal human approval is still required before sending. Caps at " + HARD_MAX + ' prospects per call.',
     area: 'general_xphere',
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: z

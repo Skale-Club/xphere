@@ -99,7 +99,7 @@ export async function verifyProspectEmail(
   // Platform address (help.us@booksy.com...): never the business's own mailbox, so no provider
   // call and no credit. This is the narrowest point every verification path funnels through
   // (verifyProspectsBatch -> prospects_verify, the enroll dry run and the auto-verify cron, plus
-  // prospect_send_message), and it ignores `force`. Persisted as invalid/platform_rule so the
+  // prospects_verify), and it ignores `force`. Persisted as invalid/platform_rule so the
   // row leaves the cron's `email_status IS NULL` queue and is never picked again. Deliberately
   // does NOT stamp email_verified_at: nothing was verified, and that column is the ledger the
   // cron's daily spend cap counts (countVerifiedToday).

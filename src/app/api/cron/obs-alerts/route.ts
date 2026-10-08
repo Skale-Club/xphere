@@ -61,11 +61,12 @@ const CRON_SECRET = process.env.CRON_SECRET
 const DEFAULT_DAILY_CAP_USD = parseFloat(process.env.AGENT_DAILY_COST_CAP_USD ?? '50')
 
 export async function GET(request: Request): Promise<Response> {
-  if (CRON_SECRET) {
-    const auth = request.headers.get('authorization') ?? ''
-    if (auth !== `Bearer ${CRON_SECRET}`) {
-      return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!CRON_SECRET) {
+    return Response.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 503 })
+  }
+  const auth = request.headers.get('authorization') ?? ''
+  if (auth !== `Bearer ${CRON_SECRET}`) {
+    return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
   if (!SUPABASE_URL || !SERVICE_KEY) {
     return Response.json({ ok: false, error: 'Supabase env not set' }, { status: 500 })

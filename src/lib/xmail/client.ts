@@ -185,18 +185,6 @@ export async function xmailAddLeadsToCampaign(
   return { ok: true, added }
 }
 
-/** Set a campaign to 'active' so the Xmail engine starts sending. */
-export async function xmailActivateCampaign(
-  campaignId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const res = await xmailFetch(`/api/outreach/campaigns/${campaignId}`, {
-    method: 'PUT',
-    body: { status: 'active' },
-  })
-  if (!res.ok) return res
-  return { ok: true }
-}
-
 export interface XmailRegisterExternalRunParams {
   /** Only value that has ever shipped a lead in production — see xmail's externalRunSchema. */
   provider: 'xcraper'
@@ -248,33 +236,6 @@ export async function xmailRegisterExternalRun(
   })
   if (!res.ok) return res
   return { ok: true }
-}
-
-export interface XmailSendMessageParams {
-  from: string
-  to: string
-  subject: string
-  html: string
-  text?: string
-}
-
-/**
- * Send a single 1:1 message through Xmail's native info@ inbox (not a
- * campaign/sequence) — used for one-off outbound like "here's your estimate".
- */
-export async function xmailSendMessage(
-  params: XmailSendMessageParams,
-): Promise<{ ok: true; messageId: string } | { ok: false; error: string }> {
-  const res = await xmailFetch('/api/outreach/send-message', {
-    method: 'POST',
-    query: { organizationId: XMAIL_ORG_ID },
-    body: params,
-  })
-  if (!res.ok) return res
-  if (res.data.success !== true) {
-    return { ok: false, error: (res.data.error as string) || 'Xmail send-message did not report success.' }
-  }
-  return { ok: true, messageId: (res.data.messageId as string) ?? '' }
 }
 
 // ── Verification-as-a-run-step (Fase 34, Xphere part) ───────────────────────

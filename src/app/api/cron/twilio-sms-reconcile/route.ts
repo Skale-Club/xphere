@@ -18,10 +18,11 @@ function parsePositiveInt(value: string | null, fallback: number, max: number) {
 }
 
 export async function GET(request: Request) {
-  if (CRON_SECRET) {
-    const auth = request.headers.get('authorization') ?? ''
-    if (auth !== `Bearer ${CRON_SECRET}`) return unauthorized()
+  if (!CRON_SECRET) {
+    return Response.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 503 })
   }
+  const auth = request.headers.get('authorization') ?? ''
+  if (auth !== `Bearer ${CRON_SECRET}`) return unauthorized()
 
   const url = new URL(request.url)
   const lookbackMinutes = parsePositiveInt(url.searchParams.get('lookbackMinutes'), 120, 24 * 60)

@@ -51,7 +51,6 @@ vi.mock('@/lib/xmail/client', () => ({
   xmailListCampaigns: vi.fn(),
   xmailListEmailAccounts: vi.fn(),
   xmailAddLeadsToCampaign: vi.fn(),
-  xmailActivateCampaign: vi.fn(),
   xmailNotifyVerificationComplete: vi.fn(),
 }))
 

@@ -158,6 +158,8 @@ describe('Xcraper company enrichment', () => {
         unrelated: 'keep-me',
         website: 'https://hudsonbarber.com',
         address: '1 Main St, Hudson, MA',
+        city: 'Hudson',
+        state: 'MA',
         rating: 4.8,
         review_count: 91,
         google_maps_url: 'https://maps.google.com/place-1',

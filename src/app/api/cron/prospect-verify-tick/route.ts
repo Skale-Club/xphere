@@ -48,7 +48,7 @@
 // on countVerifiedToday) already have `email_verified_at` today and only
 // spends the remainder. No new table: the existing `email_verified_at`
 // column IS the ledger, because every verification path (this tick,
-// `prospects_verify`, `prospect_send_message`) writes it through the same
+// `prospects_verify`) writes it through the same
 // `verifyProspectEmail` (src/lib/email-verification/verify.ts).
 //
 // ── Credit balance visibility ───────────────────────────────────────────
@@ -134,7 +134,7 @@ function db(): any {
  * stamped today. Deliberately NOT scoped to "verified by this cron" — there
  * is no column recording who triggered a verification, and adding one would
  * be a schema change (out of scope; see file header). Every verification
- * path (this tick, `prospects_verify`, `prospect_send_message`) updates the
+ * path (this tick or `prospects_verify`) updates the
  * same column through the same `verifyProspectEmail`, and the daily cap is a
  * spend cap on the shared MillionVerifier/NeverBounce balance, not a
  * per-caller quota — so counting ALL of today's stamps, not just this tick's,

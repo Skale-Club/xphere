@@ -32,7 +32,6 @@ import { adsGoogleCustomerMatchTools } from './tools/ads-google-customer-match'
 import { adsGoogleBiddingReadTools } from './tools/ads-google-bidding-reads'
 import { organizationsTools } from './tools/organizations'
 import { prospectsTools } from './tools/prospects'
-import { prospectSendMessageTools } from './tools/prospect-send-message'
 import { emailVerificationTools } from './tools/email-verification'
 import { metaAudienceTools } from './tools/meta-audiences'
 import { seoTools } from './tools/seo'
@@ -72,7 +71,6 @@ export const ALL_MCP_TOOLS: McpToolDef[] = [
   ...gbpTools,
   ...organizationsTools,
   ...prospectsTools,
-  ...prospectSendMessageTools,
   ...emailVerificationTools,
   ...metaAudienceTools,
   ...seoTools,

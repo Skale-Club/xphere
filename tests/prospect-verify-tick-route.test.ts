@@ -51,7 +51,6 @@ vi.mock('@/lib/xmail/client', () => ({
   xmailListCampaigns: vi.fn(),
   xmailListEmailAccounts: vi.fn(),
   xmailAddLeadsToCampaign: vi.fn(),
-  xmailActivateCampaign: vi.fn(),
 }))
 vi.mock('@/lib/obs/logger', () => ({
   createLogger: () => ({ warn: vi.fn(), error: vi.fn(), info: vi.fn(), debug: vi.fn(), child: vi.fn() }),
