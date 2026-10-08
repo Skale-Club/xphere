@@ -190,6 +190,7 @@ async function main() {
   const categoriesOutsideBarber = new Map<string, number>()
   let barberNicheAccounts = 0
   let barberNicheNotBarber = 0
+  const categoriesInsideBarber = new Map<string, number>()
   const orgsTouched = new Set<string>()
 
   let lastId: string | null = null
@@ -233,7 +234,10 @@ async function main() {
       if (implied.has('barbershop')) {
         barberNicheAccounts++
         const category = row.custom_fields?.category
-        if (!looksLikeBarber(category)) {
+        if (looksLikeBarber(category)) {
+          const key = String(category).trim()
+          categoriesInsideBarber.set(key, (categoriesInsideBarber.get(key) ?? 0) + 1)
+        } else {
           barberNicheNotBarber++
           const key = typeof category === 'string' && category.trim() ? category.trim() : '(no category)'
           categoriesOutsideBarber.set(key, (categoriesOutsideBarber.get(key) ?? 0) + 1)
@@ -271,6 +275,10 @@ async function main() {
   }
 
   log('──────────────────────────────────────────')
+  if (categoriesInsideBarber.size > 0) {
+    log('Barber-looking Google categories (exact strings, for an audience `categories` filter):')
+    for (const [category, count] of [...categoriesInsideBarber.entries()].sort((a, b) => b[1] - a[1])) log(`  ${category}: ${count}`)
+  }
   log(`Xcraper accounts scanned: ${scanned}`)
   log(`Niche resolved from a scrape query: ${scanned - unmapped}  (${args.apply ? 'written' : 'would be written'}: ${args.apply ? written : tagged}; already tagged: ${alreadyOk})`)
   log(`No niche rule matched (left untouched): ${unmapped}`)
