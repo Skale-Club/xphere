@@ -1,5 +1,16 @@
 # Xphere - Claude Code Instructions
 
+## Prospecting system documentation (read first, keep current)
+
+Xphere is one part of the Skale Club prospecting pipeline (homelab scraper → Xcraper → Xphere →
+Xmail, driven by the Hermes agent). The whole system is described in ONE place, in English:
+`docs/prospecting/README.md` in the **xmail** repository
+(https://github.com/Skale-Club/xmail/blob/main/docs/prospecting/README.md). Any change here that
+alters prospecting behavior (verification, the website analyzer and booking detection, the
+platform-email rule, import to Xmail, Meta audiences) updates that file too, in a commit of the
+xmail repo made alongside this one.
+
+
 ## Commands
 
 ```bash
