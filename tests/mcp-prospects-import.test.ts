@@ -77,6 +77,7 @@ function makeDb(rowsByTable: Record<string, Array<Record<string, unknown>>>) {
     q.ilike = vi.fn(chain)
     q.limit = vi.fn(chain)
     q.order = vi.fn(chain)
+    q.range = vi.fn(chain)
     q.update = vi.fn((data: Record<string, unknown>) => {
       pendingUpdate = data
       return q

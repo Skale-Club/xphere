@@ -92,6 +92,7 @@ function makeQuery(
 ) {
   let countMode = false
   let limitN: number | null = null
+  let offsetN = 0
   let orderSpec: { col: string; ascending: boolean } | null = null
   let pendingUpdate: Record<string, unknown> | undefined
   const filters: Filter[] = []
@@ -149,6 +150,11 @@ function makeQuery(
     limitN = n
     return q
   }
+  q.range = (from: number, to: number) => {
+    offsetN = from
+    limitN = to - from + 1
+    return q
+  }
   q.then = (resolve: (v: unknown) => unknown) => {
     let matched = rows.filter((r) => matchRow(r, filters))
     if (orderSpec) {
@@ -163,7 +169,7 @@ function makeQuery(
     if (countMode) {
       return Promise.resolve({ data: null, error: null, count: matched.length }).then(resolve)
     }
-    const sliced = limitN != null ? matched.slice(0, limitN) : matched
+    const sliced = limitN != null ? matched.slice(offsetN, offsetN + limitN) : matched.slice(offsetN)
     return Promise.resolve({ data: sliced, error: null }).then(resolve)
   }
   return q

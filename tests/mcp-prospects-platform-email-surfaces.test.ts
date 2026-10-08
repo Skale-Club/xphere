@@ -53,7 +53,7 @@ function makeDb(rowsByTable: Record<string, Array<Record<string, unknown>>>) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const q: any = {}
     const chain = () => q
-    for (const m of ['select', 'eq', 'gte', 'lte', 'not', 'contains', 'ilike', 'limit', 'order', 'in', 'update']) q[m] = vi.fn(chain)
+    for (const m of ['select', 'eq', 'gte', 'lte', 'not', 'contains', 'ilike', 'limit', 'order', 'range', 'in', 'update']) q[m] = vi.fn(chain)
     q.insert = vi.fn(() => Promise.resolve({ data: null, error: null }))
     q.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve({ data: rowsByTable[table] ?? [], error: null }).then(resolve)

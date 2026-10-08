@@ -226,6 +226,38 @@ function summarizeAggregate(aggregate: BatchAggregate) {
   }
 }
 
+/** PostgREST answers at most 1000 rows per request (Supabase max-rows), whatever `.limit()` says. */
+const POSTGREST_PAGE = 1000
+
+interface PageableQuery {
+  limit(count: number): PromiseLike<{ data: unknown[] | null }>
+  order(column: string, options: { ascending: boolean }): PageableQuery
+  range(from: number, to: number): PromiseLike<{ data: unknown[] | null }>
+}
+
+/**
+ * Rows of a prospect query up to `cap`. Up to one page it is a single request, as before; above
+ * that it pages by id, because a single request silently stops at 1000 and prospects_list then
+ * reported `total: 1000` for an org with more (2026-10-08).
+ */
+async function fetchRows(query: unknown, cap: number): Promise<Array<Record<string, unknown>>> {
+  const q = query as PageableQuery
+  if (cap <= POSTGREST_PAGE) {
+    const { data } = await q.limit(cap)
+    return (data ?? []) as Array<Record<string, unknown>>
+  }
+  const ordered = q.order('id', { ascending: true })
+  const rows: Array<Record<string, unknown>> = []
+  for (let from = 0; from < cap; from += POSTGREST_PAGE) {
+    const size = Math.min(POSTGREST_PAGE, cap - from)
+    const { data } = await ordered.range(from, from + size - 1)
+    const page = (data ?? []) as Array<Record<string, unknown>>
+    rows.push(...page)
+    if (page.length < size) break
+  }
+  return rows
+}
+
 async function resolveProspects(
   orgId: string,
   f: Filters,
@@ -244,7 +276,6 @@ async function resolveProspects(
       .select('id, first_name, last_name, name, email, phone, custom_fields, score, source_type, engagement_status, dnd_enabled, dnd_channels, email_status, email_verified_at, email_verification_provider, email_risk, xmail_imported_at')
       .eq('org_id', orgId)
       .eq('lifecycle_stage', 'prospect')
-      .limit(cap)
     if (f.score_min != null) q = q.gte('score', f.score_min)
     if (f.score_max != null) q = q.lte('score', f.score_max)
     if (f.source_type) q = q.eq('source_type', f.source_type)
@@ -252,8 +283,8 @@ async function resolveProspects(
     if (f.engagement) q = q.eq('engagement_status', f.engagement)
     if (opts.requireEmail) q = q.not('email', 'is', null)
     if (opts.sourceIds) q = q.in('prospect_source_id', opts.sourceIds)
-    const { data } = await q
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const data = await fetchRows(q, cap)
+    for (const r of data) {
       const customFields = r.custom_fields && typeof r.custom_fields === 'object' && !Array.isArray(r.custom_fields)
         ? r.custom_fields as Record<string, unknown>
         : {}
@@ -297,7 +328,6 @@ async function resolveProspects(
       .select('id, name, domain, website, phone, address, score, source_type, engagement_status, custom_fields, email_status, email_verified_at, email_verification_provider, email_risk, xmail_imported_at')
       .eq('org_id', orgId)
       .eq('lifecycle_stage', 'prospect')
-      .limit(cap)
     if (f.score_min != null) q = q.gte('score', f.score_min)
     if (f.score_max != null) q = q.lte('score', f.score_max)
     if (f.source_type) q = q.eq('source_type', f.source_type)
@@ -310,8 +340,8 @@ async function resolveProspects(
     }
     if (f.booking_platform) q = q.ilike('custom_fields->>booking_platform', f.booking_platform)
     if (opts.sourceIds) q = q.in('prospect_source_id', opts.sourceIds)
-    const { data } = await q
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
+    const data = await fetchRows(q, cap)
+    for (const r of data) {
       const email = emailFromCustomFields(r.custom_fields)
       const customFields = r.custom_fields && typeof r.custom_fields === 'object' && !Array.isArray(r.custom_fields)
         ? r.custom_fields as Record<string, unknown>

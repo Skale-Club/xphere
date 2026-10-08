@@ -23,6 +23,8 @@ function accountsQuery(rows: Array<Record<string, unknown>>) {
     ilike: vi.fn(() => query),
     contains: calls.contains.mockImplementation(() => query),
     limit: vi.fn(() => query),
+    order: vi.fn(() => query),
+    range: vi.fn(() => query),
     then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: rows, error: null }).then(resolve),
   }
   return { query, calls }

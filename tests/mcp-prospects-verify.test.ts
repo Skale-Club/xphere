@@ -63,6 +63,7 @@ function makeDb(rowsByTable: Record<string, Array<Record<string, unknown>>>) {
     q.in = vi.fn(chain)
     q.not = vi.fn(chain)
     q.order = vi.fn(chain)
+    q.range = vi.fn(chain)
     q.limit = vi.fn(chain)
     q.then = (resolve: (value: unknown) => unknown) =>
       Promise.resolve({ data: rowsByTable[table] ?? [], error: null }).then(resolve)
