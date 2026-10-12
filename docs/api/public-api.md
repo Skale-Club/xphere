@@ -2,7 +2,8 @@
 
 Base URL: `https://xphere.app/api/v1`
 
-All endpoints support **CORS** — you can call them directly from browser JavaScript on any domain.
+General CRM endpoints support **CORS**. The booking bridge is server-to-server
+only so an integration key is never shipped to browser JavaScript.
 
 ---
 
@@ -20,7 +21,7 @@ Tokens are generated in **Settings → API Keys** inside the Xphere dashboard. E
 
 | Scope | Grants |
 |-------|--------|
-| `leads:write` | `POST /api/v1/leads` |
+| `leads:write` | `POST /api/v1/leads`, `GET/POST /api/v1/bookings` |
 | `contacts:write` | `POST /api/v1/contacts` |
 | `prospects:write` | `POST /api/v1/prospects` |
 
@@ -223,6 +224,46 @@ there's no reliable way to infer a country from digits alone.
 | 401 | `{ "error": "Invalid or revoked API key" }` | Token not found or revoked |
 | 403 | `{ "error": "API key is missing the prospects:write scope" }` | Key not scoped for prospects |
 | 422 | `{ "error": "Invalid request body", "details": [...] }` | Zod validation failed |
+
+---
+
+### GET /api/v1/bookings
+
+Resolves one active event type inside the API key's organization and returns
+safe metadata for an embedded calendar. Add `date=YYYY-MM-DD` to also return
+the currently bookable slots for that date.
+
+```http
+GET /api/v1/bookings?profile_slug=vanildo&event_type_slug=conversa-inicial&date=2026-10-15
+Authorization: Bearer xph_...
+```
+
+The response includes `event.timezone`, `event.availableDows`, duration and a
+`slots` array. Each slot has UTC `start`/`end` values and host-local
+`startLocal`/`endLocal` labels.
+
+### POST /api/v1/bookings
+
+Confirms a slot in Xphere. Xphere rechecks availability, prevents concurrent
+double-booking, creates or links the CRM contact, syncs the calendar and sends
+the confirmation email.
+
+```json
+{
+  "profile_slug": "vanildo",
+  "event_type_slug": "conversa-inicial",
+  "start_at": "2026-10-15T14:00:00.000Z",
+  "booker_name": "Maria Silva",
+  "booker_email": "maria@example.com",
+  "booker_phone": "+15085550123",
+  "booker_timezone": "America/New_York",
+  "notes": "Lead from Skale Club"
+}
+```
+
+Both booking operations require `leads:write` because they are the scheduling
+continuation of the same trusted lead handoff. Call them only from the
+integrating product's server; never expose the Bearer token in a browser.
 
 ---
 
