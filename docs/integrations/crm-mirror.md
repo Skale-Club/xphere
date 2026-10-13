@@ -18,7 +18,7 @@ removed once Xtimator is repointed at `/api/v1/sync`.
 
 | Route | Purpose | Status codes |
 | --- | --- | --- |
-| `POST /api/v1/sync` | Canonical generic mirror | `200` ok · `401` bad auth · `422` bad payload · `500` server error |
+| `POST /api/v1/sync` | Canonical generic mirror (company, opportunity, task, note) | `200` ok · `401` bad auth · `422` bad payload · `500` server error |
 | `POST /api/xtimator/webhook` | Deprecated Xtimator alias | Always `200` (legacy webhook contract) |
 
 Unlike a fire-and-forget webhook, `/api/v1/sync` returns **real** status codes so

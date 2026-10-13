@@ -60,6 +60,18 @@ export const mirrorPayloadSchema = z.object({
       external_id: z.string().min(1).max(200).optional(),
     })
     .optional(),
+  task: z
+    .object({
+      external_id: z.string().min(1).max(200),
+      title: z.string().min(1).max(500),
+      description: z.string().nullable().optional(),
+      status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+      due_at: z.string().datetime().nullable().optional(),
+      assignee_external_id: z.string().nullable().optional(),
+      source: z.string().max(100).optional(),
+    })
+    .optional(),
   note: z
     .object({
       title: z.string().optional(),
@@ -81,6 +93,7 @@ export interface MirrorInput {
   pipelineName: string
   company: Company
   opportunity?: NonNullable<MirrorPayload['opportunity']>
+  task?: NonNullable<MirrorPayload['task']>
   note?: NonNullable<MirrorPayload['note']>
   occurredAt: string
 }
@@ -89,8 +102,53 @@ export interface MirrorResult {
   account_id: string | null
   contact_id: string | null
   opportunity_id: string | null
+  task_id: string | null
   opportunity_skipped?: string
   stale?: boolean
+}
+
+async function upsertTask(
+  supabase: MirrorDb,
+  orgId: string,
+  source: string,
+  task: NonNullable<MirrorPayload['task']>,
+  accountId: string | null,
+  occurredAt: string,
+): Promise<string | null> {
+  const { data: existing } = await supabase
+    .from('tasks')
+    .select('id, external_updated_at')
+    .eq('org_id', orgId)
+    .eq('external_source', source)
+    .eq('external_id', task.external_id)
+    .maybeSingle()
+
+  if (existing?.external_updated_at && new Date(existing.external_updated_at) >= new Date(occurredAt)) {
+    return existing.id
+  }
+  const fields = {
+    title: task.title,
+    description: task.description ?? null,
+    due_date: task.due_at ?? null,
+    priority: task.priority,
+    status: task.status === 'completed' ? 'done' : task.status === 'pending' ? 'todo' : task.status,
+    entity_type: accountId ? 'account' : null,
+    entity_id: accountId,
+    external_source: source,
+    external_id: task.external_id,
+    external_updated_at: occurredAt,
+  }
+  if (existing) {
+    const { error } = await supabase.from('tasks').update(fields).eq('id', existing.id)
+    if (error) console.error('[crm-mirror] task update error:', error)
+    return error ? null : existing.id
+  }
+  const { data, error } = await supabase.from('tasks').insert({ ...fields, org_id: orgId }).select('id').single()
+  if (error || !data) {
+    console.error('[crm-mirror] task insert error:', error)
+    return null
+  }
+  return data.id
 }
 
 /** Convention fallback when an app doesn't declare opportunity.pipeline. */
@@ -363,13 +421,13 @@ export async function runCrmMirror(
   orgId: string,
   input: MirrorInput,
 ): Promise<MirrorResult> {
-  const { source, pipelineName, company, opportunity, note, occurredAt } = input
+  const { source, pipelineName, company, opportunity, task, note, occurredAt } = input
   const companyId = String(company.id)
 
   // 1. Account (the ordering anchor for last-write-wins)
   const acc = await upsertAccount(supabase, orgId, source, companyId, company, occurredAt)
   if (acc.stale) {
-    return { account_id: acc.id, contact_id: null, opportunity_id: null, stale: true }
+    return { account_id: acc.id, contact_id: null, opportunity_id: null, task_id: null, stale: true }
   }
   const accountId = acc.id
 
@@ -393,7 +451,10 @@ export async function runCrmMirror(
     )
   }
 
-  // 4. Note on the timeline (non-idempotent by design — one per event).
+  // 4. Optional operational task, idempotent on source + external id.
+  const taskId = task ? await upsertTask(supabase, orgId, source, task, accountId, occurredAt) : null
+
+  // 5. Note on the timeline (non-idempotent by design — one per event).
   // A company with no phone or email gets no contact row (migration 1061's
   // identity invariant), and the note used to be dropped with it. It goes on
   // the account instead — crm_entity_type allows it — so a field sale to a
@@ -417,6 +478,7 @@ export async function runCrmMirror(
     account_id: accountId,
     contact_id: contactId,
     opportunity_id: opp.id ?? null,
+    task_id: taskId,
     ...(opp.skipped ? { opportunity_skipped: opp.skipped } : {}),
   }
 }

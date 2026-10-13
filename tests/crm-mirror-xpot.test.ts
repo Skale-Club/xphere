@@ -27,6 +27,7 @@ class FakeDb {
     pipelines: [],
     pipeline_stages: [],
     notes: [],
+    tasks: [],
   }
   private seq = 0
   nextId(prefix: string) {
@@ -220,5 +221,29 @@ describe('a note with no contact to hang on goes to the account', () => {
     const result = await runCrmMirror(db, ORG, saleInput('sale-1', 600, '2026-09-01T10:00:00Z'))
     expect(result.contact_id).not.toBeNull()
     expect(db.tables.notes[0]).toMatchObject({ entity_type: 'contact', entity_id: result.contact_id })
+  })
+})
+
+describe('task mirror — one stable operational task', () => {
+  it('creates and then updates the same Xpot task without duplication', async () => {
+    const db = withPipeline(new FakeDb())
+    const input = {
+      source: 'xpot', pipelineName: 'Xpot Field Sales', company: shop,
+      task: { external_id: 'xpot-task-9', title: 'Voltar à barbearia', status: 'pending' as const, priority: 'high' as const, due_at: '2026-09-08T14:00:00Z' },
+      occurredAt: '2026-09-01T10:00:00Z',
+    }
+    const created = await runCrmMirror(db, ORG, input)
+    const completed = await runCrmMirror(db, ORG, { ...input, task: { ...input.task, status: 'completed' as const }, occurredAt: '2026-09-01T11:00:00Z' })
+    expect(db.tables.tasks).toHaveLength(1)
+    expect(created.task_id).toBe(completed.task_id)
+    expect(db.tables.tasks[0]).toMatchObject({ external_source: 'xpot', external_id: 'xpot-task-9', status: 'done', priority: 'high', entity_type: 'account' })
+  })
+
+  it('accepts the task wire contract', () => {
+    const parsed = mirrorPayloadSchema.safeParse({
+      source: 'xpot', event: 'task.pending', occurred_at: '2026-09-01T10:00:00Z', company: shop,
+      task: { external_id: 'xpot-task-9', title: 'Call back', status: 'pending', priority: 'medium', due_at: null },
+    })
+    expect(parsed.success).toBe(true)
   })
 })

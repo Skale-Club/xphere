@@ -83,6 +83,7 @@ export async function POST(request: Request): Promise<Response> {
       pipelineName,
       company: payload.company,
       opportunity: payload.opportunity,
+      task: payload.task,
       note: payload.note,
       occurredAt: payload.occurred_at,
     })
