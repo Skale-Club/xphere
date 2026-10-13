@@ -3,11 +3,14 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { McpToolDef } from '../tool-types'
+import { scheduleXpotTaskSync } from '@/lib/xpot/task-sync'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
 
 const EntityType = z.enum(['contact', 'opportunity', 'account'])
+const TaskPriority = z.enum(['low', 'medium', 'high', 'urgent'])
+const TaskStatus = z.enum(['todo', 'in_progress', 'done', 'cancelled'])
 
 export const tasksTools: McpToolDef[] = [
   {
@@ -73,7 +76,7 @@ export const tasksTools: McpToolDef[] = [
       title: z.string().min(1),
       description: z.string().optional(),
       due_date: z.string().optional(),
-      priority: z.string().optional(),
+      priority: TaskPriority.optional(),
       assigned_to: z.string().uuid().optional(),
       entity_type: EntityType.optional(),
       entity_id: z.string().uuid().optional(),
@@ -89,8 +92,8 @@ export const tasksTools: McpToolDef[] = [
           title: input.title,
           description: input.description ?? null,
           due_date: input.due_date ?? null,
-          priority: input.priority ?? 'normal',
-          status: 'pending',
+          priority: input.priority ?? 'medium',
+          status: 'todo',
           assigned_to: input.assigned_to ?? null,
           entity_type: input.entity_type ?? null,
           entity_id: input.entity_id ?? null,
@@ -98,6 +101,7 @@ export const tasksTools: McpToolDef[] = [
         .select()
         .single()
       if (error) return { error: 'insert_failed', detail: error.message }
+      scheduleXpotTaskSync()
       return data
     },
   },
@@ -111,8 +115,8 @@ export const tasksTools: McpToolDef[] = [
       title: z.string().optional(),
       description: z.string().nullable().optional(),
       due_date: z.string().nullable().optional(),
-      priority: z.string().optional(),
-      status: z.string().optional(),
+      priority: TaskPriority.optional(),
+      status: TaskStatus.optional(),
       assigned_to: z.string().uuid().nullable().optional(),
     }).strict(),
     handler: async (input, { auth }) => {
@@ -126,6 +130,7 @@ export const tasksTools: McpToolDef[] = [
         .eq('id', task_id)
         .eq('org_id', auth.orgId)
       if (error) return { error: 'update_failed', detail: error.message }
+      scheduleXpotTaskSync()
       return { updated: true }
     },
   },

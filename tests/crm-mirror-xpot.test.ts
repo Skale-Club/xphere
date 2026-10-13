@@ -246,4 +246,35 @@ describe('task mirror — one stable operational task', () => {
     })
     expect(parsed.success).toBe(true)
   })
+
+  it('updates an Xphere-native task by xphere_id without creating a duplicate', async () => {
+    const db = new FakeDb()
+    const nativeId = '11111111-1111-4111-8111-111111111111'
+    db.tables.tasks.push({
+      id: nativeId, org_id: ORG, title: 'Native task', status: 'todo',
+      external_source: null, external_id: null, external_updated_at: null,
+    })
+    const result = await runCrmMirror(db, ORG, {
+      source: 'xpot', pipelineName: 'Xpot Field Sales',
+      task: {
+        external_id: 'xpot-task-91', xphere_id: nativeId, title: 'Edited in Xpot',
+        status: 'completed', priority: 'urgent', due_at: null,
+      },
+      occurredAt: '2026-09-01T12:00:00Z',
+    })
+    expect(result.task_id).toBe(nativeId)
+    expect(db.tables.tasks).toHaveLength(1)
+    expect(db.tables.tasks[0]).toMatchObject({ id: nativeId, title: 'Edited in Xpot', status: 'done' })
+    expect(db.tables.tasks[0].external_source).toBeNull()
+  })
+
+  it('accepts task-only callbacks and still rejects an empty mirror', () => {
+    expect(mirrorPayloadSchema.safeParse({
+      source: 'xpot', event: 'task.completed', occurred_at: '2026-09-01T12:00:00Z',
+      task: { external_id: 'xpot-task-91', title: 'Task', status: 'completed', priority: 'medium' },
+    }).success).toBe(true)
+    expect(mirrorPayloadSchema.safeParse({
+      source: 'xpot', event: 'empty', occurred_at: '2026-09-01T12:00:00Z',
+    }).success).toBe(false)
+  })
 })

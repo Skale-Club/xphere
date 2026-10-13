@@ -6,6 +6,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { assertWritableOrThrow } from '@/lib/demo/guard'
 import { requirePermission } from '@/lib/rbac/server'
 import type { Database, TaskPriority, TaskStatus, CrmEntityType } from '@/types/database'
+import { scheduleXpotTaskSync } from '@/lib/xpot/task-sync'
 
 export type TaskRow = Database['public']['Tables']['tasks']['Row']
 
@@ -86,6 +87,7 @@ export async function createTask(
 
   if (error) return err(error.message)
 
+  scheduleXpotTaskSync()
   revalidatePath('/tasks')
   return ok(data)
 }
@@ -120,6 +122,7 @@ export async function updateTask(
   if (error) return err(error.message)
   if (!data) return err('not_found')
 
+  scheduleXpotTaskSync()
   revalidatePath('/tasks')
   return ok(data)
 }
@@ -138,6 +141,7 @@ export async function deleteTask(id: string): Promise<ActionResult<void>> {
   const { error } = await supabase.from('tasks').delete().eq('id', id)
   if (error) return err(error.message)
 
+  scheduleXpotTaskSync()
   revalidatePath('/tasks')
   return ok(undefined)
 }
@@ -232,6 +236,7 @@ export async function toggleTaskDone(id: string): Promise<ActionResult<TaskRow>>
   if (error) return err(error.message)
   if (!data) return err('not_found')
 
+  scheduleXpotTaskSync()
   revalidatePath('/tasks')
   return ok(data)
 }

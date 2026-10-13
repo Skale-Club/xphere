@@ -1,6 +1,7 @@
 // Task tools.
 
 import type { CopilotToolRegistry, ToolContext, ToolResult } from './types'
+import { scheduleXpotTaskSync } from '@/lib/xpot/task-sync'
 
 const MAX_ROWS = 50
 
@@ -52,6 +53,7 @@ async function createTask(input: Record<string, unknown>, ctx: ToolContext): Pro
     .select('id, title, due_date, status')
     .single()
   if (error) return { success: false, error: error.message }
+  scheduleXpotTaskSync()
   return { success: true, data }
 }
 
@@ -68,6 +70,7 @@ async function updateTask(input: Record<string, unknown>, ctx: ToolContext): Pro
     .select('id, title, status').maybeSingle()
   if (error) return { success: false, error: error.message }
   if (!data) return { success: false, error: `task ${id} not found` }
+  scheduleXpotTaskSync()
   return { success: true, data }
 }
 
@@ -79,6 +82,7 @@ async function completeTask(input: Record<string, unknown>, ctx: ToolContext): P
     .select('id, title, status').maybeSingle()
   if (error) return { success: false, error: error.message }
   if (!data) return { success: false, error: `task ${id} not found` }
+  scheduleXpotTaskSync()
   return { success: true, data }
 }
 

@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { scheduleXpotTaskSync } from '@/lib/xpot/task-sync'
 
 export async function executeCreateTask(
   params: Record<string, unknown>,
@@ -28,6 +29,7 @@ export async function executeCreateTask(
     .single()
 
   if (error) throw new Error(`create_task failed: ${error.message}`)
+  scheduleXpotTaskSync()
   return `Task created: ${data.id}`
 }
 

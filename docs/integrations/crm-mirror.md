@@ -46,7 +46,7 @@ Content-Type: application/json
   "event": "subscription.updated",   // required — free-form label
   "delivery_id": "evt_abc123",       // optional
   "occurred_at": "2026-07-05T00:26:58Z", // required — ordering key (last-write-wins)
-  "company": {                        // required — mirrored to Account + Contact
+  "company": {                        // required except for a task-only callback
     "id": "c_9f2e...",                // required — external_id (idempotency key)
     "name": "ABC Plumbing",           // required
     "owner_name": "John Smith",       // optional — Contact name (falls back to company name)
@@ -65,6 +65,15 @@ Content-Type: application/json
     "currency": "USD",                // optional — defaults to USD
     "title": "ABC Plumbing — Subscription", // optional
     "pipeline": "Xtimator Lifecycle"  // optional — defaults to "<Source> Lifecycle"
+  },
+  "task": {                           // optional — operational task mirror
+    "external_id": "xpot-task-42",    // stable source identity
+    "xphere_id": null,                // set when updating a task born in Xphere
+    "title": "Call the customer",
+    "description": null,
+    "status": "pending",              // pending|in_progress|completed|cancelled
+    "priority": "high",
+    "due_at": "2026-10-20T14:00:00Z"
   },
   "note": {                           // optional — appended to the contact timeline
     "title": "Upgraded to Pro",
@@ -99,6 +108,20 @@ A company with neither is mirrored as Account-only; the Contact is skipped.
 - **Contact adoption:** if no mirror row matches, the engine falls back to
   matching by normalised `phone_e164` / `email_normalized` and *claims* that
   existing contact for the mirror (avoids creating a duplicate person).
+- **Tasks:** Xpot-origin tasks deduplicate by `(org, external_source,
+  external_id)`. A callback carrying `xphere_id` updates that exact native task,
+  so a round trip never creates a second row.
+
+## Bidirectional Xpot tasks
+
+Migration `1331_xpot_task_sync_outbox.sql` attaches a database trigger to
+`public.tasks`. Every local writer—dashboard, MCP, Copilot, workflow or import—
+therefore produces an outbox event. The worker posts it to
+`/api/xpot/inbound/tasks`, retries transient failures with exponential backoff,
+and marks permanent failures for inspection. Xpot mirror writes advance
+`external_updated_at`; the trigger recognizes those callbacks and does not echo
+them back. The scheduled `/api/cron/xpot-task-sync` route drains the queue, while
+interactive task paths request an immediate post-response drain.
 
 ## Pipeline resolution
 

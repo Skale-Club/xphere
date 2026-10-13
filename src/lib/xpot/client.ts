@@ -30,6 +30,26 @@ export interface XpotLead {
 
 export type XpotSendResult = { ok: true; sent: number } | { ok: false; error: string }
 
+export interface XpotTaskMutation {
+  externalId: string
+  xpotTaskId?: number | null
+  operation: 'upsert' | 'delete'
+  occurredAt: string
+  task: {
+    title: string
+    description?: string | null
+    dueAt?: string | null
+    priority: 'low' | 'medium' | 'high' | 'urgent'
+    status: 'todo' | 'in_progress' | 'done' | 'cancelled'
+    entityType?: 'contact' | 'account' | 'opportunity' | null
+    entityId?: string | null
+  }
+}
+
+export type XpotTaskSendResult =
+  | { ok: true; action: string; taskId: number | null }
+  | { ok: false; error: string; retryable: boolean }
+
 export async function xpotSendLeads(leads: XpotLead[]): Promise<XpotSendResult> {
   if (!isXpotConfigured()) return { ok: false, error: 'Xpot is not configured.' }
   if (leads.length === 0) return { ok: true, sent: 0 }
@@ -51,5 +71,29 @@ export async function xpotSendLeads(leads: XpotLead[]): Promise<XpotSendResult> 
   } catch (err) {
     console.error('[xpot] send failed:', err)
     return { ok: false, error: 'Could not reach Xpot.' }
+  }
+}
+
+export async function xpotSendTask(input: XpotTaskMutation): Promise<XpotTaskSendResult> {
+  if (!isXpotConfigured()) return { ok: false, error: 'Xpot is not configured.', retryable: true }
+  try {
+    const res = await fetch(`${XPOT_API_URL}/api/xpot/inbound/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${XPOT_API_KEY}` },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    if (!res.ok) {
+      return {
+        ok: false,
+        error: (data.error as string) || `Xpot returned HTTP ${res.status}`,
+        retryable: res.status === 429 || res.status >= 500,
+      }
+    }
+    return { ok: true, action: String(data.action ?? 'synced'), taskId: (data.taskId as number | null) ?? null }
+  } catch (err) {
+    console.error('[xpot] task sync failed:', err)
+    return { ok: false, error: err instanceof Error ? err.message : 'Could not reach Xpot.', retryable: true }
   }
 }

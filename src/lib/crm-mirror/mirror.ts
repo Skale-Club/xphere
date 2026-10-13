@@ -40,7 +40,7 @@ export const mirrorPayloadSchema = z.object({
     address: z.string().nullable().optional(),
     tags: z.array(z.string()).optional(),
     custom_fields: z.record(z.string(), z.unknown()).optional(),
-  }),
+  }).optional(),
   opportunity: z
     .object({
       stage: z.string().min(1),
@@ -63,6 +63,7 @@ export const mirrorPayloadSchema = z.object({
   task: z
     .object({
       external_id: z.string().min(1).max(200),
+      xphere_id: z.string().uuid().nullable().optional(),
       title: z.string().min(1).max(500),
       description: z.string().nullable().optional(),
       status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
@@ -83,15 +84,19 @@ export const mirrorPayloadSchema = z.object({
       dedup_id: z.string().optional(),
     })
     .optional(),
+}).superRefine((value, ctx) => {
+  if (!value.company && (!value.task || value.opportunity || value.note)) {
+    ctx.addIssue({ code: 'custom', path: ['company'], message: 'company is required unless this is a task-only mirror' })
+  }
 })
 
 export type MirrorPayload = z.infer<typeof mirrorPayloadSchema>
-type Company = MirrorPayload['company']
+type Company = NonNullable<MirrorPayload['company']>
 
 export interface MirrorInput {
   source: string
   pipelineName: string
-  company: Company
+  company?: Company
   opportunity?: NonNullable<MirrorPayload['opportunity']>
   task?: NonNullable<MirrorPayload['task']>
   note?: NonNullable<MirrorPayload['note']>
@@ -115,13 +120,10 @@ async function upsertTask(
   accountId: string | null,
   occurredAt: string,
 ): Promise<string | null> {
-  const { data: existing } = await supabase
-    .from('tasks')
-    .select('id, external_updated_at')
-    .eq('org_id', orgId)
-    .eq('external_source', source)
-    .eq('external_id', task.external_id)
-    .maybeSingle()
+  const existingQuery = supabase.from('tasks').select('id, external_updated_at').eq('org_id', orgId)
+  const { data: existing } = task.xphere_id
+    ? await existingQuery.eq('id', task.xphere_id).maybeSingle()
+    : await existingQuery.eq('external_source', source).eq('external_id', task.external_id).maybeSingle()
 
   if (existing?.external_updated_at && new Date(existing.external_updated_at) >= new Date(occurredAt)) {
     return existing.id
@@ -132,10 +134,8 @@ async function upsertTask(
     due_date: task.due_at ?? null,
     priority: task.priority,
     status: task.status === 'completed' ? 'done' : task.status === 'pending' ? 'todo' : task.status,
-    entity_type: accountId ? 'account' : null,
-    entity_id: accountId,
-    external_source: source,
-    external_id: task.external_id,
+    ...(accountId ? { entity_type: 'account', entity_id: accountId } : {}),
+    ...(task.xphere_id ? {} : { external_source: source, external_id: task.external_id }),
     external_updated_at: occurredAt,
   }
   if (existing) {
@@ -143,7 +143,11 @@ async function upsertTask(
     if (error) console.error('[crm-mirror] task update error:', error)
     return error ? null : existing.id
   }
-  const { data, error } = await supabase.from('tasks').insert({ ...fields, org_id: orgId }).select('id').single()
+  const { data, error } = await supabase.from('tasks').insert({
+    ...fields,
+    org_id: orgId,
+    ...(task.xphere_id ? { id: task.xphere_id } : {}),
+  }).select('id').single()
   if (error || !data) {
     console.error('[crm-mirror] task insert error:', error)
     return null
@@ -422,6 +426,11 @@ export async function runCrmMirror(
   input: MirrorInput,
 ): Promise<MirrorResult> {
   const { source, pipelineName, company, opportunity, task, note, occurredAt } = input
+  if (!company) {
+    if (!task || opportunity || note) throw new Error('company is required unless this is a task-only mirror')
+    const taskId = await upsertTask(supabase, orgId, source, task, null, occurredAt)
+    return { account_id: null, contact_id: null, opportunity_id: null, task_id: taskId }
+  }
   const companyId = String(company.id)
 
   // 1. Account (the ordering anchor for last-write-wins)
