@@ -10,7 +10,7 @@ export default defineConfig({
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     // Production/credential probes are opt-in via vitest.manual.config.ts.
     // `npm test` must never call live providers or mutate production data.
-    exclude: ['tests/manual/**'],
+    exclude: ['tests/manual/**', 'tests/e2e/**'],
     setupFiles: ['tests/setup/load-env.ts'],
     reporters: ['verbose'],
     testTimeout: 30000,

@@ -91,6 +91,17 @@ See [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/crypto.ts).
 - add a new numbered migration for schema changes
 - if schema changes affect TypeScript types, update [`src/types/database.ts`](/c:/Users/Vanildo/Dev/xphere/src/types/database.ts)
 
+### 7. Protect behavior with automated tests
+
+- Every production bug fix must include a regression test that reproduces the bug and passes with the fix. Keep that test permanently so the same bug cannot return unnoticed.
+- Every new or changed business rule must include automated tests for the expected behavior and relevant edge cases. Treat these tests as executable documentation of the rule.
+- Derive expected results from the product requirement, rule, or specification rather than copying the current implementation into the test.
+- Never delete, skip, loosen, or rewrite a valid test merely to make an implementation pass. When behavior intentionally changes, update the source of truth first and change the implementation and its tests together.
+- Prefer the smallest deterministic test that proves the behavior. Construct the required state directly instead of replaying a long user journey just to reach it.
+- Use unit tests for isolated rules, integration tests for boundaries between modules or services, and a smaller set of E2E tests for critical user journeys and browser behavior. Do not replace focused tests with expensive full-flow simulations.
+- During development, run the narrowest affected tests for fast feedback. Before finishing a non-trivial change, run the relevant suite and the proportional verification described below. Before a release, run the complete automated suite.
+- If the repository lacks the infrastructure needed for the appropriate test, add the smallest suitable test harness when that is within scope. Otherwise, document the missing coverage and residual risk explicitly; do not imply the change is fully protected.
+
 ## Working Style Expectations
 
 - Prefer small, surgical changes over broad refactors unless the task truly needs one.
@@ -123,14 +134,17 @@ When a code change materially alters product behavior, architecture, or mileston
 
 ## Verification
 
+The testing profiles and their environment requirements are documented in [`docs/testing.md`](/docs/testing.md).
+
 Preferred checks:
 
 ```bash
+npm run test:battery
 npm run build
 npx vitest
 ```
 
-Use narrower test selection when the change is localized, but favor `npm run build` before finishing any non-trivial task.
+Use narrower test selection while iterating on a localized change. Before finishing a non-trivial task, run the relevant test suite and `npm run test:battery`. Before publishing a release, run `npm run test:battery:release`; use `npm run test:battery:full` for a repository-wide audit and investigate every failure. Documentation-only changes do not require the application test suite, but must still be reviewed for consistency and broken instructions.
 
 ## Workflows (Unified System — SEED-025)
 

@@ -12,6 +12,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
+vi.mock('@/lib/redis', () => ({
+  default: { isReady: false, on: vi.fn(), connect: vi.fn() },
+}))
+
 vi.mock('@/lib/calendar/transition', () => ({
   confirmBooking: vi.fn(),
   cancelBooking: vi.fn(),

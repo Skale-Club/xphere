@@ -58,14 +58,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Deterministic release tests and workflow validation
+      - name: Deterministic critical tests and workflow validation
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npm run release-gate
-
-      - name: TEST-03 latency profile
-        run: npx vitest run tests/vapi-latency-profile.test.ts
+        run: npm run test:battery
 
   build-and-deploy:
     needs: release-gate

@@ -315,7 +315,14 @@ describe('ACTN-12: logToolRun writes workflow_runs (kind=tool) and swallows erro
 // ---- ACTN-09 + ACTN-10: Vapi tools webhook route ----
 
 describe('POST /api/vapi/tools — webhook route', () => {
-  beforeEach(() => vi.resetModules())
+  beforeEach(() => {
+    vi.resetModules()
+    // Webhook-secret behavior has dedicated contract coverage. These route
+    // dispatch tests must not depend on whichever secret is in .env.local.
+    vi.doMock('@/lib/vapi/verify-signature', () => ({
+      verifyVapiSecret: vi.fn(() => true),
+    }))
+  })
 
   // Tool resolution goes workflows → workflow_versions → integrations (SEED-025),
   // using the canned workflowRow/versionRow/integrationRow fixtures above.

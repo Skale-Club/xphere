@@ -67,6 +67,7 @@ vi.mock('@/lib/action-engine/execute-action', () => ({
 }))
 
 import * as routeModule from '@/app/api/vapi/tools/route'
+import { clearMemo } from '@/lib/cache/ttl-memo'
 const { POST } = routeModule
 
 const SIDE_EFFECTING_TOOL_CONFIG = {
@@ -102,6 +103,7 @@ function validPayload(toolCalls: Array<{ id: string; name: string; arguments?: R
 
 beforeEach(() => {
   vi.clearAllMocks()
+  clearMemo()
   pendingAfterCallbacks.length = 0
   verifyVapiSecretMock.mockReturnValue(true)
   resolveOrgForCallMock.mockResolvedValue({ organizationId: 'org-1' })

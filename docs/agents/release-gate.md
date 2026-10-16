@@ -1,11 +1,10 @@
 # Release Gate (TEST-04)
 
-Status: the gate is wired into CI as `.github/workflows/release-gate.yml`
-(Phase 135 Plan 03). It runs `npm run release-gate` (`scripts/release-gate.ts`,
-Phase 135 Plan 01) plus the TEST-03 latency profile
-(`tests/vapi-latency-profile.test.ts`, Phase 135 Plan 02) plus
-`npm run workflows:validate`, and it blocks: any failure fails the job, which
-fails the check on the pull request or commit.
+Status: the gate is wired into CI as `.github/workflows/release-gate.yml` and
+as the first job in `.github/workflows/build-deploy.yml`. Both run
+`npm run test:battery`, which executes the original Phase 135 gate members,
+additional critical platform contracts, the TEST-03 latency profile, and
+workflow validation. Any failure blocks the pull request, commit, or deploy.
 
 Read this document before changing `.github/workflows/release-gate.yml` or
 `scripts/release-gate.ts` — most of what looks like a gap below is a
@@ -13,41 +12,38 @@ deliberate, documented exclusion, not an oversight.
 
 ## Why this exists
 
-`.github/workflows/` had fifteen workflows before this one and none of them
-ran the test suite. `build-deploy.yml` goes straight from Docker build to
-Coolify rollout. TEST-04 requires "build, focused suites, workflow
-validation, and UAT checklist pass before enabling [specialist routing]" —
-before this phase that was entirely manual and unenforced. This gate is the
-enforcement point for the "focused suites" and "workflow validation" parts.
-The UAT checklist (`docs/agents/uat-checklist.md`) covers the human-executed
-part; Phase 136 owns actually enabling routing.
+The original Phase 135 gate protected the omnichannel orchestration path with
+a small deterministic subset. The repository-wide battery keeps that subset
+intact and adds contracts for the Action Engine, Vapi HTTP behavior and
+latency, workflow execution, auth and encryption, the public contact API, and
+representative business rules. The goal is a broad gate that stays fast and
+deterministic enough to run on every relevant change.
 
 ## What runs, and where
 
 | Trigger | Condition |
 |---|---|
 | `pull_request` | every PR, unconditionally |
-| `push` to `main` or `dev` | only when the diff touches an orchestration-relevant path (see the `paths:` list in the workflow file) |
+| `push` to `main` or `dev` | when the diff touches source, tests, test infrastructure, or workflow definitions |
 
 Every run does, in order:
 
 1. `npm ci`
-2. `npm run release-gate` — this is `scripts/release-gate.ts`:
-   - runs the `GATE_MEMBERS` test subset (below) via `vitest run`
+2. `npm run test:battery` — this is `scripts/test-battery.ts`:
+   - verifies that every declared member file exists
+   - runs the explicit critical battery via Vitest
+   - includes every `GATE_MEMBERS` test from `scripts/release-gate.ts`
+   - includes the TEST-03 Vapi latency profile
    - runs `npm run workflows:validate`
-   - exits non-zero if any declared member file is missing on disk, any of
-     the seven TEST-02 areas has zero members, any test in the subset fails,
-     or workflow validation fails
-3. `npx vitest run tests/vapi-latency-profile.test.ts` — the TEST-03 p95
-   check, run as its own step (see "Why the latency test is a separate step"
-   below)
+   - exits non-zero if any check fails
 
 Any non-zero exit in any step fails the job. Nothing in this workflow
 "reports and continues."
 
-## The deterministic subset (`GATE_MEMBERS`)
+## The original orchestration subset (`GATE_MEMBERS`)
 
-Declared as data in `scripts/release-gate.ts`, not inferred by glob.
+Declared as data in `scripts/release-gate.ts`, not inferred by glob, and
+imported into the broader manifest in `scripts/test-battery.ts`.
 `tests/release-gate.test.ts` asserts the declaration is honest: every member
 file exists on disk, every one of the seven TEST-02 areas maps to at least
 one member, and the subset stays small (bounded at fewer than 20 files) so
@@ -83,17 +79,14 @@ not need a live DB.
 
 ## What this gate deliberately does NOT run
 
-### The ~30-file live-database baseline
+### The environment-dependent full-suite baseline
 
-The full `tests/` suite fails 30-32 files / 52-53 tests at `HEAD` for
-reasons unrelated to this workstream: live-database dependencies that assume
-state this CI environment does not have, and module-resolution gaps.
-Membership of that baseline shifts slightly between runs. `npm test` /
-`npm run test:watch` is **not** part of this gate and never will be run
-wholesale — a gate over the full suite would be permanently red and
-therefore ignored, which is worse than a smaller gate people trust. If a
-newcomer file fails, check it in isolation before assuming it belongs to the
-pre-existing baseline.
+`npm run test:battery:full` runs every automatic Vitest suite, but historical
+files include live-database and environment assumptions unavailable in a
+normal CI runner. The blocking gate therefore uses the explicit critical
+manifest rather than hiding failures behind exclusions or accepting a
+permanently red full-suite job. Use the full profile for audits and investigate
+every failure.
 
 ### `tests/security-secdef-isolation.test.ts` — now a member (was excluded)
 
@@ -148,38 +141,32 @@ Not a step in this workflow, on purpose:
 If a future gate genuinely needs build-time verification, prefer
 `tsc --noEmit` (fast, no bundling) over duplicating the full `next build`.
 
-## Why the latency test is a separate step, not a `GATE_MEMBERS` entry
+## Why the latency test is outside `GATE_MEMBERS`
 
 `tests/vapi-latency-profile.test.ts` asserts a TEST-03 p95 target against a
 documented, mocked-boundary profile (`docs/agents/latency-profile.md`), not
-one of the seven named TEST-02 areas. `GATE_MEMBERS` in
-`scripts/release-gate.ts` is scoped specifically to TEST-02 coverage plus
-the cross-cutting `coverage-pins` guard — folding a differently-shaped
-latency assertion into that list would blur what
-`tests/release-gate.test.ts`'s area-coverage check is actually proving. It
-is still run, in the same job, and still blocks: a failure here fails the
-workflow exactly like a `GATE_MEMBERS` failure would.
+one of the seven TEST-02 areas. It therefore remains outside `GATE_MEMBERS`
+but is a declared member of the broader battery. It runs in the same Vitest
+invocation and blocks the workflow like every other battery member.
 
-## How to add a suite to the gate
+## How to add a suite to the battery
 
 1. Write the test file under `tests/`.
-2. Add a `GateMember` entry to `GATE_MEMBERS` in `scripts/release-gate.ts`
-   with the `file` path and the `TEST02_AREAS` (or `[]` if cross-cutting)
-   it proves.
-3. Run `npx vitest run tests/release-gate.test.ts` — it will fail if the
-   file doesn't exist, if an area name has a typo, or if the subset grows
-   past the sanity bound (20 files); if you hit that bound deliberately,
-   raise it there and say why in the commit.
-4. Run `npm run release-gate` locally to confirm it still passes end to end.
-5. No workflow-file change is required unless the new suite needs a secret
-   or environment variable the current job does not already forward — in
-   that case, add it explicitly and document the degrade-if-missing behavior
-   the way `SUPABASE_DB_URL`/`DATABASE_URL` are documented above.
+2. Add it to the appropriate group in `BATTERY_GROUPS` in
+   `scripts/test-battery.ts` when it protects a critical platform contract.
+3. If it proves one of the original TEST-02 orchestration areas, also add a
+   `GateMember` entry to `GATE_MEMBERS` in `scripts/release-gate.ts`.
+4. Run `npx vitest run tests/test-battery.test.ts` to verify the manifest.
+5. Run `npm run test:battery` to confirm the full critical battery.
+6. Do not add live provider calls or destructive probes. Those belong under
+   `tests/manual` with explicit prerequisites and side effects.
 
 ## Local verification
 
 ```bash
-npm run release-gate                              # gate subset + workflows:validate
-npx vitest run tests/vapi-latency-profile.test.ts  # TEST-03 latency, run separately in CI too
-npx vitest run tests/release-gate.test.ts          # proves GATE_MEMBERS itself is honest
+npm run test:battery                    # blocking critical battery + workflows
+npm run test:battery:list               # inspect manifest membership
+npm run test:battery:full               # repository-wide automatic audit
+npm run test:battery:release            # critical battery + production build
+npx vitest run tests/test-battery.test.ts # proves the manifest is honest
 ```

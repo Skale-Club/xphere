@@ -2,13 +2,11 @@
 // scripts/release-gate.ts
 // Phase 135 Plan 01 (TEST-02/TEST-04): the release gate.
 //
-// `.github/workflows/` has fifteen workflows and none of them run the test
-// suite -- build-deploy.yml goes straight from build to deploy. This script
-// is the enforcement point TEST-04 requires: a named, deterministic subset
-// of tests (never the full suite -- ~30 files fail for pre-existing
-// live-database and module-resolution reasons, so a gate over everything
-// would be permanently red and therefore ignored) plus `npm run
-// workflows:validate`, run together and exiting non-zero on any failure.
+// This was the first CI enforcement point for TEST-04: a named,
+// deterministic orchestration subset plus workflow validation. CI now runs
+// the broader scripts/test-battery.ts profile, which imports the membership
+// below and adds other critical platform contracts. Keep this narrow CLI for
+// focused orchestration checks and backwards-compatible local use.
 //
 // GATE_MEMBERS below is the explicit membership list. It is DATA, not a
 // glob: removing a suite from this array is a visible diff, and
@@ -17,9 +15,9 @@
 // deleting a suite fails the gate/test rather than silently shrinking
 // coverage.
 //
-// This module is safe to `import` from a test file (see
-// tests/release-gate.test.ts) -- the CLI entrypoint below only executes
-// when this file is run directly, not when its data/helpers are imported.
+// This module is safe to import from tests and from scripts/test-battery.ts.
+// The broader battery reuses GATE_MEMBERS as its original orchestration and
+// tenant-safety core; this CLI remains available as the narrower legacy gate.
 
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'

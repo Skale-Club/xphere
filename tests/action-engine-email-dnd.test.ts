@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('@/lib/redis', () => ({
+  default: { isReady: false, on: vi.fn(), connect: vi.fn() },
+}))
+
 vi.mock('@/lib/dnd', () => ({
   checkDnd: vi.fn(),
   dndBlockedMessage: vi.fn(() => 'Message blocked — DND active for Email'),

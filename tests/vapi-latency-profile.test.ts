@@ -24,6 +24,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
+vi.mock('@/lib/redis', () => ({
+  default: { isReady: false, on: vi.fn(), connect: vi.fn() },
+}))
+
 // ---------------------------------------------------------------------------
 // Injected latency figures — MUST match docs/agents/latency-profile.md
 // exactly. These are not tuned to make the assertion pass; they are the
