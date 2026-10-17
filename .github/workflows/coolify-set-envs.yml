@@ -98,6 +98,10 @@ jobs:
           upsert NEVERBOUNCE_API_KEY                  "${NEVERBOUNCE_API_KEY}"
           upsert TELEGRAM_BOT_TOKEN                   "${TELEGRAM_BOT_TOKEN}"
           upsert TELEGRAM_ALERT_CHAT_ID               "${TELEGRAM_ALERT_CHAT_ID}"
+          # Owner decision 2026-10-17: email verification runs on its own,
+          # capped at PROSPECTING_AUTO_VERIFY_MAX_PER_DAY (default 100/day).
+          # Not a secret, so it lives here rather than in GitHub Secrets.
+          upsert PROSPECTING_AUTO_VERIFY              "1"
 
           # Local SEO values are optional until the provider and Maps key are
           # provisioned. Do not overwrite an existing production value with an

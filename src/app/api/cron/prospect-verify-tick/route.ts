@@ -90,6 +90,7 @@ import {
 } from '@/lib/mcp/tools/prospects'
 import { captureApiError } from '@/lib/api-error'
 import { createLogger } from '@/lib/obs/logger'
+import { alreadyAlerted, deliverAlert, recordAlert } from '@/lib/obs/alerts'
 
 const CRON_SECRET = process.env.CRON_SECRET
 
@@ -127,6 +128,50 @@ function todayStartUtcIso(now: Date = new Date()): string {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db(): any {
   return createServiceRoleClient()
+}
+
+// Credits running dry must reach a human, not just the logs and Sentry: the
+// owner's rule is that scraping keeps going regardless and he gets told the
+// verification side has stopped. One Telegram alert per UTC day (dedupe via
+// obs_alert_log), because this tick fires every 30 minutes and an alert per
+// tick would be noise. Never throws — a failed alert must not fail the tick.
+const NO_CREDITS_ALERT_WINDOW_MINUTES = 24 * 60
+
+async function alertNoCredits(
+  creditStatus: VerificationCreditStatus | null,
+  log: ReturnType<typeof createLogger>,
+): Promise<void> {
+  try {
+    const supabase = createServiceRoleClient()
+    const key = `verifycredits:exhausted:${todayStartUtcIso().slice(0, 10)}`
+    if (await alreadyAlerted(supabase, key, NO_CREDITS_ALERT_WINDOW_MINUTES)) return
+    const pending = await countPendingWithEmail()
+    const delivered = await deliverAlert({
+      key,
+      title: 'Verificação de e-mail ESGOTOU — o scrape continua, a verificação parou',
+      severity: 'critical',
+      fields: {
+        MillionVerifier: creditStatus?.millionverifier.credits ?? 'desconhecido',
+        NeverBounce: creditStatus?.neverbounce.credits ?? 'desconhecido',
+        'Prospects com e-mail esperando': pending,
+        'O que fazer': 'Recarregar millionverifier.com — o tick retoma sozinho em até 30 min',
+      },
+    })
+    if (delivered) await recordAlert(supabase, key)
+  } catch (err) {
+    log.warn('prospect_verify_tick_no_credits_alert_failed', { error: err })
+  }
+}
+
+async function countPendingWithEmail(): Promise<number | string> {
+  const [contacts, accounts] = await Promise.all([
+    db().from('contacts').select('id', { count: 'exact', head: true })
+      .eq('lifecycle_stage', 'prospect').is('email_status', null).not('email', 'is', null),
+    db().from('accounts').select('id', { count: 'exact', head: true })
+      .eq('lifecycle_stage', 'prospect').is('email_status', null).not('custom_fields->>email', 'is', null),
+  ])
+  if (contacts.error || accounts.error) return 'desconhecido'
+  return (contacts.count ?? 0) + (accounts.count ?? 0)
 }
 
 /**
@@ -379,6 +424,7 @@ export async function GET(request: Request): Promise<Response> {
     // exists (automated spend) has run dry.
     log.error('prospect_verify_tick_no_credits', { creditStatus })
     captureApiError(new Error('prospect_verify_tick: no verification credits available'), { creditStatus })
+    await alertNoCredits(creditStatus, log)
     return Response.json({
       ok: true,
       enabled: true,
@@ -537,6 +583,10 @@ export async function GET(request: Request): Promise<Response> {
       log.error('prospect_verify_tick_no_credits_mid_run', { externalRunId: group.externalRunId, blocked: batch.aggregate.blocked })
       captureApiError(new Error('prospect_verify_tick: ran out of verification credits mid-run'), { externalRunId: group.externalRunId })
     }
+  }
+
+  if (stoppedReason === 'no_credits') {
+    await alertNoCredits(await getVerificationCreditStatus().catch(() => null), log)
   }
 
   log.info('prospect_verify_tick_complete', {

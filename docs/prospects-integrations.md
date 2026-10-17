@@ -91,8 +91,11 @@ never checked). This cron closes that gap by reusing the exact same engine
 (`xmailNotifyVerificationComplete`) `prospects_verify` uses — it does not
 reimplement verification, only the discovery/grouping around it.
 
-- **Off by default.** No-ops (no query, no provider call) unless
-  `PROSPECTING_AUTO_VERIFY=1` is set.
+- **Off by default in code, ON in production since 2026-10-17.** No-ops (no
+  query, no provider call) unless `PROSPECTING_AUTO_VERIFY=1` is set; production
+  sets it through `coolify-set-envs.yml`, and the `skale-cron` crontab fires the
+  tick every 30 minutes. Before that date the flag was never set and the tick was
+  never scheduled, so nothing had been verified since a manual batch on 2026-10-08.
 - **Daily spend cap**: `PROSPECTING_AUTO_VERIFY_MAX_PER_DAY` (default 100 —
   see the route file's header for the measured volume/cost this is sized
   against). Counted against ALL of today's `email_verified_at` stamps, not
@@ -102,7 +105,11 @@ reimplement verification, only the discovery/grouping around it.
 - **No credits**: stops before spending anything and reports
   `stopped_reason: 'no_credits'` loudly (error log + captured exception) —
   same "never guess a status" posture as `verifyEmail()` above. Also stops
-  mid-tick if a batch comes back partially blocked.
+  mid-tick if a batch comes back partially blocked. Either way it sends one
+  Telegram alert per UTC day (`verifycredits:exhausted:<date>`, deduped in
+  `obs_alert_log`) with both balances and the pending count. Scraping is not
+  gated on these credits: Xcraper keeps pushing prospects, they wait unverified,
+  and the tick picks them up again on its own after a top-up.
 - Discovers never-verified prospects (`email_status IS NULL`) across every
   org that have a linked `prospect_sources.external_run_id` (same
   `prospect_source_id` indirection `prospects_verify` and
