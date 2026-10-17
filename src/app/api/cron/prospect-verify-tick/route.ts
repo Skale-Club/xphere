@@ -168,7 +168,7 @@ async function countPendingWithEmail(): Promise<number | string> {
     db().from('contacts').select('id', { count: 'exact', head: true })
       .eq('lifecycle_stage', 'prospect').is('email_status', null).not('email', 'is', null),
     db().from('accounts').select('id', { count: 'exact', head: true })
-      .eq('lifecycle_stage', 'prospect').is('email_status', null).not('custom_fields->>email', 'is', null),
+      .eq('lifecycle_stage', 'prospect').is('email_status', null).like('custom_fields->>email', '%@%'),
   ])
   if (contacts.error || accounts.error) return 'desconhecido'
   return (contacts.count ?? 0) + (accounts.count ?? 0)
@@ -231,6 +231,11 @@ async function loadCandidates(limit: number): Promise<Candidate[]> {
       .select('id, org_id, custom_fields, created_at, prospect_source_id')
       .eq('lifecycle_stage', 'prospect')
       .is('email_status', null)
+      // The email filter has to run in SQL, before the limit. Without it the
+      // oldest emailless accounts (never verifiable, so email_status stays
+      // NULL forever) filled the whole window on every tick and the ones with
+      // an email starved: 2026-10-17 found 2 candidates while 112 waited.
+      .like('custom_fields->>email', '%@%')
       .not('prospect_source_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(limit),
@@ -286,6 +291,7 @@ async function countUnlinkable(): Promise<number> {
       .select('id', { count: 'exact', head: true })
       .eq('lifecycle_stage', 'prospect')
       .is('email_status', null)
+      .like('custom_fields->>email', '%@%')
       .is('prospect_source_id', null),
   ])
   return (contacts.count ?? 0) + (accounts.count ?? 0)
