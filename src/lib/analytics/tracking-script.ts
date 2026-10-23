@@ -21,6 +21,7 @@ function sc(n,v,d){var e=new Date();e.setTime(e.getTime()+d*864e5);document.cook
 function utms(){var p=new URLSearchParams(location.search);return{utm_source:p.get('utm_source')||undefined,utm_medium:p.get('utm_medium')||undefined,utm_campaign:p.get('utm_campaign')||undefined,utm_term:p.get('utm_term')||undefined,utm_content:p.get('utm_content')||undefined}}
 function fb(){var p=new URLSearchParams(location.search);var cl=p.get('fbclid')||undefined;var c=gc('_fbc');if(!c&&cl){c='fb.1.'+Date.now()+'.'+cl;sc('_fbc',c,90)}return{fbclid:cl,fbc:c||undefined,fbp:gc('_fbp')||undefined}}
 function device(){var ua=navigator.userAgent;var dt=(/Tablet|iPad/i.test(ua)?'tablet':(/Mobi|Android|iPhone|iPod/i.test(ua)?'mobile':'desktop'));var br=(ua.indexOf('Edg/')>=0?'Edge':ua.indexOf('OPR/')>=0?'Opera':ua.indexOf('Firefox/')>=0?'Firefox':ua.indexOf('Chrome/')>=0?'Chrome':ua.indexOf('Safari/')>=0?'Safari':'Other');var os=(/Windows/i.test(ua)?'Windows':/Mac OS/i.test(ua)?'macOS':/Android/i.test(ua)?'Android':(/iPhone|iPad|iPod/i.test(ua)?'iOS':/Linux/i.test(ua)?'Linux':'Other'));return{device_type:dt,browser:br,os:os}}
+function net(){var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;var s=window.screen||{};return{connection_type:(c&&c.effectiveType)||undefined,screen_width:s.width||undefined,screen_height:s.height||undefined}}
 function send(p){var d=Object.assign({token:T},p);(navigator.sendBeacon?function(){navigator.sendBeacon(U,JSON.stringify(d))}:function(){fetch(U,{method:'POST',body:JSON.stringify(d),keepalive:true,headers:{'Content-Type':'application/json'}}).catch(function(){})})()}
 ${CLICK_ID_SCRIPT}
 ${pixelInit}
@@ -29,7 +30,7 @@ var vid=gc('_xvid')||uuid();sc('_xvid',vid,365);
 window.xpVisitorId=function(){return vid};
 var sid=sessionStorage.getItem('_xvsid')||uuid();sessionStorage.setItem('_xvsid',sid);
 var isNew=!sessionStorage.getItem('_xvss');
-if(isNew){sessionStorage.setItem('_xvss','1');var u=utms();var dv=device();var f=fb();var g=collectClickIds();send(Object.assign({type:'session_start',visitor_id:vid,session_key:sid,url:location.href,referrer:document.referrer||undefined},u,dv,f,g));}
+if(isNew){sessionStorage.setItem('_xvss','1');var u=utms();var dv=device();var f=fb();var g=collectClickIds();send(Object.assign({type:'session_start',visitor_id:vid,session_key:sid,url:location.href,referrer:document.referrer||undefined},u,dv,f,g,net()));}
 function pv(){send({type:'pageview',visitor_id:vid,session_key:sid,url:location.href,path:location.pathname,title:document.title,referrer:document.referrer||undefined})}
 pv();
 var _ps=history.pushState;history.pushState=function(){_ps.apply(history,arguments);setTimeout(pv,100)};
@@ -38,6 +39,6 @@ document.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)
 document.addEventListener('submit',function(e){var eid=uuid();var f=fb();send({type:'event',visitor_id:vid,session_key:sid,event_type:'form_submit',url:location.href,metadata:Object.assign({action:e.target.action||'',event_id:eid},f)});fbqTrack('Lead',{},eid)});
 window.addEventListener('beforeunload',function(){var t=sessionStorage.getItem('_xvt');var dur=t?Math.round((Date.now()-Number(t))/1000):undefined;send({type:'session_end',visitor_id:vid,session_key:sid,url:location.href,duration_seconds:dur})});
 sessionStorage.setItem('_xvt',String(Date.now()));
-window.xpTrack=function(et,meta){var eid=uuid();var m=Object.assign({event_id:eid},meta||{});send({type:'event',visitor_id:vid,session_key:sid,event_type:et||'custom_conversion',url:location.href,metadata:m});fbqTrack((et==='purchase'?'Purchase':(et==='lead'?'Lead':(et||'CustomConversion'))),meta||{},eid)};
+window.xpTrack=function(et,meta){var eid=uuid();var m=Object.assign({event_id:eid},meta||{});var game=(et==='game');var p={type:'event',visitor_id:vid,session_key:sid,event_type:et||'custom_conversion',url:location.href,metadata:m};if(game){if(typeof m.event_name==='string')p.event_name=m.event_name;delete m.event_name}send(p);if(game)return;fbqTrack((et==='purchase'?'Purchase':(et==='lead'?'Lead':(et||'CustomConversion'))),meta||{},eid)};
 })();`
 }
