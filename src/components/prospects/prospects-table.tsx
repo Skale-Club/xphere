@@ -409,7 +409,7 @@ export function ProspectsTable({
             variant="ghost"
             className="h-7"
             disabled={busy || !xpotEnabled}
-            title={xpotEnabled ? 'Send to Xpot for a field visit' : 'Configure Xpot to enable field visits'}
+            title={xpotEnabled ? 'Send to Xpot for a field visit' : 'Connect Xpot in Settings → Integrations to enable field visits'}
             onClick={() => runBulk('Sent to Xpot', () => sendToXpot(selectedRefs))}
           >
             Send to Xpot

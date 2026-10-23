@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { xpotSendTask, type XpotTaskMutation } from './client'
+import { xpotSendTask, type XpotCredentials, type XpotTaskMutation } from './client'
+import { getXpotCredentialsForOrg } from './credentials'
 
 // Service-role compatible structural type. Keeping the worker independent of
 // one Supabase client flavor lets the cron and tests use the same implementation.
@@ -9,6 +10,7 @@ type Db = any
 
 type OutboxRow = {
   id: number
+  org_id: string
   task_id: string | null
   operation: 'upsert' | 'delete'
   payload: Record<string, unknown>
@@ -47,8 +49,16 @@ export async function drainXpotTaskSync(db: Db, limit = 25) {
   let synced = 0
   let retried = 0
   let failed = 0
+  // One credentials lookup per org per drain. The trigger only queues tasks of
+  // orgs with an active Xpot integration, so a missing connection here means it
+  // was switched off after queueing: nothing to deliver to, not worth a retry.
+  const credsByOrg = new Map<string, XpotCredentials | null>()
   for (const row of rows) {
-    const result = await xpotSendTask(mutationForOutbox(row))
+    if (!credsByOrg.has(row.org_id)) credsByOrg.set(row.org_id, await getXpotCredentialsForOrg(row.org_id, db))
+    const creds = credsByOrg.get(row.org_id)
+    const result = creds
+      ? await xpotSendTask(creds, mutationForOutbox(row))
+      : { ok: false as const, error: 'Xpot is not connected for this org.', retryable: false }
     if (result.ok) {
       await db.from('xpot_task_sync_outbox').update({
         status: 'synced', processed_at: new Date().toISOString(), last_error: null,

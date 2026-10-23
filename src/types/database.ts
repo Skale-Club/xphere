@@ -1264,7 +1264,7 @@ export interface Database {
         Row: {
           id: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo' | 'xpot'
           name: string
           encrypted_api_key: string
           key_hint: string | null
@@ -1282,7 +1282,7 @@ export interface Database {
         Insert: {
           id?: string
           organization_id: string
-          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo'
+          provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo' | 'xpot'
           name: string
           encrypted_api_key: string
           key_hint?: string | null
@@ -11042,7 +11042,7 @@ export interface Database {
     Enums: {
       user_role: UserRole
       action_type: 'send_email' | 'create_contact' | 'get_availability' | 'create_appointment' | 'send_sms' | 'knowledge_base' | 'custom_webhook' | 'manychat_set_field' | 'manychat_add_tag' | 'manychat_trigger_flow' | 'manychat_send_message' | 'google_contacts_create' | 'google_contacts_update' | 'google_contacts_find' | 'google_contacts_delete' | 'send_whatsapp_message' | 'send_whatsapp_mention_all' | 'send_whatsapp_template' | 'send_telegram_notification' | 'campaign_enroll_call' | 'calendar_list_slots' | 'calendar_book_meeting' | 'pipeline_move_opportunity' | 'pipeline_update_opportunity' | 'pipeline_mark_won' | 'pipeline_mark_lost' | 'pipeline_add_note' | 'pipeline_assign_user' | 'pipeline_create_opportunity' | 'create_task' | 'create_note' | 'send_tenant_email' | 'send_platform_email' | 'xkedule_get_services' | 'xkedule_check_availability' | 'xkedule_create_booking' | 'xkedule_cancel_booking' | 'xkedule_reschedule_booking' | 'xkedule_quote' | 'xkedule_lookup_customer' | 'xkedule_business_info' | 'send_zernio_dm' | 'medusa_search_products' | 'medusa_get_product' | 'medusa_get_cart' | 'medusa_add_to_cart' | 'medusa_update_cart_item' | 'medusa_wishlist_add' | 'medusa_wishlist_remove' | 'medusa_wishlist_list' | 'medusa_get_order_status'
-      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo'
+      integration_provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo' | 'xpot'
       // v2.0 (Phase 33) | agent runtime enums (migrations 034, 037)
       agent_channel: AgentChannel
       agent_invocation_status: AgentInvocationStatus

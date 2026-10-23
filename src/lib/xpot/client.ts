@@ -4,19 +4,17 @@
 // dispatches prospect-stage records to Xpot for a visit; Xpot returns visit
 // outcomes via the webhook receiver at /api/integrations/xpot/visits.
 //
-// Config is environment-driven:
-//   XPOT_API_URL  base URL of the Xpot backend
-//   XPOT_API_KEY  bearer token for the Xpot inbound API
-//   XPOT_WEBHOOK_SECRET  shared secret for verifying inbound visit webhooks
+// Config is per org (Settings → Integrations → Xpot, see ./credentials.ts), so
+// only the tenant that connected Xpot sends it prospects and tasks:
+//   baseUrl  base URL of the Xpot backend
+//   apiKey   the Xpot user's inbound key (xpot_…), sent as the Bearer token
 //
-// Contract: Xpot exposes POST {XPOT_API_URL}/api/xpot/inbound/prospects accepting
+// Contract: Xpot exposes POST {baseUrl}/api/xpot/inbound/prospects accepting
 // { leads: XpotLead[] } and returning { sent }.
 
-const XPOT_API_URL = (process.env.XPOT_API_URL || '').replace(/\/$/, '')
-const XPOT_API_KEY = process.env.XPOT_API_KEY || ''
-
-export function isXpotConfigured(): boolean {
-  return Boolean(XPOT_API_URL && XPOT_API_KEY)
+export interface XpotCredentials {
+  baseUrl: string
+  apiKey: string
 }
 
 export interface XpotLead {
@@ -50,16 +48,15 @@ export type XpotTaskSendResult =
   | { ok: true; action: string; taskId: number | null }
   | { ok: false; error: string; retryable: boolean }
 
-export async function xpotSendLeads(leads: XpotLead[]): Promise<XpotSendResult> {
-  if (!isXpotConfigured()) return { ok: false, error: 'Xpot is not configured.' }
+export async function xpotSendLeads(creds: XpotCredentials, leads: XpotLead[]): Promise<XpotSendResult> {
   if (leads.length === 0) return { ok: true, sent: 0 }
 
   try {
-    const res = await fetch(`${XPOT_API_URL}/api/xpot/inbound/prospects`, {
+    const res = await fetch(`${creds.baseUrl}/api/xpot/inbound/prospects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${XPOT_API_KEY}`,
+        Authorization: `Bearer ${creds.apiKey}`,
       },
       body: JSON.stringify({ leads }),
     })
@@ -74,12 +71,11 @@ export async function xpotSendLeads(leads: XpotLead[]): Promise<XpotSendResult> 
   }
 }
 
-export async function xpotSendTask(input: XpotTaskMutation): Promise<XpotTaskSendResult> {
-  if (!isXpotConfigured()) return { ok: false, error: 'Xpot is not configured.', retryable: true }
+export async function xpotSendTask(creds: XpotCredentials, input: XpotTaskMutation): Promise<XpotTaskSendResult> {
   try {
-    const res = await fetch(`${XPOT_API_URL}/api/xpot/inbound/tasks`, {
+    const res = await fetch(`${creds.baseUrl}/api/xpot/inbound/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${XPOT_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${creds.apiKey}` },
       body: JSON.stringify(input),
       signal: AbortSignal.timeout(10_000),
     })

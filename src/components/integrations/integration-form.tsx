@@ -44,6 +44,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   medusa: 'Medusa',
   google_search_console: 'Google Search Console',
   dataforseo: 'DataForSEO',
+  xpot: 'Xpot',
 }
 
 const integrationSchema = z.object({
