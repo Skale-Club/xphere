@@ -16,6 +16,14 @@ import {
   getPrevRange,
 } from '@/lib/analytics/queries'
 import type { DateRange } from '@/lib/analytics/types'
+import {
+  emptyTenantData,
+  hasGameEvents,
+  loadGameTenantData,
+  parseGameRange,
+  safeTimeZone,
+  type GameTenantData,
+} from '@/lib/analytics/game-panels'
 
 async function getOrgAndClient() {
   const user = await getUser()
@@ -115,4 +123,31 @@ export async function getDashboardData(from: string, to: string) {
     ])
 
   return { metrics, timeSeries, sources, campaigns, topPages, landingPages, geo, devices, recent }
+}
+
+// --- Game tab (BS-ANALYTICS-001) ---------------------------------------------
+// Game events ride the same analytics tables as the traffic data (event_type =
+// 'game'); the tenant is cut by RLS through the authenticated client, exactly like
+// the traffic actions above. These two actions never touch the traffic data.
+
+/** True when the organization has game events in [from, to): decides whether the Game tab is shown. */
+export async function getGameAvailability(from: string, to: string): Promise<boolean> {
+  const { supabase, orgId } = await getOrgAndClient()
+  const range = parseGameRange(from, to)
+  if (!range) return false
+  try {
+    return await hasGameEvents(supabase, orgId, range)
+  } catch {
+    // The traffic dashboard must keep working if the game layer is unavailable
+    // (for example the migration has not been applied yet).
+    return false
+  }
+}
+
+/** Everything the Game tab shows for [from, to). `tz` is the browser's IANA time zone (day buckets). */
+export async function getGameDashboardData(from: string, to: string, tz?: string): Promise<GameTenantData> {
+  const { supabase, orgId } = await getOrgAndClient()
+  const range = parseGameRange(from, to)
+  if (!range) return emptyTenantData()
+  return loadGameTenantData(supabase, orgId, range, safeTimeZone(tz))
 }
