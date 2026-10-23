@@ -37,6 +37,8 @@ interface BrowserOptions {
   connection?: { effectiveType?: string } | null
   screen?: { width: number; height: number }
   search?: string
+  userAgent?: string
+  maxTouchPoints?: number
 }
 
 function runScript(options: BrowserOptions = {}): Browser {
@@ -50,7 +52,9 @@ function runScript(options: BrowserOptions = {}): Browser {
 
   const navigator: Record<string, unknown> = {
     userAgent:
+      options.userAgent ??
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+    maxTouchPoints: options.maxTouchPoints ?? 0,
     sendBeacon: (_url: string, body: string) => {
       sent.push(JSON.parse(body))
       return true
@@ -232,5 +236,32 @@ describe('tracking script: backward compatibility', () => {
   it('exposes window.xpVisitorId and window.xpTrack', () => {
     const browser = runScript()
     expect(typeof browser.xpTrack).toBe('function')
+  })
+})
+
+describe('tracking script: device, browser and OS', () => {
+  const start = (userAgent: string, maxTouchPoints = 0) =>
+    byType(runScript({ userAgent, maxTouchPoints }), 'session_start')[0]
+
+  it('reports iPhones as iOS, not macOS, for Safari, Chrome (CriOS) and in-app browsers', () => {
+    expect(start('Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.2 Mobile/15E148 Safari/604.1'))
+      .toMatchObject({ device_type: 'mobile', browser: 'Safari', os: 'iOS' })
+    expect(start('Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/155.0.8059.37 Mobile/15E148 Safari/604.1'))
+      .toMatchObject({ device_type: 'mobile', browser: 'Chrome', os: 'iOS' })
+    expect(start('Mozilla/5.0 (iPhone; CPU iPhone OS 26_6_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/23G90 Instagram 452.0.1.39.54'))
+      .toMatchObject({ device_type: 'mobile', os: 'iOS' })
+  })
+
+  it('treats an iPad with the desktop user agent as an iOS tablet, and a real Mac as macOS', () => {
+    const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.2 Safari/605.1.15'
+    expect(start(mac, 5)).toMatchObject({ device_type: 'tablet', browser: 'Safari', os: 'iOS' })
+    expect(start(mac, 0)).toMatchObject({ device_type: 'desktop', browser: 'Safari', os: 'macOS' })
+  })
+
+  it('keeps Android and Windows', () => {
+    expect(start('Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36'))
+      .toMatchObject({ device_type: 'mobile', browser: 'Chrome', os: 'Android' })
+    expect(start('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 Edg/124.0'))
+      .toMatchObject({ device_type: 'desktop', browser: 'Edge', os: 'Windows' })
   })
 })

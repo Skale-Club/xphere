@@ -268,7 +268,7 @@ describe('loadGameTenantData', () => {
     expect(calls(rpc, 'game_stats_active_players')[0]).toMatchObject({ p_tz: 'America/Sao_Paulo' })
     expect(calls(rpc, 'game_stats_match_daily')[0]).toMatchObject({ p_tz: 'America/Sao_Paulo' })
     expect(calls(rpc, 'game_stats_screen_funnel')[0]).toMatchObject({
-      p_steps: ['title', 'fighter_select', 'stage_select', 'match', 'post_match'],
+      p_steps: ['menu', 'fighter_select', 'stage_select', 'match', 'post_match'],
     })
     // The tenant never filters by guest or device on its own.
     for (const [, args] of rpc.mock.calls) {

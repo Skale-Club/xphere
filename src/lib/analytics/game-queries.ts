@@ -42,8 +42,9 @@ export type GameGroupBy =
   | 'source'
   | 'country'
 
+// The web game skips the opening title and starts on the menu (Brasil Showdown FlowTelemetry), so the funnel starts there.
 export const GAME_DEFAULT_FUNNEL_STEPS = [
-  'title',
+  'menu',
   'fighter_select',
   'stage_select',
   'match',

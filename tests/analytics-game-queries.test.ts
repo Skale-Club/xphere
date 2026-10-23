@@ -158,7 +158,7 @@ describe('wins, matchups and matches', () => {
 describe('screens and players', () => {
   it('funnel defaults to the five game screens and sends steps as an array', async () => {
     const { client, rpc } = fakeClient([
-      { step_index: 1, screen: 'title', game_sessions: 10, pct_of_previous: null, pct_of_first: '1.0000' },
+      { step_index: 1, screen: 'menu', game_sessions: 10, pct_of_previous: null, pct_of_first: '1.0000' },
       { step_index: 2, screen: 'fighter_select', game_sessions: 6, pct_of_previous: '0.6000', pct_of_first: '0.6000' },
     ])
     const rows = await getGameScreenFunnel(client, filters)
