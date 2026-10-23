@@ -1,6 +1,12 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { IngestPayload } from './types'
 import { extractClickIdFields } from './click-ids'
+import {
+  GAME_EVENT_TYPE,
+  normalizeConnectionType,
+  normalizeScreenDimension,
+  validateGameEvent,
+} from './game-events'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -61,6 +67,10 @@ export async function processIngest(
           device_type: payload.device_type ?? 'unknown',
           browser: payload.browser ?? null,
           os: payload.os ?? null,
+          // Connection and screen context (BS-ANALYTICS-001)
+          connection_type: normalizeConnectionType(payload.connection_type),
+          screen_width: normalizeScreenDimension(payload.screen_width),
+          screen_height: normalizeScreenDimension(payload.screen_height),
           // Meta click signals + client identifiers for CAPI user_data matching
           fbc: payload.fbc ?? null,
           fbp: payload.fbp ?? null,
@@ -154,6 +164,18 @@ export async function processIngest(
   }
 
   if (payload.type === 'event') {
+    let eventName: string | null = payload.event_name ?? null
+    let metadata: Record<string, unknown> = payload.metadata ?? {}
+
+    if (payload.event_type === GAME_EVENT_TYPE) {
+      // Game events need a valid snake_case event_name and a small JSON object;
+      // anything else is dropped (the database CHECK would reject it anyway).
+      const game = validateGameEvent(payload)
+      if (!game) return
+      eventName = game.event_name
+      metadata = game.metadata
+    }
+
     const isConversion = isConversionEvent(payload.event_type)
 
     await supabase.from('analytics_events').insert({
@@ -161,9 +183,9 @@ export async function processIngest(
       session_id: sessionId,
       visitor_id: visitorId,
       event_type: payload.event_type ?? 'custom_conversion',
-      event_name: payload.event_name ?? null,
+      event_name: eventName,
       url: payload.url ?? null,
-      metadata: payload.metadata ?? {},
+      metadata,
       occurred_at: new Date().toISOString(),
     })
 
@@ -189,7 +211,8 @@ export async function processIngest(
   }
 }
 
-function isConversionEvent(type?: string): boolean {
+// Game events ('game') are product telemetry, never conversions.
+export function isConversionEvent(type?: string): boolean {
   return [
     'form_submit', 'call_started', 'chat_started', 'booking_completed',
     'contact_created', 'opportunity_created', 'deal_won',

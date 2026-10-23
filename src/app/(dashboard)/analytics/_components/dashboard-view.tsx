@@ -14,7 +14,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { getDashboardData } from '../actions'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getDashboardData, getGameAvailability } from '../actions'
+import { GameTab } from './game-tab'
 import { SettingsDialog } from './settings-dialog'
 import type {
   AnalyticsMetrics, GeoRow, DeviceRow, RecentSession,
@@ -121,6 +123,10 @@ export function DashboardView({ setup }: Props) {
   const [period, setPeriod] = useState<Period>('30d')
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, startTransition] = useTransition()
+  // Game tab: shown only when the organization has game events in the period.
+  const [gameAvailable, setGameAvailable] = useState(false)
+  const [gameRange, setGameRange] = useState<{ from: string; to: string } | null>(null)
+  const [tab, setTab] = useState<'traffic' | 'game'>('traffic')
   // Deep-link support: /analytics?settings=1 opens the settings modal directly
   // (also where the legacy /settings/traffic route redirects to).
   const [settingsOpen, setSettingsOpen] = useState(() => searchParams.get('settings') === '1')
@@ -128,8 +134,10 @@ export function DashboardView({ setup }: Props) {
   function load(p: Period) {
     const { from, to } = getRangeDates(p)
     startTransition(async () => {
-      const d = await getDashboardData(from, to)
+      const [d, hasGame] = await Promise.all([getDashboardData(from, to), getGameAvailability(from, to)])
       setData(d)
+      setGameRange({ from, to })
+      setGameAvailable(hasGame)
     })
   }
 
@@ -185,6 +193,18 @@ export function DashboardView({ setup }: Props) {
         verifiedAt={setup.verified_at}
       />
 
+      <Tabs
+        value={gameAvailable ? tab : 'traffic'}
+        onValueChange={(v) => setTab(v === 'game' ? 'game' : 'traffic')}
+        className="space-y-6"
+      >
+        {gameAvailable && (
+          <TabsList>
+            <TabsTrigger value="traffic">Traffic</TabsTrigger>
+            <TabsTrigger value="game">Game</TabsTrigger>
+          </TabsList>
+        )}
+        <TabsContent value="traffic" className="mt-0 space-y-6">
       {/* Top metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard icon={Users} label="Visitors" value={m?.visitors ?? 0} prev={m?.prev_visitors ?? 0} />
@@ -304,6 +324,13 @@ export function DashboardView({ setup }: Props) {
           <RecentSessionsTable rows={data?.recent ?? []} />
         </CardContent>
       </Card>
+        </TabsContent>
+        {gameAvailable && gameRange && (
+          <TabsContent value="game" className="mt-0">
+            <GameTab from={gameRange.from} to={gameRange.to} />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }

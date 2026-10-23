@@ -29,6 +29,10 @@ export interface IngestPayload {
   device_type?: 'desktop' | 'mobile' | 'tablet' | 'unknown'
   browser?: string
   os?: string
+  // Session context sent once on session_start (BS-ANALYTICS-001)
+  connection_type?: string
+  screen_width?: number
+  screen_height?: number
   duration_seconds?: number
 }
 

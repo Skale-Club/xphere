@@ -8207,6 +8207,10 @@ export interface Database {
           wbraid: string | null
           client_ip_address: string | null
           client_user_agent: string | null
+          /** Migration 1332: navigator.connection.effectiveType and screen size at session_start */
+          connection_type: string | null
+          screen_width: number | null
+          screen_height: number | null
           created_at: string
           updated_at: string
         }
@@ -8242,6 +8246,9 @@ export interface Database {
           wbraid?: string | null
           client_ip_address?: string | null
           client_user_agent?: string | null
+          connection_type?: string | null
+          screen_width?: number | null
+          screen_height?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -8293,7 +8300,7 @@ export interface Database {
           organization_id: string
           session_id: string | null
           visitor_id: string | null
-          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion'
+          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion' | 'game'
           event_name: string | null
           url: string | null
           metadata: Json
@@ -8307,7 +8314,7 @@ export interface Database {
           organization_id: string
           session_id?: string | null
           visitor_id?: string | null
-          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion'
+          event_type: 'form_submit' | 'phone_click' | 'sms_click' | 'call_started' | 'chat_started' | 'booking_started' | 'booking_completed' | 'contact_created' | 'opportunity_created' | 'deal_won' | 'custom_conversion' | 'game'
           event_name?: string | null
           url?: string | null
           metadata?: Json
