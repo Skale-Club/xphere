@@ -153,14 +153,14 @@ the target workspace.
 | `POST /api/integrations/xmail/events` | any valid key | Xmail engagement events → timeline + `engagement_status`. |
 | `POST /api/integrations/xpot/visits` | any valid key | Xpot visit outcomes → timeline + `last_visit_at`. |
 
-## Outbound — how Xphere reaches the services (env-gated)
+## Outbound — how Xphere reaches the services
 
 A bulk action only appears when its service is configured.
 
-| Service | Env (on Xphere) | What Xphere calls |
-|---------|-----------------|-------------------|
-| Xmail | `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | Lead import/enrollment plus `POST {XMAIL_API_URL}/api/outreach/prospecting/external-runs` for Journey registration (`x-user-id`, `x-service-key`) |
-| Xpot | `XPOT_API_URL`, `XPOT_API_KEY` | `POST {XPOT_API_URL}/api/xpot/inbound/prospects` (Bearer) |
+| Service | Config (on Xphere) | What Xphere calls |
+|---------|--------------------|-------------------|
+| Xmail | env `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | Lead import/enrollment plus `POST {XMAIL_API_URL}/api/outreach/prospecting/external-runs` for Journey registration (`x-user-id`, `x-service-key`) |
+| Xpot | per workspace: Settings → Integrations → Xpot (Xpot URL + inbound key) | `POST {Xpot URL}/api/xpot/inbound/prospects` (Bearer inbound key) |
 
 ## The four integrations
 
@@ -205,8 +205,12 @@ The **Send to Xpot** bulk action posts prospects to `/api/xpot/inbound/prospects
 which creates prospect-stage `sales_leads` carrying `xphere_ref`
 ("contact:uuid" / "account:uuid", migration 0005). On visit check-out,
 `syncVisitToXphere` posts the outcome back to `/api/integrations/xpot/visits`,
-stamping `last_visit_at` and the timeline. Env on Xpot: `XPHERE_INBOUND_API_KEY`
-(= Xphere's `XPOT_API_KEY`), `XPHERE_API_URL`, `XPHERE_API_KEY`.
+stamping `last_visit_at` and the timeline. The connection is per workspace on
+both sides: Xpot keeps one Xphere config per user (Admin → Integrations →
+Xphere: an `xph_…` key of the workspace + the user's generated `xpot_…`
+inbound key), and the workspace stores that inbound key in Integrations → Xpot.
+Only that workspace sends prospects and tasks to Xpot. Xpot's own workspace is
+the **Xpot** tenant.
 
 ### AI qualification (internal)
 In the prospect detail sheet, **Suggest** proposes `intent_level`,
@@ -225,11 +229,14 @@ never converts.
    `XMAIL_SERVICE_KEY` on Xphere; in Xmail, add a webhook to
    `https://xphere.app/api/integrations/xmail/events` authorized with the
    `xph_…` token, subscribed to the engagement events.
-4. **Xpot**: apply migration `0005` (`drizzle push`); set `XPHERE_INBOUND_API_KEY`
-   (any shared secret) + `XPHERE_API_KEY=<token>` on Xpot; set `XPOT_API_URL` +
-   `XPOT_API_KEY=<same shared secret>` on Xphere. → "Send to Xpot" appears.
+4. **Xpot**: in Xpot Admin → Integrations → Xphere, paste the workspace's
+   `xph_…` key on the user's card and save; copy the `xpot_…` inbound key it
+   generates. In that Xphere workspace, Settings → Integrations → Xpot: Xpot URL
+   + that inbound key, then activate. → "Send to Xpot" appears and the
+   workspace's tasks start syncing.
 5. Before outreach, run the MCP dry-run, verify `blocked_from_email`, email
    verification credits, campaign sequence, and assigned sending inbox. Use
    `confirmed:true` only after explicit human approval.
 
-All connection config is environment-driven — no product domains are hardcoded.
+Connection config is environment-driven (Xpot: per-workspace integration) —
+no product domains are hardcoded.

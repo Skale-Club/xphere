@@ -2,6 +2,7 @@ import { ShieldAlert, UserPlus } from 'lucide-react'
 
 import {
   getProspects,
+  isXpotConnected,
   type ProspectChannelFilter,
   type ProspectEmailFilter,
   type ProspectFilters,
@@ -13,7 +14,6 @@ import { ProspectsTable } from '@/components/prospects/prospects-table'
 import { EntityPageTemplate } from '@/components/crm/entity-template'
 import { PageContainer, PageHeader } from '@/components/layout/page-header'
 import { isXmailConfigured } from '@/lib/xmail/client'
-import { isXpotConfigured } from '@/lib/xpot/client'
 import type {
   CrmEngagementStatus,
   CrmIntentLevel,
@@ -89,7 +89,7 @@ export default async function ProspectsPage({
     bookingPlatform: sp.booking?.trim() || undefined,
   }
 
-  const result = await getProspects(filters)
+  const [result, xpotEnabled] = await Promise.all([getProspects(filters), isXpotConnected()])
 
   if (!result.ok) {
     return (
@@ -126,7 +126,7 @@ export default async function ProspectsPage({
           lists={result.lists}
           filters={filters}
           outreachEnabled={isXmailConfigured()}
-          xpotEnabled={isXpotConfigured()}
+          xpotEnabled={xpotEnabled}
         />
       </PageContainer>
     </EntityPageTemplate>
