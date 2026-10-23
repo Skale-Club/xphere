@@ -721,3 +721,39 @@ export function retentionSummary(rows: GameRetentionRow[]): RetentionSummary {
     d30: weighted((r) => r.d30_rate, (r) => r.d30_retained),
   }
 }
+
+// ─── Periods (browser-side window selection) ──────────────────────────────────
+
+export type GamePeriod = 'today' | 'yesterday' | '7d' | '30d' | '90d' | 'month' | 'last_month'
+
+export const GAME_PERIOD_LABELS: Record<GamePeriod, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  '7d': 'Last 7 days',
+  '30d': 'Last 30 days',
+  '90d': 'Last 90 days',
+  month: 'This month',
+  last_month: 'Last month',
+}
+
+/**
+ * ISO window for a period in the runtime's local time zone, as a half-open
+ * [from, to) of whole calendar days. Running periods end at tomorrow 00:00, so
+ * "Last 7 days" is the six previous days plus today.
+ */
+export function gamePeriodRange(period: GamePeriod, now: Date = new Date()): { from: string; to: string } {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+  const daysBack = (n: number) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - n)
+  const pair = (f: Date, t: Date) => ({ from: f.toISOString(), to: t.toISOString() })
+
+  switch (period) {
+    case 'today': return pair(today, tomorrow)
+    case 'yesterday': return pair(daysBack(1), today)
+    case '7d': return pair(daysBack(6), tomorrow)
+    case '30d': return pair(daysBack(29), tomorrow)
+    case '90d': return pair(daysBack(89), tomorrow)
+    case 'month': return pair(new Date(now.getFullYear(), now.getMonth(), 1), tomorrow)
+    case 'last_month': return pair(new Date(now.getFullYear(), now.getMonth() - 1, 1), new Date(now.getFullYear(), now.getMonth(), 1))
+  }
+}

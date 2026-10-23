@@ -12,6 +12,7 @@ import {
   emptyTenantData,
   enumerateDays,
   fillDays,
+  gamePeriodRange,
   formatDuration,
   formatMs,
   formatPercent,
@@ -544,5 +545,56 @@ describe('formatters', () => {
     expect(humanizeId('fighter_select')).toBe('Fighter select')
     expect(humanizeId('rio-de-janeiro')).toBe('Rio de janeiro')
     expect(humanizeId(null)).toBe('-')
+  })
+})
+
+describe('gamePeriodRange', () => {
+  // Local time on purpose: the panels pick whole calendar days in the viewer's zone.
+  const now = new Date(2026, 9, 22, 15, 30) // 22 Oct 2026, 15:30 local
+  const local = (iso: string) => new Date(iso)
+  const ymd = (d: Date) => [d.getFullYear(), d.getMonth() + 1, d.getDate(), d.getHours()]
+
+  it('today runs from midnight to the next midnight', () => {
+    const r = gamePeriodRange('today', now)
+    expect(ymd(local(r.from))).toEqual([2026, 10, 22, 0])
+    expect(ymd(local(r.to))).toEqual([2026, 10, 23, 0])
+  })
+
+  it('yesterday ends where today starts', () => {
+    const r = gamePeriodRange('yesterday', now)
+    expect(ymd(local(r.from))).toEqual([2026, 10, 21, 0])
+    expect(ymd(local(r.to))).toEqual([2026, 10, 22, 0])
+  })
+
+  it('7d, 30d and 90d include today and cover exactly that many calendar days', () => {
+    for (const [period, n] of [['7d', 7], ['30d', 30], ['90d', 90]] as const) {
+      const r = gamePeriodRange(period, now)
+      const days = enumerateDays({ from: new Date(r.from), to: new Date(r.to) })
+      expect(ymd(local(r.to))).toEqual([2026, 10, 23, 0])
+      // enumerateDays works in UTC here, so allow the one extra edge day a zone offset can add
+      expect(days.length).toBeGreaterThanOrEqual(n)
+      expect(days.length).toBeLessThanOrEqual(n + 1)
+    }
+    expect(ymd(local(gamePeriodRange('7d', now).from))).toEqual([2026, 10, 16, 0])
+  })
+
+  it('this month starts on the 1st; last month is the whole previous month', () => {
+    expect(ymd(local(gamePeriodRange('month', now).from))).toEqual([2026, 10, 1, 0])
+    const last = gamePeriodRange('last_month', now)
+    expect(ymd(local(last.from))).toEqual([2026, 9, 1, 0])
+    expect(ymd(local(last.to))).toEqual([2026, 10, 1, 0])
+  })
+
+  it('last month wraps over the new year', () => {
+    const r = gamePeriodRange('last_month', new Date(2026, 0, 15))
+    expect(ymd(local(r.from))).toEqual([2025, 12, 1, 0])
+    expect(ymd(local(r.to))).toEqual([2026, 1, 1, 0])
+  })
+
+  it('every period is a valid window for the actions', () => {
+    for (const p of ['today', 'yesterday', '7d', '30d', '90d', 'month', 'last_month'] as const) {
+      const r = gamePeriodRange(p, now)
+      expect(parseGameRange(r.from, r.to), p).not.toBeNull()
+    }
   })
 })

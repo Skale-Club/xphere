@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Globe, MonitorSmartphone, TrendingUp, Activity } from 'lucide-react'
 import { format } from 'date-fns'
 import { getAnalyticsOverview } from './_actions/get-analytics-overview'
+import { AnalyticsNav } from './_components/analytics-nav'
 
 function MetricCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
@@ -129,6 +130,7 @@ export default function AdminAnalyticsPage() {
         <h1 className="text-xl font-semibold text-text-primary">Analytics Overview</h1>
         <p className="text-sm text-text-secondary mt-1">Platform-wide analytics across all organizations</p>
       </div>
+      <AnalyticsNav />
       <Suspense fallback={<AnalyticsSkeleton />}>
         <AnalyticsContent />
       </Suspense>
