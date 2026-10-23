@@ -32,7 +32,9 @@ const TO = new Date('2026-10-08T00:00:00.000Z')
 const filters: GameStatsFilters = { from: FROM, to: TO }
 
 function fakeClient(data: unknown, error: { message: string } | null = null) {
-  const rpc = vi.fn(async () => ({ data, error }))
+  const rpc = vi.fn<(fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>>(
+    async () => ({ data, error }),
+  )
   return { client: { rpc } as unknown as GameStatsClient, rpc }
 }
 
