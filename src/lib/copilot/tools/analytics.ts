@@ -22,6 +22,9 @@ async function queryAnalyticsSummary(input: Record<string, unknown>, ctx: ToolCo
     sb.from('analytics_events')
       .select('event_type')
       .eq('organization_id', ctx.orgId)
+      // Game telemetry (BS-ANALYTICS-001) is not a conversion/event-type summary
+      // and would drown the 1000-row page for a game organization.
+      .neq('event_type', 'game')
       .gte('occurred_at', from)
       .lte('occurred_at', to),
   ])
