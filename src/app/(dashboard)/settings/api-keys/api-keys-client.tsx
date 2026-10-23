@@ -101,6 +101,12 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
     )
   }
 
+  const allSelected = scopes.length === API_KEY_SCOPES.length
+
+  function toggleAll() {
+    setScopes(allSelected ? [] : API_KEY_SCOPES.map((s) => s.key))
+  }
+
   function handleOpenChange(next: boolean) {
     setOpen(next)
     if (!next) reset()
@@ -127,8 +133,9 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
           New API Key
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      {/* Header and footer stay put; only the body scrolls when the viewport is short. */}
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 sm:max-w-lg">
+        <DialogHeader className="shrink-0 px-5 pb-4 pr-12 pt-5 sm:px-6 sm:pr-12 sm:pt-6">
           <DialogTitle>Create API Key</DialogTitle>
           <DialogDescription>
             Name this key by its source — e.g. &ldquo;Website Forms&rdquo; or &ldquo;Typeform&rdquo;.
@@ -136,14 +143,14 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
         </DialogHeader>
 
         {generatedKey ? (
-          <div className="min-w-0 space-y-4 py-2">
+          <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 sm:px-6">
             <p className="text-[13px] text-text-secondary">
               Your new API key has been created:
             </p>
             <RevealKey value={generatedKey} />
           </div>
         ) : (
-          <div className="min-w-0 space-y-4 py-2">
+          <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 sm:px-6">
             <div className="space-y-1.5">
               <Label htmlFor="key-name">Name</Label>
               <Input
@@ -156,7 +163,21 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Scopes</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>
+                  Scopes{' '}
+                  <span className="font-normal text-text-tertiary">
+                    {scopes.length}/{API_KEY_SCOPES.length}
+                  </span>
+                </Label>
+                <button
+                  type="button"
+                  onClick={toggleAll}
+                  className="text-[12px] text-text-tertiary transition-colors hover:text-text-primary"
+                >
+                  {allSelected ? 'Clear all' : 'Select all'}
+                </button>
+              </div>
               <div className="flex flex-col gap-1.5">
                 {API_KEY_SCOPES.map((scope) => {
                   const active = scopes.includes(scope.key)
@@ -182,7 +203,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
                       </span>
                       <span className="min-w-0">
                         <span className="block font-mono text-[12px] text-text-primary">{scope.key}</span>
-                        <span className="block text-[11.5px] text-text-tertiary">{scope.description}</span>
+                        <span className="block break-words text-[11.5px] text-text-tertiary">{scope.description}</span>
                       </span>
                     </button>
                   )
@@ -192,7 +213,7 @@ function GenerateDialog({ onCreated }: { onCreated: (row: ApiKeyRow) => void }) 
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0 flex-row justify-end gap-2 border-t border-border px-5 py-3.5 sm:px-6">
           {generatedKey ? (
             <Button onClick={() => handleOpenChange(false)}>Done</Button>
           ) : (
