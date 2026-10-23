@@ -8,82 +8,58 @@
 --
 --   integration_provider     gains 'xpot' (Xpot URL in location_id, the Xpot
 --                            user's inbound key in encrypted_api_key).
---   enqueue_xpot_task_sync   queues a task only when its org has an active
---                            Xpot integration.
---   xpot_task_sync_outbox    rows still waiting from orgs without one are
---                            closed as failed (not deleted), with the reason.
+--   xpot_task_sync_outbox    a BEFORE INSERT guard drops events of orgs with no
+--                            active Xpot integration, so 1331's task trigger
+--                            stays as it is and queues only connected orgs.
+--                            Rows already waiting for other orgs are closed as
+--                            failed (not deleted), with the reason.
 --
--- Idempotent: ADD VALUE IF NOT EXISTS / CREATE OR REPLACE / guarded UPDATE.
+-- provider is compared as text because the enum value is added in this same
+-- migration. Idempotent: ADD VALUE IF NOT EXISTS / CREATE OR REPLACE /
+-- DROP TRIGGER IF EXISTS / guarded UPDATE.
 -- =============================================================================
 
 ALTER TYPE public.integration_provider ADD VALUE IF NOT EXISTS 'xpot';
 
-CREATE OR REPLACE FUNCTION public.enqueue_xpot_task_sync()
+CREATE OR REPLACE FUNCTION public.org_has_xpot(p_org_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.integrations i
+    WHERE i.organization_id = p_org_id
+      AND i.provider::text = 'xpot'
+      AND i.is_active
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.org_has_xpot(uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.skip_xpot_sync_without_integration()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  row_data public.tasks;
-  op text;
 BEGIN
-  row_data := CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
-  op := CASE WHEN TG_OP = 'DELETE' THEN 'delete' ELSE 'upsert' END;
-
-  -- Only orgs that connected Xpot send it their tasks. provider is compared as
-  -- text because the enum value is added in this same migration.
-  IF NOT EXISTS (
-    SELECT 1 FROM public.integrations i
-    WHERE i.organization_id = row_data.org_id
-      AND i.provider::text = 'xpot'
-      AND i.is_active
-  ) THEN RETURN row_data; END IF;
-
-  -- Xpot mirror inserts and callbacks advance external_updated_at. They are
-  -- acknowledgements, not new local edits, so do not send them back.
-  IF TG_OP = 'INSERT' AND (NEW.external_source = 'xpot' OR NEW.external_updated_at IS NOT NULL) THEN RETURN NEW; END IF;
-  IF TG_OP = 'UPDATE' AND NEW.external_updated_at IS DISTINCT FROM OLD.external_updated_at THEN RETURN NEW; END IF;
-  IF TG_OP = 'UPDATE' AND
-     (NEW.title, NEW.description, NEW.due_date, NEW.priority, NEW.status, NEW.assigned_to, NEW.entity_type, NEW.entity_id)
-     IS NOT DISTINCT FROM
-     (OLD.title, OLD.description, OLD.due_date, OLD.priority, OLD.status, OLD.assigned_to, OLD.entity_type, OLD.entity_id)
-  THEN RETURN NEW; END IF;
-
-  INSERT INTO public.xpot_task_sync_outbox (org_id, task_id, operation, payload)
-  VALUES (
-    row_data.org_id,
-    row_data.id,
-    op,
-    jsonb_build_object(
-      'id', row_data.id,
-      'title', row_data.title,
-      'description', row_data.description,
-      'due_date', row_data.due_date,
-      'priority', row_data.priority,
-      'status', row_data.status,
-      'assigned_to', row_data.assigned_to,
-      'entity_type', row_data.entity_type,
-      'entity_id', row_data.entity_id,
-      'external_source', row_data.external_source,
-      'external_id', row_data.external_id,
-      -- DELETE has no BEFORE UPDATE timestamp bump; use deletion time so it
-      -- sorts after the last upsert instead of being rejected as equally old.
-      'updated_at', CASE WHEN TG_OP = 'DELETE' THEN now() ELSE row_data.updated_at END
-    )
-  );
-  RETURN row_data;
+  IF NOT public.org_has_xpot(NEW.org_id) THEN RETURN NULL; END IF;
+  RETURN NEW;
 END;
 $$;
 
-UPDATE public.xpot_task_sync_outbox outbox
+REVOKE ALL ON FUNCTION public.skip_xpot_sync_without_integration() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_xpot_task_sync_outbox_org_guard ON public.xpot_task_sync_outbox;
+CREATE TRIGGER trg_xpot_task_sync_outbox_org_guard
+  BEFORE INSERT ON public.xpot_task_sync_outbox
+  FOR EACH ROW EXECUTE FUNCTION public.skip_xpot_sync_without_integration();
+
+UPDATE public.xpot_task_sync_outbox
 SET status = 'failed',
     last_error = 'Skipped: this org has no Xpot integration (migration 1332).',
     processed_at = now()
-WHERE outbox.status IN ('pending', 'processing')
-  AND NOT EXISTS (
-    SELECT 1 FROM public.integrations i
-    WHERE i.organization_id = outbox.org_id
-      AND i.provider::text = 'xpot'
-      AND i.is_active
-  );
+WHERE status IN ('pending', 'processing')
+  AND NOT public.org_has_xpot(org_id);

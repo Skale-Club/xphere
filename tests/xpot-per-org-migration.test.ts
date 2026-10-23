@@ -14,16 +14,19 @@ describe('migration 1332 — Xpot per-org integration', () => {
     expect(sql).toContain(`ALTER TYPE public.integration_provider ADD VALUE IF NOT EXISTS 'xpot';`)
   })
 
-  it('queues a task only when its org has an active Xpot integration, before any other rule', () => {
-    const body = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.enqueue_xpot_task_sync()'))
-    const guard = body.indexOf(`i.provider::text = 'xpot'`)
-    expect(guard).toBeGreaterThan(0)
-    expect(body.slice(guard, guard + 80)).toContain('i.is_active')
-    expect(guard).toBeLessThan(body.indexOf('INSERT INTO public.xpot_task_sync_outbox'))
+  it('defines a connected org as one with an active xpot integration', () => {
+    const fn = sql.slice(sql.indexOf('FUNCTION public.org_has_xpot'), sql.indexOf('REVOKE ALL ON FUNCTION public.org_has_xpot'))
+    expect(fn).toContain(`i.provider::text = 'xpot'`)
+    expect(fn).toContain('i.is_active')
+  })
+
+  it('drops outbox events of unconnected orgs before they are inserted', () => {
+    expect(sql).toMatch(/BEFORE INSERT ON public\.xpot_task_sync_outbox[\s\S]*skip_xpot_sync_without_integration/)
+    expect(sql).toMatch(/IF NOT public\.org_has_xpot\(NEW\.org_id\) THEN RETURN NULL;/)
   })
 
   it('closes, rather than deletes, rows already queued for unconnected orgs', () => {
-    expect(sql).toMatch(/UPDATE public\.xpot_task_sync_outbox[\s\S]*status = 'failed'/)
+    expect(sql).toMatch(/UPDATE public\.xpot_task_sync_outbox[\s\S]*status = 'failed'[\s\S]*NOT public\.org_has_xpot\(org_id\)/)
     expect(sql).not.toMatch(/DELETE FROM public\.xpot_task_sync_outbox/)
   })
 })

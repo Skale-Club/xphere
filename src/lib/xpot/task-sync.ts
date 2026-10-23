@@ -23,15 +23,17 @@ function numericXpotId(payload: Record<string, unknown>): number | null {
   return match ? Number(match[1]) : null
 }
 
+const text = (value: unknown, fallback: string) => (typeof value === 'string' ? value : fallback)
+
 export function mutationForOutbox(row: OutboxRow): XpotTaskMutation {
   const p = row.payload
   return {
-    externalId: String(p.id ?? row.task_id),
+    externalId: text(p.id, row.task_id ?? ''),
     xpotTaskId: numericXpotId(p),
     operation: row.operation,
-    occurredAt: String(p.updated_at ?? new Date().toISOString()),
+    occurredAt: text(p.updated_at, new Date().toISOString()),
     task: {
-      title: String(p.title ?? 'Task'),
+      title: text(p.title, 'Task'),
       description: typeof p.description === 'string' ? p.description : null,
       dueAt: typeof p.due_date === 'string' ? p.due_date : null,
       priority: (p.priority as XpotTaskMutation['task']['priority']) ?? 'medium',

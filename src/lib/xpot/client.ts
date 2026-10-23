@@ -87,7 +87,7 @@ export async function xpotSendTask(creds: XpotCredentials, input: XpotTaskMutati
         retryable: res.status === 429 || res.status >= 500,
       }
     }
-    return { ok: true, action: String(data.action ?? 'synced'), taskId: (data.taskId as number | null) ?? null }
+    return { ok: true, action: typeof data.action === 'string' ? data.action : 'synced', taskId: (data.taskId as number | null) ?? null }
   } catch (err) {
     console.error('[xpot] task sync failed:', err)
     return { ok: false, error: err instanceof Error ? err.message : 'Could not reach Xpot.', retryable: true }
