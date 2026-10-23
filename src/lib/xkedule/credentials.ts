@@ -7,8 +7,8 @@
 //                        platform presents it as X-Xkedule-Key on /api/v1 calls.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { decrypt } from '@/lib/crypto'
 import { memoTtl } from '@/lib/cache/ttl-memo'
+import { getUrlCredentials } from '@/lib/integrations/url-credentials'
 import type { XkeduleCredentials } from './client'
 
 // Mirrors the 60s freshness window ttl-memo.ts's own doc comment describes
@@ -25,21 +25,12 @@ export async function getXkeduleCredentialsForOrg(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
 ): Promise<XkeduleCredentials | null> {
-  const { data, error } = await supabase
-    .from('integrations')
-    .select('encrypted_api_key, location_id')
-    .eq('organization_id', orgId)
-    .eq('provider', 'xkedule')
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (error || !data || !data.location_id || !data.encrypted_api_key) return null
-
-  const apiKey = await decrypt(data.encrypted_api_key as string)
+  const creds = await getUrlCredentials(orgId, 'xkedule', supabase)
+  if (!creds) return null
   // orgId is already a parameter here, so this costs nothing extra — it's
   // what lets availability-cache.ts scope its cache keys and prefetch by org
   // (see src/lib/xkedule/availability-cache.ts).
-  return { tenantBaseUrl: data.location_id as string, apiKey, organizationId: orgId }
+  return { tenantBaseUrl: creds.baseUrl, apiKey: creds.apiKey, organizationId: orgId }
 }
 
 /**

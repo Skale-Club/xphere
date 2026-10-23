@@ -9,7 +9,7 @@
 // Xphere API keys (xph_…), which pins Xpot's writes to the same org.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { decrypt } from '@/lib/crypto'
+import { getUrlCredentials } from '@/lib/integrations/url-credentials'
 import type { XpotCredentials } from './client'
 
 export async function getXpotCredentialsForOrg(
@@ -17,16 +17,6 @@ export async function getXpotCredentialsForOrg(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
 ): Promise<XpotCredentials | null> {
-  const { data, error } = await supabase
-    .from('integrations')
-    .select('encrypted_api_key, location_id')
-    .eq('organization_id', orgId)
-    .eq('provider', 'xpot')
-    .eq('is_active', true)
-    .maybeSingle()
-
-  if (error || !data || !data.location_id || !data.encrypted_api_key) return null
-
-  const apiKey = await decrypt(data.encrypted_api_key as string)
-  return { baseUrl: (data.location_id as string).replace(/\/$/, ''), apiKey }
+  const creds = await getUrlCredentials(orgId, 'xpot', supabase)
+  return creds && { baseUrl: creds.baseUrl.replace(/\/$/, ''), apiKey: creds.apiKey }
 }
