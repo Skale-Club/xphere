@@ -31,12 +31,14 @@ export async function GET(
 
   const { size: sizeParam } = await params
   const size = Math.min(Math.max(parseInt(sizeParam, 10) || 192, 16), 1024)
-  // Maskable icons keep the mark inside the safe zone so OS masking never clips it.
+  // Maskable (Android adaptive) and ?bg=1 (apple-touch-icon) icons are cropped by
+  // the OS, so they get a full-bleed dark plate — a transparent plate shows up as
+  // white on Android launchers — with the mark inset well inside the crop's safe
+  // zone (the circle mask keeps the central 80%; iOS rounds the corners).
   const maskable = request.nextUrl.searchParams.has('maskable')
-  const inner = maskable ? Math.round(size * 0.8) : size
-  // iOS renders transparent home screen icon corners as white — opt into an
-  // opaque plate (e.g. for apple-touch-icon) to match the admin panel instead.
-  const plate = request.nextUrl.searchParams.has('bg') ? DARK_BG : TRANSPARENT
+  const opaque = maskable || request.nextUrl.searchParams.has('bg')
+  const inner = Math.round(size * (maskable ? 0.68 : opaque ? 0.66 : 1))
+  const plate = opaque ? DARK_BG : TRANSPARENT
 
   try {
     const faviconUrl = await getFaviconUrl()
