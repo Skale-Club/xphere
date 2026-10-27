@@ -414,15 +414,9 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
     panelType: 'api_key',
     canActivate: true,
     testable: false,
+    // No URL field: there is one Xpot (https://xpot.place, XPOT_BASE_URL in
+    // src/lib/xpot/credentials.ts), so only the user's key is asked for.
     fields: [
-      {
-        key: 'location_id',
-        label: 'Xpot URL',
-        type: 'url',
-        required: true,
-        placeholder: 'https://xpot.place',
-        hint: 'The Xpot app address (no trailing slash).',
-      },
       {
         key: 'api_key',
         label: 'Inbound Key',
