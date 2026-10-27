@@ -160,7 +160,7 @@ A bulk action only appears when its service is configured.
 | Service | Config (on Xphere) | What Xphere calls |
 |---------|--------------------|-------------------|
 | Xmail | env `XMAIL_API_URL`, `XMAIL_USER_ID`, `XMAIL_ORG_ID`, `XMAIL_SERVICE_KEY` | Lead import/enrollment plus `POST {XMAIL_API_URL}/api/outreach/prospecting/external-runs` for Journey registration (`x-user-id`, `x-service-key`) |
-| Xpot | per workspace: Settings → Integrations → Xpot (Xpot URL + inbound key) | `POST {Xpot URL}/api/xpot/inbound/prospects` (Bearer inbound key) |
+| Xpot | per workspace: Settings → Integrations → Xpot (inbound key; the URL is fixed to `https://xpot.place`) | `POST https://xpot.place/api/xpot/inbound/prospects` (Bearer inbound key) |
 
 ## The four integrations
 
@@ -231,8 +231,8 @@ never converts.
    `xph_…` token, subscribed to the engagement events.
 4. **Xpot**: in Xpot Admin → Integrations → Xphere, paste the workspace's
    `xph_…` key on the user's card and save; copy the `xpot_…` inbound key it
-   generates. In that Xphere workspace, Settings → Integrations → Xpot: Xpot URL
-   + that inbound key, then activate. → "Send to Xpot" appears and the
+   generates. In that Xphere workspace, Settings → Integrations → Xpot: paste
+   that inbound key, then activate. → "Send to Xpot" appears and the
    workspace's tasks start syncing.
 5. Before outreach, run the MCP dry-run, verify `blocked_from_email`, email
    verification credits, campaign sequence, and assigned sending inbox. Use
