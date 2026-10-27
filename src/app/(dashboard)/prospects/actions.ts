@@ -12,7 +12,8 @@ import { normalizePhoneToE164 } from '@/lib/phone-numbers/normalize'
 import { isXmailConfigured, xmailBulkImportLeads, type XmailLead } from '@/lib/xmail/client'
 import { loadWebsiteInsightsForAccounts } from '@/lib/xmail/website-insights'
 import { loadSourceRunIdsForEntities } from '@/lib/xmail/source-runs'
-import { isXpotConfigured, xpotSendLeads, type XpotLead } from '@/lib/xpot/client'
+import { xpotSendLeads, type XpotCredentials, type XpotLead } from '@/lib/xpot/client'
+import { getXpotCredentialsForOrg } from '@/lib/xpot/credentials'
 import { generatePreviewForAnalysis } from '@/services/website-analyzer'
 import { resolveLatestAnalysisForDisplay, type AnalysisRowStatus } from '@/services/website-analyzer/display'
 import {
@@ -1420,13 +1421,26 @@ export async function startOutreach(refs: ProspectRef[]): Promise<BulkResult> {
 
 // ─── Field visits (Xpot) ─────────────────────────────────────────────────────
 
+/** The active org's Xpot connection (Settings → Integrations → Xpot), if any. */
+async function currentOrgXpot(supabase: Awaited<ReturnType<typeof createClient>>): Promise<XpotCredentials | null> {
+  const { data: orgId } = await supabase.rpc('get_current_org_id')
+  if (!orgId) return null
+  return getXpotCredentialsForOrg(orgId as string, createServiceRoleClient())
+}
+
+/** True when the active org connected Xpot, so "Send to Xpot" can be offered. */
+export async function isXpotConnected(): Promise<boolean> {
+  return Boolean(await currentOrgXpot(await createClient()))
+}
+
 export async function sendToXpot(refs: ProspectRef[]): Promise<BulkResult> {
   const guard = await requireProspectsAdmin()
   if (!guard.ok) return guard
-  if (!isXpotConfigured()) return { ok: false, error: 'Field visits (Xpot) are not configured.' }
   if (refs.length === 0) return { ok: true, affected: 0 }
 
   const supabase = await createClient()
+  const xpot = await currentOrgXpot(supabase)
+  if (!xpot) return { ok: false, error: 'Field visits (Xpot) are not connected for this workspace.' }
   const { contactIds, accountIds } = splitRefs(refs)
 
   const xpotLeads: XpotLead[] = []
@@ -1474,7 +1488,7 @@ export async function sendToXpot(refs: ProspectRef[]): Promise<BulkResult> {
 
   if (xpotLeads.length === 0) return { ok: false, error: 'No prospects to send.' }
 
-  const result = await xpotSendLeads(xpotLeads)
+  const result = await xpotSendLeads(xpot, xpotLeads)
   if (!result.ok) return { ok: false, error: result.error }
 
   await markContacted(supabase, touchedContacts, touchedAccounts, 'visit', 'xpot', 'visit')

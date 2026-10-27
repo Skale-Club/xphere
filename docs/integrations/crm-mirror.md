@@ -123,6 +123,11 @@ and marks permanent failures for inspection. Xpot mirror writes advance
 them back. The scheduled `/api/cron/xpot-task-sync` route drains the queue, while
 interactive task paths request an immediate post-response drain.
 
+Migration `1335_xpot_per_org_integration.sql` scopes this to the orgs that
+connected Xpot (Settings → Integrations → Xpot, provider `xpot`): the trigger
+queues nothing for other orgs, and the worker posts each row to its own org's
+Xpot URL with that org's inbound key (`src/lib/xpot/credentials.ts`).
+
 ## Pipeline resolution
 
 The Opportunity is only mirrored when its target **pipeline** and **stage**

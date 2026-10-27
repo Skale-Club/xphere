@@ -406,6 +406,37 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   },
 
   {
+    id: 'xpot',
+    name: 'Xpot',
+    description: 'Field sales. Send prospects for an in-person visit and keep tasks in sync with the field team.',
+    category: 'crm',
+    logo: { path: '/logos/xpot.png', letter: 'X', color: 'bg-indigo-600' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: false,
+    fields: [
+      {
+        key: 'location_id',
+        label: 'Xpot URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://xpot.place',
+        hint: 'The Xpot app address (no trailing slash).',
+      },
+      {
+        key: 'api_key',
+        label: 'Inbound Key',
+        type: 'password',
+        required: true,
+        placeholder: 'xpot_...',
+        hint: 'From Xpot Admin → Integrations → Xphere, on the card of the user who receives these prospects and tasks. In that same card paste a Xphere API key of this workspace (Settings → API Keys) so visits and sales come back here.',
+        pattern: /^xpot_.{8,}/,
+        patternError: 'Must be the Xpot inbound key starting with "xpot_".',
+      },
+    ],
+  },
+
+  {
     id: 'medusa',
     name: 'Medusa (Stuscle)',
     description: 'Connect your Medusa store so agents can search products and read carts with region-correct prices.',
