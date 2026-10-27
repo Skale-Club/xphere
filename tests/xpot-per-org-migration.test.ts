@@ -2,14 +2,14 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-// Structural check of migration 1332: Xphere -> Xpot task delivery is scoped
+// Structural check of migration 1335: Xphere -> Xpot task delivery is scoped
 // to orgs that connected Xpot in Integrations, not every tenant.
 const sql = fs.readFileSync(
-  path.join(process.cwd(), 'supabase', 'migrations', '1332_xpot_per_org_integration.sql'),
+  path.join(process.cwd(), 'supabase', 'migrations', '1335_xpot_per_org_integration.sql'),
   'utf-8',
 )
 
-describe('migration 1332 — Xpot per-org integration', () => {
+describe('migration 1335 — Xpot per-org integration', () => {
   it('adds xpot to integration_provider', () => {
     expect(sql).toContain(`ALTER TYPE public.integration_provider ADD VALUE IF NOT EXISTS 'xpot';`)
   })

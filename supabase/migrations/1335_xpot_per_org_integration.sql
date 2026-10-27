@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migration 1332: Xpot is a per-org integration
+-- Migration 1335: Xpot is a per-org integration
 -- =============================================================================
 -- Xphere -> Xpot used one global connection (XPOT_API_URL / XPOT_API_KEY env)
 -- and the 1331 trigger queued the tasks of EVERY org for it, so all tenants'
@@ -59,7 +59,7 @@ CREATE TRIGGER trg_xpot_task_sync_outbox_org_guard
 
 UPDATE public.xpot_task_sync_outbox
 SET status = 'failed',
-    last_error = 'Skipped: this org has no Xpot integration (migration 1332).',
+    last_error = 'Skipped: this org has no Xpot integration (migration 1335).',
     processed_at = now()
 WHERE status IN ('pending', 'processing')
   AND NOT public.org_has_xpot(org_id);
