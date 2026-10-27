@@ -414,7 +414,7 @@ export function OpportunityDetailSheet({
           className={cn(
             'flex flex-col overflow-hidden p-0 gap-0 bg-bg-secondary',
             // Mobile: near-fullscreen. Desktop: capped width + height.
-            'w-[calc(100vw-1rem)] h-[calc(100dvh-1rem)]',
+            'w-[calc(100vw-2rem)] h-[calc(100dvh-2rem)]',
             'sm:w-[calc(100vw-2rem)] md:h-[min(820px,calc(100vh-2rem))] md:max-w-[960px]',
           )}
         >
