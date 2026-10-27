@@ -25,17 +25,26 @@ function numericXpotId(payload: Record<string, unknown>): number | null {
 
 const text = (value: unknown, fallback: string) => (typeof value === 'string' ? value : fallback)
 
+// Postgres serializes timestamptz in jsonb as `2026-10-27T01:25:43.218458+00:00`,
+// but Xpot validates with zod's `datetime()`, which only accepts the `Z` form.
+// Re-emit every timestamp as `Date#toISOString()` so Xpot accepts it.
+function isoTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
 export function mutationForOutbox(row: OutboxRow): XpotTaskMutation {
   const p = row.payload
   return {
     externalId: text(p.id, row.task_id ?? ''),
     xpotTaskId: numericXpotId(p),
     operation: row.operation,
-    occurredAt: text(p.updated_at, new Date().toISOString()),
+    occurredAt: isoTimestamp(p.updated_at) ?? new Date().toISOString(),
     task: {
       title: text(p.title, 'Task'),
       description: typeof p.description === 'string' ? p.description : null,
-      dueAt: typeof p.due_date === 'string' ? p.due_date : null,
+      dueAt: isoTimestamp(p.due_date),
       priority: (p.priority as XpotTaskMutation['task']['priority']) ?? 'medium',
       status: (p.status as XpotTaskMutation['task']['status']) ?? 'todo',
       entityType: (p.entity_type as XpotTaskMutation['task']['entityType']) ?? null,

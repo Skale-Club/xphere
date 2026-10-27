@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 const sendTask = vi.hoisted(() => vi.fn())
 const getCreds = vi.hoisted(() => vi.fn())
@@ -49,9 +50,32 @@ describe('Xphere -> Xpot task outbox mapping', () => {
       externalId: '11111111-1111-4111-8111-111111111111',
       xpotTaskId: null,
       operation: 'upsert',
-      occurredAt: '2026-09-01T12:00:00Z',
+      occurredAt: '2026-09-01T12:00:00.000Z',
       task: { title: 'Call the customer', status: 'in_progress', priority: 'high', entityType: 'account' },
     })
+  })
+
+  // Regression: the 1331 trigger builds the payload with jsonb_build_object, so
+  // timestamps arrive as `…218458+00:00`. Xpot's inbound schema
+  // (server/routes/xpot/inbound.ts, zod `datetime()`) rejected that form with
+  // "Invalid task payload" and every task failed on its first delivery.
+  it('sends timestamps in the Z form that Xpot’s inbound schema accepts', () => {
+    const mutation = mutationForOutbox({
+      id: 3,
+      org_id: XPOT_ORG,
+      task_id: '88888888-8888-4888-8888-888888888888',
+      operation: 'upsert',
+      attempt_count: 0,
+      payload: {
+        id: '88888888-8888-4888-8888-888888888888', title: 'From Postgres', status: 'todo', priority: 'low',
+        due_date: '2026-11-03T15:00:00+00:00', updated_at: '2026-10-27T01:25:43.218458+00:00',
+      },
+    })
+    const xpotDatetime = z.string().datetime()
+    expect(mutation.occurredAt).toBe('2026-10-27T01:25:43.218Z')
+    expect(mutation.task.dueAt).toBe('2026-11-03T15:00:00.000Z')
+    expect(xpotDatetime.safeParse(mutation.occurredAt).success).toBe(true)
+    expect(xpotDatetime.safeParse(mutation.task.dueAt).success).toBe(true)
   })
 
   it('recognizes a task that originated in Xpot and targets the source id', () => {
