@@ -88,31 +88,6 @@ export async function createOrganization(data: { name: string }): Promise<{ erro
   return { orgId: org.id }
 }
 
-export async function switchOrganization(organizationId: string): Promise<{ error?: string }> {
-  const user = await getUser()
-  if (!user) return { error: 'Not authenticated.' }
-  const supabase = await createClient()
-
-  // Verify membership and get org name in one query
-  const { data: org } = await supabase
-    .from('organizations')
-    .select('id, name')
-    .eq('id', organizationId)
-    .single()
-
-  if (!org) return { error: 'You are not a member of this organization.' }
-
-  const { error } = await supabase
-    .from('user_active_org')
-    .upsert({ user_id: user.id, organization_id: organizationId, updated_at: new Date().toISOString() })
-
-  if (error) return { error: error.message }
-
-  await setActiveOrgCookie(org.id, org.name)
-  revalidatePath('/', 'layout')
-  return {}
-}
-
 export async function updateOrganization(
   id: string,
   data: { name: string; is_active: boolean }

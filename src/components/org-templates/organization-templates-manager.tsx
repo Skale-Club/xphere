@@ -53,7 +53,7 @@ import {
   type OrgTemplateAssetGroup,
   type OrgTemplateStatus,
 } from '@/lib/org-templates/types'
-import { switchOrganization } from '@/app/(dashboard)/organizations/actions'
+import { switchOrganization } from '@/lib/org/switch-organization'
 import { orgPath } from '@/lib/org/request-org'
 import {
   createTemplateFromCurrentOrg,

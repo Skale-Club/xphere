@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const supabase = await createClient()
   // RLS on organizations only shows the caller's own orgs — this is the
-  // membership check (same as switchOrganization).
+  // membership check for both tab sync and explicit organization switching.
   const { data: org } = await supabase
     .from('organizations')
     .select('id, name')
