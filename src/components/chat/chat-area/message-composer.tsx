@@ -455,7 +455,7 @@ export function MessageComposer({
 
   return (
     <div
-      className="shrink-0 border-t border-border-subtle bg-bg-primary/95 px-4 py-4 pb-safe-4 backdrop-blur md:px-6"
+      className="@container/composer min-w-0 shrink-0 border-t border-border-subtle bg-bg-primary/95 px-4 py-4 pb-safe-4 backdrop-blur md:px-6"
       style={{
         transform: keyboardOffset > 0 ? `translateY(-${keyboardOffset}px)` : undefined,
         transition: 'transform 100ms',
@@ -465,9 +465,9 @@ export function MessageComposer({
           The composer stays disabled with a "Sending disabled…" placeholder so
           the user still has a clear affordance here. */}
 
-      <div className="mb-4 flex items-center justify-between gap-3 px-1">
-        <div className="flex min-w-0 items-center gap-2 select-none">
-          <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Channel</span>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-1">
+        <div className="flex min-w-0 max-w-full flex-[1_1_12rem] items-center gap-2 select-none">
+          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Channel</span>
           {showChannelSelect && activeOption ? (
             <Select value={activeOption.channel} onValueChange={(next) => onActiveChannelChange?.(next)}>
               {/* Trigger: icon-only badge (no colored bg) + plain label text so
@@ -475,10 +475,10 @@ export function MessageComposer({
               {/* Use a <div> wrapper — SelectTrigger base has [&>span]:line-clamp-1
                   which applies -webkit-box (vertical) to direct span children and
                   stacks icon + label on separate lines. */}
-              <SelectTrigger className="h-7 w-auto min-w-0 gap-1.5 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0">
+              <SelectTrigger aria-label="Outbound channel" title={activeOption.label} className="h-7 w-auto min-w-0 max-w-full gap-1.5 rounded-[7px] border-border-subtle bg-bg-secondary px-2 py-1 text-[11.5px] text-text-secondary ring-offset-0 focus-visible:ring-1 focus-visible:ring-accent/40 focus-visible:ring-offset-0 [&>svg]:shrink-0">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent shrink-0" />
-                  <span className="whitespace-nowrap text-[11.5px] text-text-primary">{activeOption.label}</span>
+                  <span className="truncate text-[11.5px] text-text-primary">{activeOption.label}</span>
                 </div>
               </SelectTrigger>
               <SelectContent align="start" className="min-w-[180px]">
@@ -500,22 +500,22 @@ export function MessageComposer({
               </SelectContent>
             </Select>
           ) : activeOption ? (
-            <span className="inline-flex items-center gap-1.5">
-              <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="bg-transparent" />
-              <span className="text-[11.5px] text-text-secondary">{activeOption.label}</span>
+            <span className="inline-flex min-w-0 items-center gap-1.5" title={activeOption.label}>
+              <ChannelBadge channel={badgeChannel(activeOption.channel)} size="sm" showLabel={false} className="shrink-0 bg-transparent" />
+              <span className="truncate text-[11.5px] text-text-secondary">{activeOption.label}</span>
             </span>
           ) : channelLabel ? (
-            <span className="text-[11.5px] text-text-secondary">{channelLabel}</span>
+            <span className="truncate text-[11.5px] text-text-secondary" title={channelLabel}>{channelLabel}</span>
           ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2 select-none">
+        <div className="ml-auto flex shrink-0 items-center gap-2 select-none">
           <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">Status</span>
           {(() => {
             const chip = (
               <span
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-medium transition-all',
+                  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors',
                   priorityChipClass,
                 )}
               >
@@ -654,7 +654,7 @@ export function MessageComposer({
       )}
 
       {isEmail && (
-        <div className="mb-2 flex items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-1.5">
+        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-[10px] border border-border-subtle bg-bg-secondary px-3 py-1.5">
           <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
             Subject
           </span>
@@ -664,15 +664,15 @@ export function MessageComposer({
             onChange={(e) => setSubject(e.target.value)}
             disabled={isDisabled}
             placeholder="Email subject…"
-            className="flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-tertiary"
+            className="min-w-0 flex-[1_1_8rem] bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-tertiary"
           />
           {signatures.length > 0 && (
-            <>
+            <div className="flex min-w-0 max-w-full items-center gap-2">
               <span className="text-[10px] font-medium uppercase tracking-wide text-text-tertiary">
                 Signature
               </span>
               <Select value={signatureId} onValueChange={setSignatureId} disabled={isDisabled}>
-                <SelectTrigger className="h-7 w-[150px] border-border-subtle bg-bg-primary text-[12px]">
+                <SelectTrigger className="h-7 w-[150px] min-w-0 border-border-subtle bg-bg-primary text-[12px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -685,14 +685,15 @@ export function MessageComposer({
                   ))}
                 </SelectContent>
               </Select>
-            </>
+            </div>
           )}
         </div>
       )}
 
       <div
         className={cn(
-          'relative flex items-stretch rounded-[12px] border bg-bg-secondary transition-shadow',
+          // Respond to the panel width, including narrow panels on desktop.
+          'relative grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-stretch rounded-[12px] border bg-bg-secondary transition-shadow @min-[480px]/composer:grid-cols-[auto_1px_minmax(0,1fr)_auto]',
           'focus-within:ring-[3px] focus-within:ring-accent/15 focus-within:border-accent/60',
           isDisabled ? 'border-border-subtle opacity-60' : 'border-border-subtle',
         )}
@@ -708,7 +709,7 @@ export function MessageComposer({
 
         {/* Icon cluster — separated by delicate vertical lines */}
         <TooltipProvider delayDuration={200}>
-          <div className="flex items-center divide-x divide-border-subtle/60 px-1 py-2">
+          <div className="col-start-1 row-start-2 flex items-center divide-x divide-border-subtle/60 border-t border-border-subtle/60 px-1 py-2 @min-[480px]/composer:row-start-1 @min-[480px]/composer:border-t-0">
             <div className="px-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -798,11 +799,11 @@ export function MessageComposer({
         </TooltipProvider>
 
         {/* Vertical divider between icon cluster and textarea */}
-        <div className="w-px self-stretch bg-border-subtle/60" aria-hidden />
+        <div className="hidden w-px self-stretch bg-border-subtle/60 @min-[480px]/composer:col-start-2 @min-[480px]/composer:row-start-1 @min-[480px]/composer:block" aria-hidden />
 
-        <div className="flex flex-1 items-end gap-2 px-3 py-2">
+        <div className="col-span-2 col-start-1 row-start-1 flex min-w-0 items-end px-3 py-2 @min-[480px]/composer:col-span-1 @min-[480px]/composer:col-start-3">
           {recording ? (
-            <div className="flex flex-1 items-center gap-2 py-1">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 py-1">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
@@ -828,7 +829,7 @@ export function MessageComposer({
               onKeyDown={handleKey}
               disabled={isDisabled}
               className={cn(
-                'flex-1 resize-none bg-transparent leading-snug text-text-primary outline-none',
+                'min-w-0 w-full flex-1 resize-none bg-transparent leading-snug text-text-primary outline-none',
                 'placeholder:text-text-tertiary',
                 'py-1 text-[16px] md:text-[13px]',  /* 16px on mobile prevents iOS auto-zoom; 13px on desktop fits more text */
               )}
@@ -836,6 +837,9 @@ export function MessageComposer({
             />
           )}
 
+        </div>
+
+        <div className="col-start-2 row-start-2 flex items-end justify-end gap-1 border-t border-border-subtle/60 px-1 py-2 @min-[480px]/composer:col-start-4 @min-[480px]/composer:row-start-1 @min-[480px]/composer:gap-2 @min-[480px]/composer:border-t-0 @min-[480px]/composer:pr-3">
           {templateSupport?.available && onSendTemplate && (
             <Button
               size="icon"
@@ -903,7 +907,7 @@ export function MessageComposer({
             onClick={() => void handleSend()}
             disabled={!canSend}
             className={cn(
-              'h-8 w-8 shrink-0 rounded-[8px] transition-all',
+              'h-8 w-8 shrink-0 rounded-[8px] transition-[color,background-color,box-shadow,scale]',
               canSend
                 ? 'bg-accent text-white shadow-sm hover:bg-accent-hover hover:scale-[1.03]'
                 : 'bg-bg-tertiary text-text-tertiary',

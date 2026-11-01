@@ -8,7 +8,7 @@
  * the bars are visual sugar, not accurate peaks.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Play, Pause } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -51,7 +51,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
   const [currentTime, setCurrentTime] = useState(0)
   const [totalDuration, setTotalDuration] = useState(duration ?? 0)
   const [speed, setSpeed] = useState<1 | 1.5 | 2>(1)
-  const waveform = useRef(generateWaveform(src))
+  const waveform = useMemo(() => generateWaveform(src), [src])
 
   useEffect(() => {
     const audio = audioRef.current
@@ -108,7 +108,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
   const progress = displayDuration > 0 ? currentTime / displayDuration : 0
 
   return (
-    <div className="flex w-60 max-w-full items-center gap-2.5 py-0.5">
+    <div className="flex min-w-0 w-full max-w-full items-center gap-2.5 py-0.5">
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={audioRef} src={src} preload="metadata" />
 
@@ -135,7 +135,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
           aria-valuemax={displayDuration || 1}
           aria-valuenow={currentTime}
           tabIndex={0}
-          className="flex h-8 w-full cursor-pointer items-end gap-px select-none overflow-hidden"
+          className="h-8 w-full cursor-pointer select-none overflow-hidden"
           onClick={handleWaveformClick}
           onKeyDown={(e) => {
             const audio = audioRef.current
@@ -144,29 +144,37 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
             if (e.key === 'ArrowLeft')  audio.currentTime = Math.max(audio.currentTime - 5, 0)
           }}
         >
-          {waveform.current.map((height, i) => {
-            const barProgress = (i + 1) / BAR_COUNT
-            const active = barProgress <= progress
-            const isCurrent = !active && barProgress - 1 / BAR_COUNT <= progress
-            return (
-              <div
-                key={i}
-                className={cn(
-                  'flex-1 rounded-full transition-colors duration-75',
-                  active
-                    ? 'bg-accent'
-                    : isCurrent
-                    ? 'bg-accent/60'
-                    : 'bg-white/25',
-                )}
-                style={{ height: `${Math.round(height * 100)}%` }}
-              />
-            )
-          })}
+          {/* SVG scales the bars and gaps together; fixed CSS gaps could consume
+              the whole track in narrow bubbles and reduce every bar to 0px. */}
+          <svg className="block h-full w-full" viewBox={`0 0 ${BAR_COUNT * 3} 32`} preserveAspectRatio="none" aria-hidden="true">
+            {waveform.map((height, i) => {
+              const barProgress = (i + 1) / BAR_COUNT
+              const active = barProgress <= progress
+              const isCurrent = !active && barProgress - 1 / BAR_COUNT <= progress
+              return (
+                <rect
+                  key={i}
+                  x={i * 3}
+                  y={32 - height * 32}
+                  width={2}
+                  height={height * 32}
+                  rx={1}
+                  className={cn(
+                    'transition-[fill] duration-75',
+                    active
+                      ? 'fill-accent'
+                      : isCurrent
+                      ? 'fill-accent/60'
+                      : 'fill-text-secondary/70',
+                  )}
+                />
+              )
+            })}
+          </svg>
         </div>
 
         {/* Time */}
-        <div className="flex justify-between text-[10px] tabular-nums text-text-tertiary">
+        <div className="flex justify-between gap-2 whitespace-nowrap text-[10px] tabular-nums text-text-tertiary">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(displayDuration)}</span>
         </div>
@@ -180,7 +188,7 @@ export function AudioPlayer({ src, duration }: AudioPlayerProps) {
           'shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums transition-colors',
           speed !== 1
             ? 'bg-accent/20 text-accent'
-            : 'text-white/50 hover:text-white/80',
+            : 'text-text-secondary hover:text-text-primary',
         )}
         aria-label={`Playback speed: ${speed}x. Click to toggle.`}
       >

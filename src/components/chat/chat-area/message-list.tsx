@@ -548,6 +548,12 @@ export function MessageList({
                 const agentName = agentId ? agentMap?.[agentId] ?? null : null
 
                 const attachments = (message.metadata?.media as MediaAttachment[] | undefined) ?? []
+                // Audio needs an explicit preferred width. A percentage-width
+                // player inside an auto-sized bubble otherwise shrinks to its
+                // controls, leaving no usable room for the waveform.
+                const bubbleWidth = attachments.some((attachment) => attachment.mime_type.startsWith('audio/'))
+                  ? 'w-80 max-w-[calc(100%-2.25rem)]'
+                  : 'max-w-[85%] md:max-w-[70%]'
 
                 if (isVisitor) {
                   return (
@@ -564,7 +570,7 @@ export function MessageList({
                             {(message.content?.charAt(0) || visitorInitial).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle whitespace-pre-wrap break-words">
+                        <div className={cn('min-w-0 rounded-[12px] bg-bg-secondary px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-border-subtle whitespace-pre-wrap break-words', bubbleWidth)}>
                           {message.channel === 'email' && message.email_subject && (
                             <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
                               <Mail className="h-3 w-3 shrink-0" />
@@ -600,7 +606,7 @@ export function MessageList({
                     >
                     {/* bubble + avatar — centered */}
                     <div className="flex items-center justify-end gap-2">
-                      <div className="max-w-[85%] md:max-w-[70%] rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20 whitespace-pre-wrap break-words">
+                      <div className={cn('min-w-0 rounded-[12px] bg-accent-muted px-3.5 py-2 text-[13.5px] leading-relaxed text-text-primary ring-1 ring-accent/20 whitespace-pre-wrap break-words', bubbleWidth)}>
                         {message.channel === 'email' && message.email_subject && (
                           <div className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-text-secondary border-b border-border-subtle pb-1.5">
                             <Mail className="h-3 w-3 shrink-0" />

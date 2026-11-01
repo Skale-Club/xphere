@@ -55,6 +55,33 @@ The first E2E suite checks the health endpoint and renders the public entry
 page while capturing uncaught browser errors. Add focused journeys under
 `tests/e2e/`; they remain excluded from ordinary Vitest runs.
 
+The composer layout regression renders the real component with production
+Tailwind CSS in Chromium, without a server, authentication, or provider calls:
+
+```bash
+npx vitest run --config vitest.e2e.config.ts tests/e2e/message-composer-layout.test.ts
+```
+
+It checks panels from 280 to 900 pixels in mobile and desktop viewports,
+including long channel names, email, and template/fallback send buttons.
+Channel/status controls must stay separate, the textarea must remain usable,
+and every visible button must stay within the panel. Chromium must be installed.
+
+The header has a separate regression for avatar/name visibility and non-overlapping
+toolbar actions (including Pin) in panels from 240 to 900 pixels:
+
+```bash
+npx vitest run --config vitest.e2e.config.ts tests/e2e/chat-header-layout.test.ts
+```
+
+Audio message layout tests render the full conversation list with incoming and
+outgoing audio in both themes. They verify usable waveform width, visible bars,
+and controls contained within the panel:
+
+```bash
+npx vitest run --config vitest.e2e.config.ts tests/e2e/audio-message-layout.test.ts
+```
+
 ## Adding coverage
 
 For a bug fix, first add a test that reproduces the failure, then fix the code

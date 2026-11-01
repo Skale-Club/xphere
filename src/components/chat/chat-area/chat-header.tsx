@@ -162,9 +162,9 @@ export function ChatHeader({
     : baseSubtitle
 
   return (
-    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-subtle bg-bg-primary/95 px-4 py-3 pt-safe-3 backdrop-blur">
+    <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-bg-primary/95 px-4 py-3 pt-safe-3 backdrop-blur">
       {/* Left cluster | back + avatar + identity */}
-      <div className="flex min-w-0 items-center gap-3">
+      <div className="flex min-w-0 max-w-full flex-[1_1_12rem] items-center gap-3">
         <Button
           variant="ghost"
           size="icon"
@@ -192,8 +192,8 @@ export function ChatHeader({
           />
         </div>
         <div className="flex min-w-0 flex-col">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[14px] font-semibold tracking-tight text-text-primary">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[14px] font-semibold tracking-tight text-text-primary" title={name}>
               {name}
             </span>
             <DndBadge dndEnabled={dndEnabled} dndChannels={dndChannels} />
@@ -221,7 +221,7 @@ export function ChatHeader({
       </div>
 
       {/* Right cluster | panel toggle + secondary actions */}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1">
         <TooltipProvider delayDuration={200}>
           {/* Desktop-only quick actions: Pin + Star */}
           <Tooltip>
