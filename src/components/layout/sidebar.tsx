@@ -136,7 +136,7 @@ function SidebarBody({
                 size="icon-sm"
                 onClick={onToggle}
                 aria-label="Expand sidebar"
-                className="w-full text-text-tertiary hover:text-text-primary"
+                className="h-9 w-full text-text-tertiary hover:text-text-primary lg:h-8"
               >
                 <PanelLeftOpen className="h-[15px] w-[15px]" />
               </Button>
@@ -169,7 +169,7 @@ function SidebarBody({
                 size="icon-sm"
                 onClick={onToggle}
                 aria-label="Collapse sidebar"
-                className="text-text-tertiary hover:text-text-primary"
+                className="h-9 w-9 text-text-tertiary hover:text-text-primary lg:h-8 lg:w-8"
               >
                 <PanelLeftClose className="h-[15px] w-[15px]" />
               </Button>
@@ -206,7 +206,7 @@ function SidebarBody({
           )
           if (items.length === 0) return null
           return (
-            <div key={g.id} className={cn('flex flex-col', gIdx > 0 && 'mt-3')}>
+            <div key={g.id} className={cn('flex flex-col gap-0.5 lg:gap-0', gIdx > 0 && 'mt-3')}>
               {!collapsed && (
                 <div className="px-2.5 pb-1.5 pt-1 text-[10.5px] font-medium uppercase tracking-[0.08em] text-[color:var(--accent-soft)]">
                   {g.label}
@@ -224,7 +224,9 @@ function SidebarBody({
                     href={item.href}
                     onClick={onNavigate}
                     className={cn(
-                      'relative flex h-8 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-medium',
+                      // Touch sizes below lg (phone/tablet rail and drawer), the
+                      // denser desktop sizes from lg up.
+                      'relative flex h-9 items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-medium lg:h-8',
                       'transition-colors duration-100 ease-out',
                       isActive
                         ? 'bg-accent-muted text-text-primary'
@@ -232,13 +234,14 @@ function SidebarBody({
                       collapsed && 'justify-center px-0',
                     )}
                   >
-                    {/* active indicator | left bar */}
+                    {/* active indicator | left bar, pinned to the sidebar's edge
+                        (-left-2 cancels the nav's px-2) so it never crowds the icon */}
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[2.5px] rounded-r-full bg-accent shadow-[0_0_8px_var(--accent-glow)]" />
+                      <span className="absolute -left-2 top-1/2 -translate-y-1/2 h-5 w-[2.5px] rounded-r-full bg-accent shadow-[0_0_8px_var(--accent-glow)] lg:h-4" />
                     )}
                     <Icon
                       className={cn(
-                        'h-4 w-4 shrink-0',
+                        'h-[18px] w-[18px] shrink-0 lg:h-4 lg:w-4',
                         isActive ? 'text-accent' : 'text-text-tertiary group-hover:text-text-primary',
                       )}
                     />
@@ -276,6 +279,7 @@ function SidebarBody({
               className={cn(
                 'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-1.5 text-left',
                 'hover:bg-bg-tertiary transition-colors duration-100 ease-out',
+                collapsed && 'justify-center px-0',
               )}
             >
               <Avatar className="h-6 w-6 shrink-0">
@@ -406,11 +410,12 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
         <SidebarBody {...bodyProps} collapsed={collapsed} onToggle={toggle} showShortcut />
       </aside>
 
-      {/* Tablet / phone | in-flow 48px icon rail. The expand button opens the
-          full sidebar as an overlay rather than widening in place. */}
+      {/* Tablet / phone | in-flow 52px icon rail (36px touch targets). The
+          expand button opens the full sidebar as an overlay rather than
+          widening in place. */}
       <aside
         className={cn(
-          'group/sidebar relative flex h-dvh w-[48px] shrink-0 flex-col lg:hidden',
+          'group/sidebar relative flex h-dvh w-[52px] shrink-0 flex-col lg:hidden',
           'border-r border-border-subtle bg-bg-secondary',
         )}
       >
@@ -432,10 +437,12 @@ export function Sidebar({ user, activeOrgId: _activeOrgId, activeOrgName: _activ
             mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
           )}
         />
-        {/* Drawer */}
+        {/* Drawer | sized to its content: the longest nav row is ~145px, so
+            200px fits every label plus a typical user footer (longer emails
+            truncate) without covering most of a phone screen. */}
         <aside
           className={cn(
-            'fixed inset-y-0 left-0 z-50 flex h-dvh w-[240px] flex-col',
+            'fixed inset-y-0 left-0 z-50 flex h-dvh w-[200px] flex-col',
             'border-r border-border-subtle bg-bg-secondary shadow-2xl shadow-black/40',
             'transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]',
             mobileOpen ? 'translate-x-0' : '-translate-x-full',

@@ -16,6 +16,8 @@
 
 import * as React from 'react'
 
+import { detectInstallPlatform, type InstallPlatform } from '@/lib/pwa/platform'
+
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[]
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
@@ -28,8 +30,10 @@ const DISMISSED_KEY = 'xphere.pwa.dismissed_at'
 interface ContextValue {
   /** App is already installed and running standalone. */
   isStandalone: boolean
-  /** User is on iOS Safari (no programmatic install — manual A2HS). */
+  /** User is on iOS (no programmatic install — manual A2HS). */
   isIos: boolean
+  /** OS + browser, to pick the right manual install steps. Null before mount. */
+  platform: InstallPlatform | null
   /** A beforeinstallprompt event was captured and is ready to fire. */
   canInstall: boolean
   /** Whether the dialog is currently open. */
@@ -48,6 +52,7 @@ const noop = () => {}
 const Ctx = React.createContext<ContextValue>({
   isStandalone: false,
   isIos: false,
+  platform: null,
   canInstall: false,
   open: false,
   openDialog: noop,
@@ -62,7 +67,7 @@ export function usePwaInstall() {
 
 export function PwaInstallProvider({ children }: { children: React.ReactNode }) {
   const [isStandalone, setIsStandalone] = React.useState(false)
-  const [isIos, setIsIos] = React.useState(false)
+  const [platform, setPlatform] = React.useState<InstallPlatform | null>(null)
   const [canInstall, setCanInstall] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const promptEventRef = React.useRef<BeforeInstallPromptEvent | null>(null)
@@ -77,10 +82,9 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       (window.navigator as Navigator & { standalone?: boolean }).standalone === true
     setIsStandalone(Boolean(standalone))
 
-    const ua = window.navigator.userAgent
-    const ios =
-      /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream
-    setIsIos(ios)
+    setPlatform(
+      detectInstallPlatform(window.navigator.userAgent, window.navigator.maxTouchPoints ?? 0),
+    )
 
     // Stamp the first-seen-at timestamp so we don't bother brand-new users
     try {
@@ -148,10 +152,13 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     setOpen(false)
   }, [])
 
+  const isIos = platform?.os === 'ios'
+
   const value = React.useMemo<ContextValue>(
     () => ({
       isStandalone,
       isIos,
+      platform,
       canInstall,
       open,
       openDialog,
@@ -162,6 +169,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     [
       isStandalone,
       isIos,
+      platform,
       canInstall,
       open,
       openDialog,

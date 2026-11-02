@@ -2,8 +2,9 @@
 
 /**
  * PwaInstallDialog — adaptive install prompt rendered globally in the
- * dashboard layout. Different content for Android/desktop (native prompt
- * available) vs iOS (manual Add-to-Home-Screen instructions).
+ * dashboard layout. Native install button where the browser offers one
+ * (Chromium on Android/desktop); otherwise step-by-step manual instructions
+ * for the user's OS and browser (every iOS browser, Samsung Internet, …).
  *
  * Visibility is fully controlled by PwaInstallContext: this component
  * doesn't decide when to show, it only renders.
@@ -11,16 +12,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
-import {
-  Download,
-  Share,
-  Plus,
-  Check,
-  Bell,
-  Zap,
-  Wifi,
-  CheckCircle2,
-} from 'lucide-react'
+import { Download, Bell, Zap, Wifi, Check } from 'lucide-react'
 
 import {
   Dialog,
@@ -31,15 +23,17 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import type { InstallPlatform } from '@/lib/pwa/platform'
 import { usePwaInstall } from './pwa-install-context'
+import { ManualInstallSteps, hasManualSteps } from './pwa-install-steps'
 
 export function PwaInstallDialog() {
-  const { isStandalone, isIos, canInstall, open, closeDialog, promptInstall, markDismissed } =
+  const { isStandalone, platform, canInstall, open, closeDialog, promptInstall, markDismissed } =
     usePwaInstall()
 
   // Nothing to offer? Don't render at all.
   if (isStandalone) return null
-  if (!canInstall && !isIos) return null
+  if (!canInstall && !hasManualSteps(platform)) return null
 
   return (
     <Dialog
@@ -49,20 +43,40 @@ export function PwaInstallDialog() {
       }}
     >
       <DialogContent className="sm:max-w-md">
-        {isIos ? (
-          <IosInstructions onDismiss={markDismissed} />
+        {canInstall ? (
+          <NativeInstall onInstall={promptInstall} onDismiss={markDismissed} />
         ) : (
-          <DesktopAndroidInstall
-            onInstall={promptInstall}
-            onDismiss={markDismissed}
-          />
+          hasManualSteps(platform) && (
+            <ManualInstall platform={platform} onDismiss={markDismissed} />
+          )
         )}
       </DialogContent>
     </Dialog>
   )
 }
 
-function DesktopAndroidInstall({
+function AppHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <DialogHeader>
+      <div className="flex items-start gap-3">
+        <Image
+          src="/xphere-icon.svg"
+          alt="Xphere"
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 rounded-[10px]"
+          priority
+        />
+        <div>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </div>
+      </div>
+    </DialogHeader>
+  )
+}
+
+function NativeInstall({
   onInstall,
   onDismiss,
 }: {
@@ -82,24 +96,10 @@ function DesktopAndroidInstall({
 
   return (
     <>
-      <DialogHeader>
-        <div className="flex items-start gap-3">
-          <Image
-            src="/xphere-icon.svg"
-            alt="Xphere"
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 rounded-[10px]"
-            priority
-          />
-          <div>
-            <DialogTitle>Install Xphere</DialogTitle>
-            <DialogDescription>
-              Add the app to your device for a faster, dedicated experience.
-            </DialogDescription>
-          </div>
-        </div>
-      </DialogHeader>
+      <AppHeader
+        title="Install Xphere"
+        description="Add the app to your device for a faster, dedicated experience."
+      />
 
       <ul className="space-y-2.5 py-2">
         <Benefit icon={Zap} title="Instant launch" description="Open straight from your home screen — no browser tab to find." />
@@ -120,53 +120,36 @@ function DesktopAndroidInstall({
   )
 }
 
-function IosInstructions({ onDismiss }: { onDismiss: () => void }) {
+function ManualInstall({
+  platform,
+  onDismiss,
+}: {
+  platform: InstallPlatform
+  onDismiss: () => void
+}) {
+  const ios = platform.os === 'ios'
+
   return (
     <>
-      <DialogHeader>
-        <div className="flex items-start gap-3">
-          <Image
-            src="/xphere-icon.svg"
-            alt="Xphere"
-            width={40}
-            height={40}
-            className="h-10 w-10 shrink-0 rounded-[10px]"
-            priority
-          />
-          <div>
-            <DialogTitle>Add Xphere to your Home Screen</DialogTitle>
-            <DialogDescription>
-              Required to receive push notifications on iOS, and gives you a full-screen native feel.
-            </DialogDescription>
-          </div>
-        </div>
-      </DialogHeader>
+      <AppHeader
+        title={ios ? 'Add Xphere to your Home Screen' : 'Install Xphere'}
+        description={
+          ios
+            ? 'Required to receive push notifications on iPhone and iPad, and gives you a full-screen native feel.'
+            : 'Takes a few seconds — instant launch from your home screen and push notifications.'
+        }
+      />
 
-      <ol className="space-y-3 py-2">
-        <Step
-          n={1}
-          icon={Share}
-          title="Tap the Share button"
-          description="In Safari's toolbar at the bottom of the screen."
-        />
-        <Step
-          n={2}
-          icon={Plus}
-          title="Choose 'Add to Home Screen'"
-          description="Scroll the share sheet until you see it."
-        />
-        <Step
-          n={3}
-          icon={Check}
-          title="Tap 'Add'"
-          description="The Xphere icon appears on your home screen. Open it from there from now on."
-        />
-      </ol>
-
-      <div className="rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
-        <strong>Tip:</strong> Web push notifications on iOS only work when launched from a Home
-        Screen installation — not from Safari.
+      <div className="py-2">
+        <ManualInstallSteps platform={platform} />
       </div>
+
+      {ios && (
+        <div className="rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[11.5px] text-amber-200">
+          <strong>Tip:</strong> Web push notifications on iOS only work when launched from a Home
+          Screen installation — not from the browser.
+        </div>
+      )}
 
       <DialogFooter>
         <Button onClick={onDismiss} className="gap-1.5">
@@ -199,33 +182,3 @@ function Benefit({
     </li>
   )
 }
-
-function Step({
-  n,
-  icon: Icon,
-  title,
-  description,
-}: {
-  n: number
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  description: string
-}) {
-  return (
-    <li className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent text-[11px] font-semibold">
-        {n}
-      </div>
-      <div className="flex-1">
-        <p className="flex items-center gap-1.5 text-[13px] font-medium text-text-primary">
-          <Icon className="h-3.5 w-3.5 text-text-tertiary" />
-          {title}
-        </p>
-        <p className="text-[12px] text-text-secondary leading-relaxed mt-0.5">{description}</p>
-      </div>
-    </li>
-  )
-}
-
-// Re-export for use by the settings inline control
-export { CheckCircle2 }

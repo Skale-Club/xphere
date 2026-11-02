@@ -1,128 +1,93 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Download, Share, X, Smartphone, Monitor } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Download, X, Smartphone, Monitor } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { usePwaInstall } from '@/components/pwa/pwa-install-context'
+import { hasManualSteps } from '@/components/pwa/pwa-install-steps'
 
 const DISMISSED_KEY = 'xphere_install_card_dismissed'
 
-type Platform = 'ios' | 'android' | 'desktop' | null
-
-function detectPlatform(): Platform {
-  if (typeof window === 'undefined') return null
-  const ua = navigator.userAgent
-  if (/iphone|ipad|ipod/i.test(ua)) return 'ios'
-  if (/android/i.test(ua)) return 'android'
-  return 'desktop'
-}
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    ('standalone' in navigator && (navigator as { standalone?: boolean }).standalone === true)
-  )
-}
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
-
 /**
- * Mini install-prompt card rendered below the quick-action chips in HeroSection.
- * Returns null when: already installed, dismissed by user, or SSR.
+ * Install-prompt card rendered below the quick-action chips in HeroSection.
+ * Reads the install state from PwaInstallContext (which captures
+ * `beforeinstallprompt` once, at layout mount). The button fires the native
+ * prompt where the browser offers one, and otherwise opens the dialog with
+ * the manual steps for this OS + browser (iPhone, Samsung Internet, …).
+ *
+ * Returns null when: already installed, dismissed by user, nothing to offer
+ * (e.g. Firefox desktop), or before mount.
  */
 export function InstallAppCard() {
-  const [platform, setPlatform] = useState<Platform>(null)
-  const [visible, setVisible] = useState(false)
-  const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
+  const { isStandalone, platform, canInstall, promptInstall, openDialog } = usePwaInstall()
+  const [dismissed, setDismissed] = useState(true)
+  const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (isStandalone()) return
-    if (localStorage.getItem(DISMISSED_KEY) === '1') return
-
-    const p = detectPlatform()
-    setPlatform(p)
-    setVisible(true)
-
-    const handler = (e: Event) => {
-      e.preventDefault()
-      deferredPromptRef.current = e as BeforeInstallPromptEvent
-    }
-    window.addEventListener('beforeinstallprompt', handler)
-
-    const onInstalled = () => setVisible(false)
-    window.addEventListener('appinstalled', onInstalled)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler)
-      window.removeEventListener('appinstalled', onInstalled)
+    try {
+      setDismissed(localStorage.getItem(DISMISSED_KEY) === '1')
+    } catch {
+      setDismissed(false)
     }
   }, [])
 
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, '1')
-    setVisible(false)
+    try {
+      localStorage.setItem(DISMISSED_KEY, '1')
+    } catch {
+      /* localStorage unavailable (private mode, blocked) */
+    }
+    setDismissed(true)
   }
 
   async function handleInstall() {
-    const prompt = deferredPromptRef.current
-    if (prompt) {
-      await prompt.prompt()
-      const { outcome } = await prompt.userChoice
-      if (outcome === 'accepted') setVisible(false)
-      deferredPromptRef.current = null
-    } else {
-      window.location.href = '/settings/install'
+    if (!canInstall) {
+      openDialog()
+      return
+    }
+    setPending(true)
+    try {
+      const outcome = await promptInstall()
+      if (outcome === 'unavailable') openDialog()
+    } finally {
+      setPending(false)
     }
   }
 
-  if (!visible || !platform) return null
+  if (dismissed || isStandalone || !platform) return null
+  if (!canInstall && !hasManualSteps(platform)) return null
 
-  const isMobile = platform === 'ios' || platform === 'android'
+  const isMobile = platform.os !== 'desktop'
+  const Icon = isMobile ? Smartphone : Monitor
 
   return (
-    <div className="flex w-full items-center gap-3 rounded-[8px] border border-border-subtle bg-bg-tertiary/40 px-3 py-2.5">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[6px] border border-border-subtle bg-bg-secondary">
-        {isMobile ? (
-          <Smartphone className="h-3.5 w-3.5 text-accent" />
-        ) : (
-          <Monitor className="h-3.5 w-3.5 text-accent" />
-        )}
+    <div className="relative flex w-full items-center gap-3 rounded-[10px] border border-accent/30 bg-accent/[0.08] p-3 pr-9 md:max-w-[420px]">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[9px] bg-accent/15 text-accent">
+        <Icon className="h-5 w-5" />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="text-[12px] font-medium text-text-secondary">
-          {isMobile ? 'Add to home screen' : 'Install on your desktop'}
+        <p className="text-[13px] font-semibold text-text-primary">
+          {isMobile ? 'Get the Xphere app' : 'Install Xphere on your desktop'}
         </p>
-        <p className="truncate text-[11px] text-text-tertiary">
-          {platform === 'ios' && (
-            <>
-              Tap <Share className="inline h-3 w-3 align-[-2px]" /> in Safari →{' '}
-              <span className="text-text-secondary">Add to Home Screen</span>
-            </>
-          )}
-          {platform === 'android' && 'Quick access from your home screen'}
-          {platform === 'desktop' && 'Instant launch, no browser needed'}
+        <p className="text-[12px] leading-snug text-text-secondary">
+          {platform.os === 'ios'
+            ? 'Home-screen access and push notifications'
+            : 'Instant launch and push notifications'}
         </p>
       </div>
 
-      {(platform === 'android' || platform === 'desktop') && (
-        <button
-          type="button"
-          onClick={handleInstall}
-          className="shrink-0 inline-flex items-center gap-1 rounded-[5px] border border-border bg-bg-secondary px-2 py-1 text-[11px] font-medium text-text-secondary transition-all hover:border-border-strong hover:text-text-primary"
-        >
-          <Download className="h-3 w-3 text-accent" />
-          {platform === 'desktop' ? 'Install' : 'Add'}
-        </button>
-      )}
+      <Button size="sm" onClick={handleInstall} loading={pending} className="shrink-0 gap-1.5 px-3.5">
+        <Download />
+        Install
+      </Button>
 
       <button
         type="button"
         onClick={dismiss}
         aria-label="Dismiss"
-        className="shrink-0 rounded-[4px] p-0.5 text-text-tertiary transition-colors hover:bg-bg-secondary hover:text-text-primary"
+        className="absolute right-1 top-1 rounded-[6px] p-1.5 text-text-tertiary transition-colors hover:bg-bg-secondary hover:text-text-primary"
       >
         <X className="h-3.5 w-3.5" />
       </button>
