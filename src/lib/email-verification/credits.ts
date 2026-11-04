@@ -65,13 +65,16 @@ export async function getNeverBounceCredits(): Promise<ProviderCreditStatus> {
     const data = (await res.json().catch(() => ({}))) as {
       status?: string
       message?: string
-      credits?: { paid_credits_remaining?: number; free_credits_remaining?: number }
+      credits_info?: { paid_credits_remaining?: number; free_credits_remaining?: number }
     }
     if (data.status !== 'success') {
       return { configured: true, credits: null, ok: false, error: data.message || data.status || 'NeverBounce account/info call failed.' }
     }
-    const paid = data.credits?.paid_credits_remaining ?? 0
-    const free = data.credits?.free_credits_remaining ?? 0
+    if (!data.credits_info) {
+      return { configured: true, credits: null, ok: false, error: 'NeverBounce account/info response missing `credits_info`.' }
+    }
+    const paid = data.credits_info.paid_credits_remaining ?? 0
+    const free = data.credits_info.free_credits_remaining ?? 0
     const credits = paid + free
     return { configured: true, credits, ok: credits > 0 }
   } catch (err) {

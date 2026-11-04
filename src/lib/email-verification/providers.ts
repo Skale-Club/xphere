@@ -130,7 +130,7 @@ interface NeverBounceResponse {
   status?: string // 'success' | 'auth_failure' | 'temp_unavail' | 'throttle_triggered' | 'bad_referrer' | 'general_failure'
   result?: string // 'valid' | 'invalid' | 'disposable' | 'catchall' | 'unknown'
   message?: string
-  credits_info?: { free_credits_used?: number; paid_credits_used?: number; credits_remaining?: number }
+  credits_info?: { free_credits_used?: number; paid_credits_used?: number; paid_credits_remaining?: number; free_credits_remaining?: number }
 }
 
 function normalizeNeverBounceResult(result: string): EmailStatus {
@@ -197,8 +197,9 @@ export async function verifyWithNeverBounce(email: string): Promise<VerifyOutcom
     // wasn't actually run. A zero/negative remaining balance confirms that
     // reading; otherwise treat it as an unreachable/unexpected response. Either
     // way we never fabricate a status for a check that didn't complete.
-    const remaining = data.credits_info?.credits_remaining
-    if (typeof remaining === 'number' && remaining <= 0) {
+    const info = data.credits_info
+    const remaining = info ? (info.paid_credits_remaining ?? 0) + (info.free_credits_remaining ?? 0) : null
+    if (remaining !== null && remaining <= 0) {
       return { error: 'no_credits', detail: 'NeverBounce credit balance is zero or negative.' }
     }
     return { error: 'unreachable', detail: 'NeverBounce response missing `result`.' }
