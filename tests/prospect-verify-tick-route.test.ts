@@ -63,11 +63,31 @@ type Filter =
   | { type: 'not_null'; col: string }
   | { type: 'gte'; col: string; val: unknown }
   | { type: 'in'; col: string; vals: unknown[] }
+  | { type: 'like'; col: string; pattern: string }
+
+/** Reads a plain column, or a PostgREST JSON text path like `custom_fields->>email`. */
+function readColumn(row: Record<string, unknown>, col: string): unknown {
+  const [base, jsonKey] = col.split('->>')
+  if (jsonKey === undefined) return row[base]
+  const json = row[base]
+  return json && typeof json === 'object' ? (json as Record<string, unknown>)[jsonKey] : undefined
+}
+
+function matchesLike(value: unknown, pattern: string): boolean {
+  if (typeof value !== 'string') return false
+  const source = pattern
+    .split('%')
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*')
+  return new RegExp(`^${source}$`).test(value)
+}
 
 function matchRow(row: Record<string, unknown>, filters: Filter[]): boolean {
   return filters.every((f) => {
-    const v = row[f.col]
+    const v = readColumn(row, f.col)
     switch (f.type) {
+      case 'like':
+        return matchesLike(v, f.pattern)
       case 'eq':
         return v === f.val
       case 'is':
@@ -117,6 +137,10 @@ function makeQuery(
   }
   q.gte = (col: string, val: unknown) => {
     filters.push({ type: 'gte', col, val })
+    return q
+  }
+  q.like = (col: string, pattern: string) => {
+    filters.push({ type: 'like', col, pattern })
     return q
   }
   // .update(data) stages a write; the following .in(col, ids) (Item 1's
@@ -501,6 +525,34 @@ describe('GET /api/cron/prospect-verify-tick', () => {
       { kind: 'contact', id: 'c1', email: 'a@example.com' },
       { kind: 'contact', id: 'c2', email: 'b@example.com' },
     ])
+  })
+
+  it('does not let older emailless accounts fill the window and starve the ones with an email (2026-10-17)', async () => {
+    createServiceRoleClient.mockReturnValue(
+      fakeDb({
+        contacts: [],
+        accounts: [
+          { id: 'a1', org_id: 'org-1', custom_fields: {}, created_at: '2026-09-27T00:00:00.000Z', prospect_source_id: 'src-1', email_status: null, lifecycle_stage: 'prospect' },
+          { id: 'a2', org_id: 'org-1', custom_fields: { email: 'shop@example.com' }, created_at: '2026-09-28T00:00:00.000Z', prospect_source_id: 'src-1', email_status: null, lifecycle_stage: 'prospect' },
+        ],
+        prospect_sources: [{ id: 'src-1', org_id: 'org-1', external_run_id: 'run-1' }],
+      }),
+    )
+    getVerificationCreditStatus.mockResolvedValue(okCreditStatus)
+    getMillionVerifierCredits.mockResolvedValue({ configured: true, credits: 500, ok: true })
+    verifyProspectsBatch.mockResolvedValue({
+      results: [{ kind: 'account', id: 'a2', email: 'shop@example.com', result: { status: 'catch_all', risk: 'medium', provider: 'millionverifier', verifiedAt: 'x', cached: false }, sendable: true }],
+      aggregate: { ok: 0, catch_all: 1, unknown: 0, invalid: 0, disposable: 0, bounced: 0, blocked: 0, platform_email: 0 },
+    })
+    xmailNotifyVerificationComplete.mockResolvedValue({ ok: true, runId: 'r', eventId: 'e', costEntryId: 'c', idempotentReplay: false })
+
+    // Budget of 1: if the email filter ran after the limit, a1 would take the only slot.
+    const { GET } = await importRoute({ PROSPECTING_AUTO_VERIFY: '1', PROSPECTING_AUTO_VERIFY_MAX_PER_DAY: '1' })
+    const res = await GET(makeRequest())
+    const body = await res.json()
+
+    expect(verifyProspectsBatch).toHaveBeenCalledWith('org-1', [{ kind: 'account', id: 'a2', email: 'shop@example.com' }])
+    expect(body.checked).toBe(1)
   })
 
   it('stops picking up further runs once a batch reports blocked (no credits) results, but still reports the in-flight run', async () => {
