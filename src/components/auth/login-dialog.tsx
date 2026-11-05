@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, ArrowRight, ArrowLeft, Phone, X } from 'lucide-react'
 
+import { CodeSlots } from '@/components/auth/code-slots'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -614,20 +615,17 @@ export function LoginDialog(props: LoginDialogProps) {
 
                 <div className="mt-5 space-y-4">
                   {error ? <AuthError id="login-error" message={error} /> : null}
-                  <input
+                  <CodeSlots
                     ref={codeRef}
                     value={code}
-                    onChange={(e) => onCodeChange(e.target.value)}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
+                    onChange={onCodeChange}
                     enterKeyHint="go"
-                    placeholder="••••••"
                     aria-label="6-digit code"
                     autoFocus
                     readOnly={locked}
+                    invalid={Boolean(error)}
                     aria-invalid={error ? true : undefined}
                     aria-describedby={error ? 'login-error' : undefined}
-                    className={`${fieldClass} h-14 pl-[0.5em] text-center font-mono text-2xl tracking-[0.5em] placeholder:tracking-[0.3em] sm:text-2xl`}
                   />
                   <Button type="submit" className={primaryButtonClass} disabled={locked || code.length !== 6}>
                     {locked ? (

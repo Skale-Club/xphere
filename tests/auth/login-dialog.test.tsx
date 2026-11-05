@@ -112,7 +112,7 @@ describe('LoginDialog', () => {
     expect(dialog()!.textContent).toContain('(508) 555-0100')
     expect(dialog()!.textContent).toContain('Use another number')
     expect(dialog()!.textContent).toContain('New code in 30s')
-    expect(codeField()!.placeholder).toBe('••••••')
+    expect(dialog()!.querySelectorAll('[data-slot="code-box"]').length).toBe(6)
   })
 
   it('submits on the sixth digit without a click', async () => {
