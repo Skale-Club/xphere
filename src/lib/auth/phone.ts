@@ -123,3 +123,44 @@ export function dialCodeOf(phone: string | null | undefined): string | null {
   const digits = text.startsWith('+') ? text.replace(/\D/g, '') : ''
   return PICKER_DIAL_CODES.find((code) => digits.startsWith(code)) ?? null
 }
+
+/** Digits a national number may have for each country the picker offers. */
+function nationalDigitLimit(countryCode: string): number | null {
+  const template = PHONE_COUNTRIES.some((c) => c.code === countryCode) ? phonePlaceholderFor(countryCode) : null
+  return template ? template.replace(/\D/g, '').length : null
+}
+
+/**
+ * Formats what a person types into a national number as they type, following
+ * the same shape `phonePlaceholderFor` shows ("(508) 555-0100" for +1).
+ *
+ * The output is derived from the digits alone and separators are only written
+ * once a digit follows them, so Backspace never gets stuck on a "(" or a space.
+ * A pasted international form ("+1 508 555 0100") loses its dial code instead of
+ * spilling it into the number; an 11-digit US paste loses its leading 1.
+ */
+export function maskPhoneInput(value: string, countryCode: string = DEFAULT_COUNTRY_CODE): string {
+  const cc = countryCode.replace(/\D/g, '')
+  let digits = value.replace(/\D/g, '')
+  if (value.trim().startsWith('+') && digits.startsWith(cc)) digits = digits.slice(cc.length)
+  else if (cc === '1' && digits.length === 11 && digits.startsWith('1')) digits = digits.slice(1)
+
+  const limit = nationalDigitLimit(cc)
+  if (limit === null) return digits.slice(0, 15) // not a country the picker offers: no known shape
+
+  digits = digits.slice(0, limit)
+  const template = phonePlaceholderFor(cc)
+  let out = ''
+  let used = 0
+  let pendingLiterals = ''
+  for (const char of template) {
+    if (used === digits.length) break
+    if (char === '0') {
+      out += pendingLiterals + digits[used++]
+      pendingLiterals = ''
+    } else {
+      pendingLiterals += char
+    }
+  }
+  return out
+}

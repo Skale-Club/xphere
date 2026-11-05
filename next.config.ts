@@ -75,17 +75,19 @@ const nextConfig: NextConfig = {
       "default-src 'self'",
       // Google Maps JS (Local SEO geogrid map) loads from maps.googleapis.com
       // and fetches tiles/fonts from the gstatic hosts.
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com",
+      // Identity Platform sign-in loads Google's reCAPTCHA and the Firebase auth SDK helpers.
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://apis.google.com https://www.google.com https://www.gstatic.com",
       // Twilio Voice SDK browser calling opens a signaling WebSocket to
       // chunderw-*.twilio.com and posts insights to eventgw.twilio.com. (WebRTC
       // media itself is exempt from connect-src.) Required once CSP enforces.
-      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com https://maps.googleapis.com`,
+      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com https://maps.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data: https://fonts.gstatic.com",
       "frame-ancestors 'none'",
-      "frame-src 'self'",
+      // The Firebase auth helper and reCAPTCHA run in frames.
+      "frame-src 'self' https://skaleclub.firebaseapp.com https://www.google.com https://recaptcha.google.com",
       "base-uri 'self'",
       "form-action 'self'",
       "object-src 'none'",

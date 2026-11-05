@@ -2,19 +2,20 @@
 
 import * as React from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react'
-import { defaultCountries, parseCountry, type CountryIso2 } from 'react-international-phone'
+import { Loader2, ArrowRight, ArrowLeft, Phone, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { XphereOrb } from '@/components/xphere-orb'
+import { GradientTopLine } from '@/components/auth/gradient-top-line'
+import { COUNTRY_PICKER_POPUP_ATTR, CountryCodePicker } from '@/components/auth/country-code-picker'
 import {
   cancelGooglePhoneChallenge,
   confirmGooglePhoneCode,
@@ -29,6 +30,15 @@ import {
   NO_WORKSPACE_MESSAGE,
   signInErrorMessage,
 } from '@/lib/auth/errors'
+import {
+  dialCodeOf,
+  formatPhone,
+  maskPhoneInput,
+  normalizePhone,
+  phoneCountryCodeFromIso,
+  phoneCountryCodeFromLocales,
+  phonePlaceholderFor,
+} from '@/lib/auth/phone'
 
 export interface LoginDialogProps {
   children?: React.ReactNode
@@ -37,6 +47,7 @@ export interface LoginDialogProps {
 }
 
 type Step = 'phone' | 'code' | 'no_workspace'
+type Action = 'send' | 'verify' | 'google'
 
 type IdentityResponse =
   | { status: 'active'; invite?: string }
@@ -52,19 +63,44 @@ const RESEND_AFTER_MS = 30_000
 // round trip.
 const E164 = /^\+[1-9]\d{7,14}$/
 
-/** The server's guess at the visitor's country, if it names a country the phone field knows. */
-function knownCountry(iso: string | null | undefined): CountryIso2 | null {
-  const lower = iso?.toLowerCase()
-  return defaultCountries.some((country) => parseCountry(country).iso2 === lower)
-    ? (lower as CountryIso2)
-    : null
+const RECAPTCHA_IFRAME = 'iframe[src*="recaptcha"]'
+
+/**
+ * Whether a click or focus landed in Google's reCAPTCHA.
+ *
+ * The phone flow's invisible reCAPTCHA lives in a div appended to <body>, and
+ * if Google decides to show an image challenge it does so in another body-level
+ * div. Both sit outside the dialog, so Radix would count a tap on them as
+ * "outside" and close the dialog under the person's finger.
+ */
+function isInsideRecaptcha(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  if (target.closest(RECAPTCHA_IFRAME)) return true
+  // The target may be the wrapper div itself rather than the iframe inside it.
+  return Boolean(target.closest('body > div')?.querySelector(RECAPTCHA_IFRAME))
 }
 
-const inputClass =
-  'h-10 text-base md:text-sm bg-white/4 border-white/10 text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500/50'
+/** The country list is portalled to <body> too, so a tap on it is not "outside" either. */
+function isInsideCountryPicker(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(`[${COUNTRY_PICKER_POPUP_ATTR}]`))
+}
+
+function browserCountryCode(): string {
+  if (typeof navigator === 'undefined') return phoneCountryCodeFromLocales([])
+  return phoneCountryCodeFromLocales(navigator.languages ?? [navigator.language])
+}
+
+// 16px minimum on touch screens: below that iOS Safari zooms the page on focus.
+const fieldClass =
+  'h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-base text-[#FAFAFA] placeholder:text-[#52525B] transition-colors ' +
+  'focus-visible:outline-none focus-visible:border-indigo-500/60 focus-visible:ring-2 focus-visible:ring-indigo-500/40 ' +
+  'aria-[invalid=true]:border-red-500/50 sm:text-sm'
 
 const primaryButtonClass =
-  'w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium'
+  'w-full h-12 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-50'
+
+const linkButtonClass =
+  'flex min-h-11 w-full items-center justify-center text-sm text-[#A1A1AA] transition-colors hover:text-[#FAFAFA] disabled:opacity-50 disabled:hover:text-[#A1A1AA]'
 
 /**
  * Covers the whole dialog once a sign-in has succeeded and we are navigating.
@@ -79,31 +115,63 @@ function NavigatingOverlay({ label }: { label: string }) {
     <div
       role="status"
       aria-live="polite"
-      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#08090A]/92 backdrop-blur-[2px]"
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-[#08090A]/92 backdrop-blur-[2px]"
     >
       <Loader2 className="h-6 w-6 animate-spin text-indigo-400" />
       <p className="text-[0.875rem] text-[#FAFAFA]">{label}</p>
-      <p className="text-[0.75rem] text-[#52525B]">Loading your workspace&hellip;</p>
+      <p className="text-[0.75rem] text-[#A1A1AA]">Loading your workspace&hellip;</p>
     </div>
   )
 }
 
-function GoogleButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
+function Brand() {
+  return (
+    <div
+      data-testid="login-logo"
+      role="img"
+      aria-label="Xphere"
+      className="flex items-center justify-center gap-2.5 text-xl font-semibold tracking-tight text-[#FAFAFA]"
+    >
+      <XphereOrb size={32} />
+      <span aria-hidden="true">Xphere</span>
+    </div>
+  )
+}
+
+function GoogleButton({
+  disabled,
+  loading,
+  onClick,
+}: {
+  disabled: boolean
+  loading: boolean
+  onClick: () => void
+}) {
   return (
     <Button
       type="button"
       variant="outline"
       disabled={disabled}
-      className="w-full h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
+      aria-busy={loading}
+      className="w-full h-12 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm disabled:opacity-50"
       onClick={onClick}
     >
-      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-      </svg>
-      Continue with Google
+      {loading ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Opening Google&hellip;
+        </>
+      ) : (
+        <>
+          <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </>
+      )}
     </Button>
   )
 }
@@ -115,7 +183,7 @@ function Divider() {
         <div className="w-full border-t border-white/8" />
       </div>
       <div className="relative flex justify-center text-xs">
-        <span className="bg-[#08090A] px-2 text-[#3F3F46]">or</span>
+        <span className="bg-[#08090A] px-2 text-[#A1A1AA]">or</span>
       </div>
     </div>
   )
@@ -132,9 +200,10 @@ function Notice({ message }: { message: string }) {
   )
 }
 
-function AuthError({ message }: { message: string }) {
+function AuthError({ message, id }: { message: string; id?: string }) {
   return (
     <div
+      id={id}
       role="alert"
       className="text-sm text-red-400 p-3 rounded-lg bg-red-500/8 border border-red-500/20"
     >
@@ -150,11 +219,16 @@ export function LoginDialog(props: LoginDialogProps) {
 
   const [config, setConfig] = useState<GoogleLoginConfig | null>(null)
   const [configFailed, setConfigFailed] = useState(false)
-  const [countryIso, setCountryIso] = useState<CountryIso2 | null>(null)
+  // The server's guess (from the request's geo headers) at the visitor's country.
+  const [countryGuess, setCountryGuess] = useState<string | null>(null)
+  const [countryCode, setCountryCode] = useState<string>(browserCountryCode)
   const [step, setStep] = useState<Step>('phone')
+  // What the person typed, masked ("(508) 555-0100"), and the E.164 we sent the code to.
+  const [phoneInput, setPhoneInput] = useState('')
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [action, setAction] = useState<Action | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
   const [resendAt, setResendAt] = useState(0)
@@ -166,6 +240,8 @@ export function LoginDialog(props: LoginDialogProps) {
   const pending = useRef(false)
   const navigationLock = useRef(false)
   const codeRef = useRef<HTMLInputElement>(null)
+  // A country the person picked is never overwritten by a guess.
+  const countryChosen = useRef(false)
 
   const setOpen = (next: boolean) => {
     if (navigationLock.current) return // don't let the user dismiss a sign-in in flight
@@ -184,12 +260,12 @@ export function LoginDialog(props: LoginDialogProps) {
         if (!response.ok) throw new Error('config')
         const body = (await response.json()) as { google?: GoogleLoginConfig; countryIso?: string | null }
         if (!body.google || body.google.enabled === false) throw new Error('config')
-        return { google: body.google, countryIso: knownCountry(body.countryIso) }
+        return { google: body.google, guess: phoneCountryCodeFromIso(body.countryIso) }
       })
-      .then(({ google, countryIso: guessed }) => {
+      .then(({ google, guess }) => {
         if (cancelled) return
         setConfig(google)
-        setCountryIso(guessed)
+        setCountryGuess(guess)
         // Warm the SDK so the first tap on "Send code" does not wait for it.
         void prepareGoogleIdentity(google).catch(() => {})
       })
@@ -201,14 +277,25 @@ export function LoginDialog(props: LoginDialogProps) {
     }
   }, [open, config])
 
+  // The geo guess beats the browser-language guess, but only while the person
+  // has neither picked a country nor started typing.
+  useEffect(() => {
+    if (!open || !countryGuess || countryChosen.current || phoneInput) return
+    setCountryCode(countryGuess)
+  }, [open, countryGuess, phoneInput])
+
   // Back to a clean first step when the dialog closes (never mid-navigation).
   useEffect(() => {
     if (open || navigationLock.current) return
     cancelGooglePhoneChallenge()
     setStep('phone')
+    setPhoneInput('')
+    setPhone('')
     setCode('')
     setError(null)
     setNote(null)
+    countryChosen.current = false
+    setCountryCode(browserCountryCode())
   }, [open])
 
   useEffect(() => cancelGooglePhoneChallenge, [])
@@ -272,10 +359,12 @@ export function LoginDialog(props: LoginDialogProps) {
     }
     pending.current = true
     setBusy(true)
+    setAction('send')
     setError(null)
     setNote(null)
     try {
       await sendGooglePhoneCode(config, target)
+      setPhone(target)
       setCode('')
       setResendAt(Date.now() + RESEND_AFTER_MS)
       setNow(Date.now())
@@ -285,6 +374,7 @@ export function LoginDialog(props: LoginDialogProps) {
     } finally {
       pending.current = false
       setBusy(false)
+      setAction(null)
     }
   }
 
@@ -292,6 +382,7 @@ export function LoginDialog(props: LoginDialogProps) {
     if (pending.current || navigationLock.current) return
     pending.current = true
     setBusy(true)
+    setAction('verify')
     setError(null)
     try {
       await completeSignIn(await confirmGooglePhoneCode(phone, value))
@@ -301,7 +392,10 @@ export function LoginDialog(props: LoginDialogProps) {
     } finally {
       pending.current = false
       // While navigating, busy stays true: nothing re-enables.
-      if (!navigationLock.current) setBusy(false)
+      if (!navigationLock.current) {
+        setBusy(false)
+        setAction(null)
+      }
     }
   }
 
@@ -309,6 +403,7 @@ export function LoginDialog(props: LoginDialogProps) {
     if (pending.current || navigationLock.current || !config) return
     pending.current = true
     setBusy(true)
+    setAction('google')
     setError(null)
     setNote(null)
     try {
@@ -317,14 +412,38 @@ export function LoginDialog(props: LoginDialogProps) {
       failure(googlePhoneError(err))
     } finally {
       pending.current = false
-      if (!navigationLock.current) setBusy(false)
+      if (!navigationLock.current) {
+        setBusy(false)
+        setAction(null)
+      }
     }
   }
 
   function onCodeChange(value: string) {
+    // No maxLength on the input: it would cut a pasted "123 456" at 6 characters.
     const digits = value.replace(/\D/g, '').slice(0, 6)
     setCode(digits)
+    if (digits) setError(null)
     if (digits.length === 6 && !pending.current) void verify(digits)
+  }
+
+  function onPhoneChange(value: string) {
+    if (error) setError(null)
+    // A pasted "+55 11 ..." switches the picker instead of being read as a US number.
+    const pasted = value.trim().startsWith('+') ? dialCodeOf(value) : null
+    if (pasted && pasted !== countryCode) {
+      countryChosen.current = true
+      setCountryCode(pasted)
+      setPhoneInput(maskPhoneInput(value, pasted))
+      return
+    }
+    setPhoneInput(maskPhoneInput(value, countryCode))
+  }
+
+  function onCountryChange(next: string) {
+    countryChosen.current = true
+    setCountryCode(next)
+    setPhoneInput((current) => maskPhoneInput(current, next))
   }
 
   function backToStart() {
@@ -337,16 +456,8 @@ export function LoginDialog(props: LoginDialogProps) {
 
   const locked = busy || navigating
   const waitSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000))
-
-  let title = 'Welcome back'
-  let subtitle = 'Sign in to your workspace'
-  if (step === 'code') {
-    title = 'Enter your code'
-    subtitle = `We texted a 6-digit code to ${phone}`
-  } else if (step === 'no_workspace') {
-    title = 'No workspace yet'
-    subtitle = 'You are signed out'
-  }
+  // Long enough for the chosen country, in the E.164 form that goes to Identity Platform.
+  const target = normalizePhone(phoneInput, countryCode)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -354,165 +465,224 @@ export function LoginDialog(props: LoginDialogProps) {
         <DialogTrigger asChild>{props.children}</DialogTrigger>
       ) : null}
       <DialogContent
-        hideCloseButton={navigating}
+        // The default close button is 24px; ours below is a 44px target.
+        hideCloseButton
         onEscapeKeyDown={(e) => {
           if (navigating) e.preventDefault()
         }}
+        // Covers both a tap outside and focus leaving the dialog.
         onInteractOutside={(e) => {
-          if (navigating) e.preventDefault()
+          const eventTarget = e.detail.originalEvent.target
+          if (navigating || isInsideRecaptcha(eventTarget) || isInsideCountryPicker(eventTarget)) {
+            e.preventDefault()
+          }
         }}
-        className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border-0 overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
+        className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border border-white/10 rounded-2xl overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
       >
         <DialogTitle className="sr-only">Sign in to Xphere</DialogTitle>
-        <DialogDescription className="sr-only">Sign in to your workspace</DialogDescription>
+        <GradientTopLine />
         {navigating && <NavigatingOverlay label="Signing you in" />}
-        <div className="p-6">
-          <div className="mb-6 text-center">
-            <h1 className="text-[1.25rem] font-semibold tracking-[-0.02em] text-[#FAFAFA]">
-              {title}
-            </h1>
-            <p className="text-[0.8125rem] text-[#71717A] mt-0.5">{subtitle}</p>
-          </div>
+        <div className="relative px-6 pb-6 pt-9 sm:px-8">
+          <Brand />
 
-          {configFailed ? (
-            <div className="mb-4">
-              <AuthError message={signInErrorMessage('auth_unavailable')} />
-            </div>
-          ) : null}
-          {error ? (
-            <div className="mb-4">
-              <AuthError message={error} />
-            </div>
-          ) : null}
-          {note && step === 'phone' ? (
-            <div className="mb-4">
-              <Notice message={note} />
-            </div>
-          ) : null}
+          {/* Only the step content is keyed: the dialog itself is never remounted between steps. */}
+          <div
+            key={step}
+            className="mt-5 min-h-[21.25rem] animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+          >
+            {step === 'phone' ? (
+              <>
+                <form
+                  noValidate
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (target) void sendCode(target)
+                    else failure('invalid_phone')
+                  }}
+                >
+                  <DialogDescription className="text-center text-sm text-[#A1A1AA]">
+                    Sign in with your phone number.
+                  </DialogDescription>
 
-          {step === 'phone' ? (
-            <>
+                  <div className="mt-6 space-y-4">
+                    <div className="space-y-3 empty:hidden">
+                      {configFailed ? <AuthError message={signInErrorMessage('auth_unavailable')} /> : null}
+                      {note ? <Notice message={note} /> : null}
+                      {error ? <AuthError id="login-error" message={error} /> : null}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="login-phone" className="block text-sm font-medium text-[#D4D4D8]">
+                        Phone number
+                      </label>
+                      <div className="flex gap-2">
+                        <CountryCodePicker
+                          value={countryCode}
+                          onChange={onCountryChange}
+                          label="Country"
+                          disabled={locked}
+                        />
+                        <div className="relative min-w-0 flex-1">
+                          {/* No icon on a phone: its width would cut off the last digits. */}
+                          <Phone className="pointer-events-none absolute left-3 top-1/2 hidden h-4 w-4 -translate-y-1/2 text-white/40 sm:block" />
+                          <input
+                            id="login-phone"
+                            value={phoneInput}
+                            onChange={(e) => onPhoneChange(e.target.value)}
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel-national"
+                            enterKeyHint="go"
+                            placeholder={phonePlaceholderFor(countryCode)}
+                            autoFocus
+                            // readOnly, not disabled: a disabled field drops focus and the phone keyboard with it.
+                            readOnly={locked}
+                            aria-invalid={error ? true : undefined}
+                            aria-describedby={error ? 'login-error' : undefined}
+                            className={`${fieldClass} sm:pl-10`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button type="submit" className={primaryButtonClass} disabled={locked || !config || !target}>
+                      {action === 'send' ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending code&hellip;
+                        </>
+                      ) : (
+                        <>
+                          <span>Send code</span>
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+                <Divider />
+                <GoogleButton
+                  disabled={locked || !config}
+                  loading={action === 'google'}
+                  onClick={() => void continueWithGoogle()}
+                />
+                <p className="mt-5 text-center text-xs leading-relaxed text-[#A1A1AA]">
+                  By continuing you agree to the{' '}
+                  <a
+                    href="/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#D4D4D8] underline-offset-2 hover:underline"
+                  >
+                    Terms of Service
+                  </a>{' '}
+                  and the{' '}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[#D4D4D8] underline-offset-2 hover:underline"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </p>
+              </>
+            ) : null}
+
+            {step === 'code' ? (
               <form
                 noValidate
-                className="space-y-4"
                 onSubmit={(e) => {
                   e.preventDefault()
-                  void sendCode(phone)
+                  if (code.length === 6) void verify(code)
                 }}
               >
-                <div className="space-y-1.5">
-                  <label htmlFor="login-phone" className="text-[0.8125rem] text-[#A1A1AA]">
-                    Phone number
-                  </label>
-                  <PhoneInput
-                    // Remounts once the config lands so the guessed country applies.
-                    key={countryIso ?? 'default'}
-                    defaultCountry={countryIso ?? 'us'}
-                    id="login-phone"
-                    value={phone}
-                    onChange={setPhone}
-                    disabled={locked}
-                    aria-label="Phone number"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className={primaryButtonClass}
-                  disabled={locked || !config}
-                >
-                  {busy ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending code&hellip;
-                    </>
-                  ) : (
-                    <>
-                      <span>Send code</span>
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </form>
-              <Divider />
-              <GoogleButton disabled={locked || !config} onClick={() => void continueWithGoogle()} />
-            </>
-          ) : null}
-
-          {step === 'code' ? (
-            <form
-              noValidate
-              className="space-y-4"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (code.length === 6) void verify(code)
-              }}
-            >
-              <Input
-                ref={codeRef}
-                value={code}
-                onChange={(e) => onCodeChange(e.target.value)}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                placeholder="000000"
-                aria-label="6-digit code"
-                disabled={locked}
-                className={`${inputClass} text-center font-mono tracking-[0.5em]`}
-              />
-              <Button
-                type="submit"
-                className={primaryButtonClass}
-                disabled={locked || code.length !== 6}
-              >
-                {locked ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying&hellip;
-                  </>
-                ) : (
-                  <span>Verify</span>
-                )}
-              </Button>
-              <div className="flex items-center justify-between text-[0.8125rem]">
                 <button
                   type="button"
                   onClick={backToStart}
                   disabled={locked}
-                  className="flex items-center gap-1 text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
+                  className="-ml-2 flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-[#A1A1AA] transition-colors hover:text-[#FAFAFA] disabled:opacity-50"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  Change number
+                  <ArrowLeft className="h-4 w-4" />
+                  Use another number
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void sendCode(phone)}
-                  disabled={locked || waitSeconds > 0}
-                  className="text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
-                >
-                  {waitSeconds > 0 ? `Resend in ${waitSeconds}s` : 'Resend code'}
-                </button>
-              </div>
-            </form>
-          ) : null}
+                <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#FAFAFA]">Enter the code</h2>
+                <DialogDescription className="mt-1 text-sm text-[#A1A1AA]">
+                  We texted a 6-digit code to {formatPhone(phone)}.
+                </DialogDescription>
 
-          {step === 'no_workspace' ? (
-            <div className="space-y-4">
-              <Notice message={NO_WORKSPACE_MESSAGE} />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={backToStart}
-                className="w-full h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to sign in
-              </Button>
-            </div>
-          ) : null}
+                <div className="mt-5 space-y-4">
+                  {error ? <AuthError id="login-error" message={error} /> : null}
+                  <input
+                    ref={codeRef}
+                    value={code}
+                    onChange={(e) => onCodeChange(e.target.value)}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    enterKeyHint="go"
+                    placeholder="••••••"
+                    aria-label="6-digit code"
+                    autoFocus
+                    readOnly={locked}
+                    aria-invalid={error ? true : undefined}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    className={`${fieldClass} h-14 pl-[0.5em] text-center font-mono text-2xl tracking-[0.5em] placeholder:tracking-[0.3em] sm:text-2xl`}
+                  />
+                  <Button type="submit" className={primaryButtonClass} disabled={locked || code.length !== 6}>
+                    {locked ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying&hellip;
+                      </>
+                    ) : (
+                      <span>Continue</span>
+                    )}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => void sendCode(phone)}
+                    disabled={locked || waitSeconds > 0}
+                    className={linkButtonClass}
+                  >
+                    {action === 'send'
+                      ? 'Sending…'
+                      : waitSeconds > 0
+                        ? `New code in ${waitSeconds}s`
+                        : 'Send a new code'}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {step === 'no_workspace' ? (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">No workspace yet</h2>
+                  <DialogDescription className="mt-1 text-sm text-[#A1A1AA]">
+                    You are signed out.
+                  </DialogDescription>
+                </div>
+                <Notice message={NO_WORKSPACE_MESSAGE} />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={backToStart}
+                  className="w-full h-12 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to sign in
+                </Button>
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="px-6 py-3.5 bg-white/[0.02] text-center text-[0.75rem] text-[#52525B] rounded-b-[inherit]">
-          Access is by invitation. New here? Ask an administrator to invite you.
-        </div>
+        {!navigating && (
+          <DialogClose className="absolute right-2 top-2 z-20 flex h-11 w-11 items-center justify-center rounded-lg text-[#A1A1AA] transition-colors hover:bg-white/5 hover:text-[#FAFAFA] focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+        )}
       </DialogContent>
     </Dialog>
   )
