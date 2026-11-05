@@ -838,3 +838,12 @@ button:disabled,
   color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+/* Google's reCAPTCHA appends its (invisible) widget and any image challenge
+ * straight to <body>. A modal Radix dialog sets pointer-events:none on <body>
+ * and everything outside the dialog inherits it, so the challenge shows up
+ * but cannot be clicked. Scoped to reCAPTCHA's own containers. The sign-in
+ * dialog also stops a tap on them from counting as "outside". */
+body > div:has(iframe[src*="recaptcha"]) {
+  pointer-events: auto;
+}
