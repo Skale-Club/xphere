@@ -132,7 +132,9 @@ describe('meta-capi-worker route', () => {
     await capiGET(req('/api/cron/meta-capi-worker'))
     // Lock was released by the finally block: a second run is allowed.
     const again = await capiGET(req('/api/cron/meta-capi-worker'))
-    expect((await again.json()).skipped).toBeUndefined()
+    // `skipped` is also the drain's count of skipped events (0 here), so only the
+    // lock marker matters.
+    expect((await again.json()).skipped).not.toBe('already_running')
     expect(capiDrain).toHaveBeenCalledTimes(2)
   })
 
