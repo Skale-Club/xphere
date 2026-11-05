@@ -6,10 +6,16 @@
 // Query params:
 //   page      | 1-indexed page number (default 1)
 //   pageSize  | items per page (default 30, max 100)
-//   status    | 'open' | 'closed' (optional filter)
-//   assigned  | 'me' (filter to conversations assigned to the current user)
-//   channel   | 'whatsapp' | 'instagram' | 'messenger' | 'sms' | 'voice' | 'widget' | 'web'
-//   starred   | '1' (only starred conversations)
+//   List filters take comma-separated values (any of them matches):
+//   status           | open, pending, waiting, resolved, closed (none: everything but closed)
+//   priority         | normal, high, urgent
+//   botStatus        | active, paused
+//   phone_number_id  | phone number ids
+//   assignedUserIds  | user ids, plus 'unassigned'
+//   labelIds         | label ids
+//   channel          | whatsapp, instagram, messenger, sms, voice, widget, web
+//   assigned         | 'me' (assigned to the current user)
+//   starred | verified | unread | pinned  | '1' to keep only those
 //
 // Response shape:
 //   {
@@ -53,6 +59,7 @@ const VALID_STATUSES = new Set<ConversationStatus>([
 ])
 const VALID_PRIORITIES = new Set(['normal', 'high', 'urgent'])
 const VALID_BOT_STATUSES = new Set(['active', 'paused'])
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 interface FilterableQuery {
   eq(column: string, value: unknown): FilterableQuery
@@ -94,17 +101,22 @@ export async function GET(request: Request): Promise<Response> {
     MAX_PAGE_SIZE,
     DEFAULT_PAGE_SIZE,
   )
-  const statusParam = url.searchParams.get('status')
-  const status = statusParam && VALID_STATUSES.has(statusParam as ConversationStatus)
-    ? (statusParam as ConversationStatus)
-    : null
+  // Every list filter takes comma-separated values; one value is just a list of one.
+  const list = (name: string) =>
+    (url.searchParams.get(name) ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+  const statuses = list('status').filter((s) => VALID_STATUSES.has(s as ConversationStatus))
   const assigned = url.searchParams.get('assigned')
   const channelParam = url.searchParams.get('channel')
   const starred = url.searchParams.get('starred') === '1'
   const verifiedOnly = url.searchParams.get('verified') === '1'
-  const priority = url.searchParams.get('priority')
-  const botStatus = url.searchParams.get('botStatus')
-  const phoneNumberId = url.searchParams.get('phone_number_id')
+  const unreadOnly = url.searchParams.get('unread') === '1'
+  const pinnedOnly = url.searchParams.get('pinned') === '1'
+  const priorities = list('priority').filter((p) => VALID_PRIORITIES.has(p))
+  const botStatuses = list('botStatus').filter((b) => VALID_BOT_STATUSES.has(b))
+  const phoneNumberIds = list('phone_number_id').filter((id) => UUID.test(id))
+  const assigneeValues = list('assignedUserIds')
+  const assignedUserIds = assigneeValues.filter((id) => UUID.test(id))
+  const labelIds = list('labelIds').filter((id) => UUID.test(id))
   // Supports comma-separated values for multi-channel filtering (additive).
   const channels = channelParam
     ? channelParam.split(',').map((c) => CHANNEL_ALIAS[c] ?? c).filter(Boolean)
@@ -120,14 +132,18 @@ export async function GET(request: Request): Promise<Response> {
   // is unchanged — only the grouping moves into SQL.
   const rpcArgs = {
     p_user: userId,
-    p_status: status,
     p_assigned: assigned === 'me' ? 'me' : null,
     p_channels: channels.length > 0 ? channels : null,
     p_starred: starred,
     p_verified: verifiedOnly,
-    p_priority: priority && VALID_PRIORITIES.has(priority) ? priority : null,
-    p_bot_status: botStatus && VALID_BOT_STATUSES.has(botStatus) ? botStatus : null,
-    p_phone_number_id: phoneNumberId,
+    p_statuses: statuses.length > 0 ? statuses : null,
+    p_priorities: priorities.length > 0 ? priorities : null,
+    p_bot_statuses: botStatuses.length > 0 ? botStatuses : null,
+    p_phone_number_ids: phoneNumberIds.length > 0 ? phoneNumberIds : null,
+    p_assigned_user_ids: assignedUserIds.length > 0 ? assignedUserIds : null,
+    p_include_unassigned: assigneeValues.includes('unassigned'),
+    p_label_ids: labelIds.length > 0 ? labelIds : null,
+    p_unread_only: unreadOnly,
   }
 
   type EntryRow = {
@@ -145,15 +161,20 @@ export async function GET(request: Request): Promise<Response> {
     is_unread: boolean
   }
 
+  // "Pinned" in the filter panel: only the pinned section, no paged list below it.
+  const noUnpinned = { data: [], error: null }
+  const zeroCount = { data: 0, error: null }
   const [pinnedEntriesRes, pageEntriesRes, countRes] = await Promise.all([
     supabase.rpc('inbox_entries', { ...rpcArgs, p_pinned: true, p_limit: 1000, p_offset: 0 }),
-    supabase.rpc('inbox_entries', {
-      ...rpcArgs,
-      p_pinned: false,
-      p_limit: pageSize,
-      p_offset: (page - 1) * pageSize,
-    }),
-    supabase.rpc('inbox_entries_count', { ...rpcArgs, p_pinned: false }),
+    pinnedOnly
+      ? Promise.resolve(noUnpinned)
+      : supabase.rpc('inbox_entries', {
+          ...rpcArgs,
+          p_pinned: false,
+          p_limit: pageSize,
+          p_offset: (page - 1) * pageSize,
+        }),
+    pinnedOnly ? Promise.resolve(zeroCount) : supabase.rpc('inbox_entries_count', { ...rpcArgs, p_pinned: false }),
   ])
 
   const entriesErr = pinnedEntriesRes.error ?? pageEntriesRes.error ?? countRes.error

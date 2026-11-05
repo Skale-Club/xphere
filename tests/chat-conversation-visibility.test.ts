@@ -20,4 +20,9 @@ describe('matchesInboxStatusFilter', () => {
   it('removes restored conversations from the Archived view', () => {
     expect(matchesInboxStatusFilter('open', 'closed')).toBe(false)
   })
+
+  it('matches any of several statuses picked together', () => {
+    expect(matchesInboxStatusFilter('pending', 'open,pending')).toBe(true)
+    expect(matchesInboxStatusFilter('resolved', 'open,pending')).toBe(false)
+  })
 })
