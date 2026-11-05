@@ -165,7 +165,8 @@ function isJwtShaped(token: string): boolean {
  * `${NEXT_PUBLIC_SUPABASE_URL}/rest/v1` prefix is rewritten; method, body, query string and every
  * header (x-xphere-org included) pass through. supabase-js falls back to the publishable key as
  * the bearer when there is no session; that is not a JWT and PostgREST would answer 401, so it is
- * dropped and the request runs as the anon role.
+ * dropped and the request runs as the anon role. Legacy Supabase Storage calls from this
+ * service client retain the original Supabase service credential; user credentials stay intact.
  */
 export function createDbExitFetch(base: FetchFn, env: Env = process.env): FetchFn {
   return ((input: RequestInfo | URL, init?: RequestInit) => {
@@ -179,6 +180,22 @@ export function createDbExitFetch(base: FetchFn, env: Env = process.env): FetchF
       original === prefix || original.startsWith(`${prefix}/`) || original.startsWith(`${prefix}?`)
     if (!matches) {
       logDbExitLeftover(original, env)
+      // Retention still removes legacy objects from Supabase after the database
+      // cutover. Its locally signed database JWT is not valid at Supabase Storage.
+      // Replace credentials only for this service client at the exact old Storage
+      // origin/path; authenticated user calls must never gain service access.
+      const legacyKey = env.SUPABASE_SERVICE_ROLE_KEY
+      if (
+        dbJwtSecret(env) && legacyKey &&
+        original.startsWith(`${stripTrailingSlashes(supabaseUrl)}/storage/v1/`)
+      ) {
+        const headers = new Headers(init?.headers ?? (typeof input === 'object' && 'headers' in input ? input.headers : undefined))
+        if (headers.get('authorization') === `Bearer ${getServiceRoleKey(env)}`) {
+          headers.set('authorization', `Bearer ${legacyKey}`)
+          headers.set('apikey', legacyKey)
+          return base(input, { ...init, headers })
+        }
+      }
       return base(input, init)
     }
 

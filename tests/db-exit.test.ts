@@ -160,6 +160,61 @@ describe('createDbExitFetch', () => {
     expect(base.mock.calls[0]![1]).toBe(init)
   })
 
+  it('uses the original Supabase service key for legacy Storage while retaining the new database token for REST', async () => {
+    const base = vi.fn().mockResolvedValue(new Response('{}'))
+    const config = { ...env, DB_JWT_SECRET: SECRET, SUPABASE_SERVICE_ROLE_KEY: 'legacy-storage-key' }
+    const serviceKey = getServiceRoleKey(config)!
+    const f = createDbExitFetch(base as unknown as typeof fetch, config)
+    const init = {
+      method: 'DELETE', body: '{"prefixes":["old.png"]}',
+      headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, 'x-xphere-org': 'org-9' },
+    }
+
+    await f(`${BASE}/storage/v1/object/website-screenshots`, init)
+    const [url, storageInit] = base.mock.calls[0]!
+    expect(url).toBe(`${BASE}/storage/v1/object/website-screenshots`)
+    expect(storageInit.method).toBe('DELETE')
+    expect(storageInit.body).toBe(init.body)
+    const storageHeaders = new Headers(storageInit.headers)
+    expect(storageHeaders.get('authorization')).toBe('Bearer legacy-storage-key')
+    expect(storageHeaders.get('apikey')).toBe('legacy-storage-key')
+    expect(storageHeaders.get('x-xphere-org')).toBe('org-9')
+
+    await f(`${BASE}/rest/v1/website_analyses`, init)
+    expect(base.mock.calls[1]![0]).toBe(`${REST}/website_analyses`)
+    expect(base.mock.calls[1]![1].headers.get('authorization')).toBe(`Bearer ${serviceKey}`)
+  })
+
+  it('preserves a Request Storage upload while replacing only its service credentials', async () => {
+    const base = vi.fn().mockResolvedValue(new Response('{}'))
+    const config = { ...env, DB_JWT_SECRET: SECRET, SUPABASE_SERVICE_ROLE_KEY: 'legacy-storage-key' }
+    const serviceKey = getServiceRoleKey(config)!
+    const f = createDbExitFetch(base as unknown as typeof fetch, config)
+    const req = new Request(`${BASE}/storage/v1/object/avatars/a.png`, {
+      method: 'POST', body: 'bytes', headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    })
+    await f(req)
+    expect(base.mock.calls[0]![0]).toBe(req)
+    expect(new Headers(base.mock.calls[0]![1]?.headers).get('authorization')).toBe('Bearer legacy-storage-key')
+    expect(await req.text()).toBe('bytes')
+  })
+
+  it.each([
+    ['a user token', `${BASE}/storage/v1/object/avatars/a.png`, 'user.jwt.signature'],
+    ['an anonymous token', `${BASE}/storage/v1/object/avatars/a.png`, 'publishable'],
+    ['a different host', 'https://other.example/storage/v1/object/avatars/a.png', 'service'],
+    ['a lookalike host', `${BASE}.evil.example/storage/v1/object/avatars/a.png`, 'service'],
+    ['an auth endpoint', `${BASE}/auth/v1/user`, 'service'],
+  ])('never grants legacy service access to %s', async (_case, url, credential) => {
+    const base = vi.fn().mockResolvedValue(new Response('{}'))
+    const config = { ...env, DB_JWT_SECRET: SECRET, SUPABASE_SERVICE_ROLE_KEY: 'legacy-storage-key' }
+    const serviceKey = getServiceRoleKey(config)!
+    const key = credential === 'service' ? serviceKey : credential
+    const init = { headers: { Authorization: `Bearer ${key}`, apikey: key } }
+    await createDbExitFetch(base as unknown as typeof fetch, config)(url, init)
+    expect(base).toHaveBeenCalledWith(url, init)
+  })
+
   it('drops a bearer that is not a JWT (the publishable key) so PostgREST runs as anon', async () => {
     const { base, f } = setup()
     await f(`${BASE}/rest/v1/services`, { headers: { Authorization: 'Bearer sb_publishable_abc', apikey: 'sb_publishable_abc' } })
