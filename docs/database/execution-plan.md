@@ -49,6 +49,35 @@ Cada item é um release separado e reversível. Nada disso exige janela.
    - webhooks;
    - contagens e sequences.
 
+### Resultado do ensaio (2026-11-05)
+
+Feito no host do Coolify com `infra/postgres/` (`Dockerfile`, `bootstrap.sql`, `rehearse.sh`, `compare.sql`, `test-rest.sh`), numa rede Docker isolada e sem porta pública. Desmontado ao final, sem cópia dos dados.
+
+| Portão | Resultado |
+|---|---|
+| Imagem | `xphere-postgres:17`: PG 17.11, pgvector 0.8.7, `safeupdate` compilado da tag 1.5 |
+| Dump | 92 s, 18,7 MB (`public` + `supabase_migrations`), lendo só do Supabase |
+| Restore | 8 s. Único erro: `schema "public" already exists`, inofensivo |
+| Schema | Idêntico: 221 tabelas, 656 policies, 221 com RLS, 106 funções, 95 triggers, 771 índices, 470 FKs, 27 enums, 335 migrations até 1337 |
+| Linhas | Contagem exata de todas as tabelas idêntica, exceto `analytics_pageviews` (+2 no Supabase, visitas que chegaram depois do dump) |
+| pgvector | Vizinhos mais próximos e `match_documents` com os mesmos ids nos dois bancos |
+| PostgREST v14.5 | service_role vê as 6.668 linhas; anon vê 0; `rpc/match_documents` responde |
+| Isolamento | Membro de uma org vê só as 32 linhas dela; pedir outra org pelo header cai na dele; filtrar outra org explicitamente dá 0 |
+| `get_current_org_id` | Respeita o header `x-xphere-org` para membros, como no Supabase |
+| `safeupdate` | DELETE sem filtro via PostgREST recusado (400), nenhuma linha perdida |
+
+Não coberto pelo ensaio: o app inteiro apontado para o banco novo. `xphere-stage.skale.club` é o mesmo app da produção, então não existe staging separado. O app completo só é testado no smoke do corte.
+
+### Antes do corte
+
+| Item | Situação |
+|---|---|
+| Ponte de JWT (A4) | Código pendente: o app assina com segredo próprio, e o PostgREST e o service role usam o mesmo segredo |
+| URL interna do PostgREST no servidor | Código pendente: o server client usa uma URL interna, e o browser não fala mais com o banco |
+| Buckets que ainda estão no Supabase | `contact-imports`, `global-knowledge` e `knowledge-docs` não estão em `STORAGE_R2_BUCKETS`. Ligar antes do corte, ou continuam no projeto que vira dev |
+| Edge Functions no app | Ligar `EDGE_FUNCTIONS_IN_APP` antes do corte. Antes disso, fazer as importações gravarem em lote |
+| Segredos de produção | Senha do banco, segredo do JWT e chave do backup no R2: criados pelo dono da conta |
+
 ## Fase C — corte
 
 1. Dump final para o R2 privado, com SHA-256 e um restore conferido.
