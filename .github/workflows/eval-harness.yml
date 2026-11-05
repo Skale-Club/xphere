@@ -1,25 +1,26 @@
 name: Agent Eval Harness
 
-# Manual / emergency trigger only. The weekly (Monday 08:00 UTC) LLM-judge eval
-# runs inside the app: GET /api/cron/eval-harness (src/lib/evals/run-eval.ts),
-# scheduled from skale-cron. The route answers immediately and runs the suite in
-# after() behind a run lock; the report (counts and scores) lands in the app log
-# and a failed gate goes to Sentry. This workflow only calls the route.
+# Q3 (Project 2) — runs the LLM-judge eval suite against a real agent.
+# Triggered manually or on schedule so it doesn't block every PR.
+# Scheduled runs skip cleanly until all required repository configuration is
+# present. Manual runs fail fast with an actionable configuration error.
 #
-# Gate thresholds (src/lib/evals/run-eval.ts, same as tests/evals/runner.test.ts):
+# Gate thresholds (defined in tests/evals/runner.test.ts):
 #   Average score  >= 3.5 / 5
 #   No case        <  2.0 / 5
-# `npm run eval` (vitest) still works for local runs.
 
 on:
   workflow_dispatch:
     inputs:
       eval_org_id:
-        description: 'Org ID to run evals against (overrides EVAL_ORG_ID in the app)'
+        description: 'Org ID to run evals against (overrides secret)'
         required: false
       eval_agent_id:
-        description: 'Agent ID to evaluate (overrides EVAL_AGENT_ID in the app)'
+        description: 'Agent ID to evaluate (overrides secret)'
         required: false
+  schedule:
+    # Runs every Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
 
 concurrency:
   group: eval-harness
@@ -32,27 +33,79 @@ jobs:
   eval:
     name: Run eval suite
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
+
     steps:
-      - name: Fire eval-harness endpoint
+      - name: Check eval configuration
+        id: config
         env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SITE_URL: ${{ secrets.SITE_URL }}
-          ORG_ID: ${{ inputs.eval_org_id }}
-          AGENT_ID: ${{ inputs.eval_agent_id }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ORG_ID: ${{ inputs.eval_org_id || secrets.EVAL_ORG_ID }}
+          EVAL_AGENT_ID: ${{ inputs.eval_agent_id || secrets.EVAL_AGENT_ID }}
         run: |
-          QUERY=""
-          if [ -n "$ORG_ID" ]; then QUERY="${QUERY}&org_id=${ORG_ID}"; fi
-          if [ -n "$AGENT_ID" ]; then QUERY="${QUERY}&agent_id=${AGENT_ID}"; fi
-          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
-            --connect-timeout 15 --max-time 60 \
-            -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${SITE_URL}/api/cron/eval-harness?${QUERY#&}")
-          echo "Status: $STATUS"
-          echo "Body: $(cat /tmp/body)"
-          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
-            echo "OK (the run continues in the app; see the app log for the report)"
-          else
-            echo "eval-harness cron failed with status $STATUS" >&2
+          missing=()
+          for name in \
+            NEXT_PUBLIC_SUPABASE_URL \
+            SUPABASE_SERVICE_ROLE_KEY \
+            ENCRYPTION_SECRET \
+            ANTHROPIC_API_KEY \
+            EVAL_ORG_ID \
+            EVAL_AGENT_ID
+          do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            message="Agent eval harness is not configured. Missing: ${missing[*]}"
+            if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+              echo "::warning::$message. Scheduled evaluation skipped."
+              echo "enabled=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "::error::$message"
             exit 1
           fi
+
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        if: steps.config.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.config.outputs.enabled == 'true'
+        run: npm ci
+
+      - name: Run eval harness
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ORG_ID: ${{ inputs.eval_org_id || secrets.EVAL_ORG_ID }}
+          EVAL_AGENT_ID: ${{ inputs.eval_agent_id || secrets.EVAL_AGENT_ID }}
+        run: npm run eval
+
+      - name: Upload eval report
+        if: always() && steps.config.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: |
+            eval-report*.json
+          if-no-files-found: ignore
+          retention-days: 30

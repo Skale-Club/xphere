@@ -1,4 +1,4 @@
-// Meta CAPI drain, Meta audience sync and the agent eval harness run inside the
+// Meta CAPI drain and Meta audience sync run inside the
 // app (src/app/api/cron/*) since the 2026-11-05 database cutover. These tests
 // cover route auth, the run lock, and the lib entry points with fakes.
 // No network, no database.
@@ -21,7 +21,6 @@ vi.mock('@/lib/supabase/admin', () => ({
   },
 }))
 vi.mock('@/lib/agent-runtime', () => ({ runAgent: vi.fn() }))
-vi.mock('@/lib/evals/judge', () => ({ judgeResponse: vi.fn() }))
 
 const capiDrain = vi.fn()
 vi.mock('@/lib/meta/capi-worker', async () => {
@@ -40,16 +39,9 @@ vi.mock('@/lib/meta/audience-job', async () => {
   }
 })
 
-const evalRun = vi.fn()
-vi.mock('@/lib/evals/run-eval', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/evals/run-eval')>('@/lib/evals/run-eval')
-  return { ...actual, runEvalSuite: (...a: unknown[]) => evalRun(...a) }
-})
-
 import { acquireRunLock, resetRunLocksForTests, type RedisLeaseClient } from '@/lib/cron/run-lock'
 import { GET as capiGET } from '@/app/api/cron/meta-capi-worker/route'
 import { GET as audienceGET } from '@/app/api/cron/meta-audience-sync/route'
-import { GET as evalGET } from '@/app/api/cron/eval-harness/route'
 
 const SECRET = 'test-cron-secret'
 
@@ -68,7 +60,6 @@ beforeEach(() => {
   capiDrain.mockReset()
   audienceRun.mockReset()
   audienceRequire.mockReset()
-  evalRun.mockReset()
   vi.stubEnv('CRON_SECRET', SECRET)
   vi.stubEnv('REDIS_URL', '')
 })
@@ -82,7 +73,6 @@ afterEach(() => {
 const ROUTES: Array<[string, (r: Request) => Promise<Response>, string]> = [
   ['meta-capi-worker', capiGET, '/api/cron/meta-capi-worker'],
   ['meta-audience-sync', audienceGET, '/api/cron/meta-audience-sync'],
-  ['eval-harness', evalGET, '/api/cron/eval-harness'],
 ]
 
 describe.each(ROUTES)('%s route auth', (_name, handler, path) => {
@@ -92,7 +82,6 @@ describe.each(ROUTES)('%s route auth', (_name, handler, path) => {
     expect(res.status).toBe(503)
     expect(capiDrain).not.toHaveBeenCalled()
     expect(audienceRun).not.toHaveBeenCalled()
-    expect(evalRun).not.toHaveBeenCalled()
   })
 
   it('returns 401 without the header or with the wrong secret', async () => {
@@ -100,7 +89,6 @@ describe.each(ROUTES)('%s route auth', (_name, handler, path) => {
     expect((await handler(req(path, 'Bearer nope'))).status).toBe(401)
     expect(capiDrain).not.toHaveBeenCalled()
     expect(audienceRun).not.toHaveBeenCalled()
-    expect(evalRun).not.toHaveBeenCalled()
   })
 })
 
@@ -192,40 +180,6 @@ describe('meta-audience-sync route', () => {
     // No lock was taken.
     audienceRequire.mockReset()
     expect(await (await audienceGET(req('/api/cron/meta-audience-sync'))).json()).toMatchObject({ started: true })
-  })
-})
-
-// ── Eval route ───────────────────────────────────────────────────────────────
-
-describe('eval-harness route', () => {
-  it('skips cleanly (200) when the harness is not configured', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', '')
-    vi.stubEnv('EVAL_ORG_ID', '')
-    vi.stubEnv('EVAL_AGENT_ID', '')
-    const res = await evalGET(req('/api/cron/eval-harness'))
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body).toMatchObject({ started: false, skipped: 'not_configured' })
-    expect(body.missing).toEqual(['ANTHROPIC_API_KEY', 'EVAL_ORG_ID', 'EVAL_AGENT_ID'])
-    expect(afterCallbacks).toHaveLength(0)
-  })
-
-  it('runs in after() behind the lock, with query overrides of the env ids', async () => {
-    vi.stubEnv('ANTHROPIC_API_KEY', 'k')
-    vi.stubEnv('EVAL_ORG_ID', 'env-org')
-    vi.stubEnv('EVAL_AGENT_ID', 'env-agent')
-    evalRun.mockResolvedValue({
-      cases: 2, errored: 0, average: 4.5, belowCaseMinimum: 0, belowGate: 0, passed: true, scores: [],
-    })
-
-    const first = await evalGET(req('/api/cron/eval-harness?agent_id=other-agent'))
-    expect(await first.json()).toMatchObject({ ok: true, started: true })
-    const overlapping = await evalGET(req('/api/cron/eval-harness'))
-    expect(await overlapping.json()).toMatchObject({ started: false, skipped: 'already_running' })
-
-    await flushAfter()
-    expect(evalRun).toHaveBeenCalledTimes(1)
-    expect(evalRun).toHaveBeenCalledWith({ orgId: 'env-org', agentId: 'other-agent' })
   })
 })
 
@@ -583,59 +537,5 @@ describe('runAudienceJob', () => {
     expect(() => requireRuntime({ ENCRYPTION_SECRET: 'a'.repeat(64) } as NodeJS.ProcessEnv)).not.toThrow()
     expect(parseOptions(['--org', 'o', '--audience', 'a', '--dry-run'])).toEqual({ orgId: 'o', audienceId: 'a', dryRun: true })
     expect(() => parseOptions(['--org'])).toThrow('--org requires a value')
-  })
-})
-
-// ── Eval suite lib ───────────────────────────────────────────────────────────
-
-describe('runEvalSuite', () => {
-  const cases = [
-    { id: 'c1', description: 'd1', channel: 'web_widget', intent: 'greeting', userMessage: 'hi', criteria: ['x'], minScore: 3 },
-    { id: 'c2', description: 'd2', channel: 'sms', intent: 'booking', userMessage: 'book', criteria: ['y'], minScore: 3 },
-  ] as unknown as import('@/lib/evals/golden-set').EvalCase[]
-
-  const judged = (score: number) => ({ score, rationale: 'r', criteriaHits: [], criteriaMisses: [], violations: [] })
-
-  it('runs each case once and passes when the gates are met', async () => {
-    const { runEvalSuite } = await vi.importActual<typeof import('@/lib/evals/run-eval')>('@/lib/evals/run-eval')
-    const run = vi.fn().mockResolvedValue({ text: 'answer' })
-    const judge = vi.fn().mockResolvedValueOnce(judged(5)).mockResolvedValueOnce(judged(4))
-    const report = await runEvalSuite({ orgId: 'o', agentId: 'a', cases, run, judge, log: () => {} })
-    expect(run).toHaveBeenCalledTimes(2) // once per case, not twice like the vitest runner
-    expect(run.mock.calls[0][0]).toMatchObject({ orgId: 'o', agentId: 'a', mode: 'production', maxSteps: 3, channel: 'web_widget' })
-    expect(report).toMatchObject({ cases: 2, errored: 0, average: 4.5, passed: true, belowCaseMinimum: 0, belowGate: 0 })
-  })
-
-  it('fails the gate on a low average, a case under its minimum, or an erroring case', async () => {
-    const { runEvalSuite } = await vi.importActual<typeof import('@/lib/evals/run-eval')>('@/lib/evals/run-eval')
-    const run = vi.fn().mockResolvedValue({ text: 'answer' })
-
-    const low = await runEvalSuite({
-      orgId: 'o', agentId: 'a', cases, run, log: () => {},
-      judge: vi.fn().mockResolvedValueOnce(judged(3)).mockResolvedValueOnce(judged(3)),
-    })
-    expect(low).toMatchObject({ average: 3, passed: false, belowCaseMinimum: 0 })
-
-    const bad = await runEvalSuite({
-      orgId: 'o', agentId: 'a', cases, run, log: () => {},
-      judge: vi.fn().mockResolvedValueOnce(judged(5)).mockResolvedValueOnce(judged(1)),
-    })
-    expect(bad).toMatchObject({ belowCaseMinimum: 1, belowGate: 1, passed: false })
-
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const errored = await runEvalSuite({
-      orgId: 'o', agentId: 'a', cases, log: () => {},
-      run: vi.fn().mockRejectedValueOnce(new Error('agent down')).mockResolvedValue({ text: 'ok' }),
-      judge: vi.fn().mockResolvedValue(judged(5)),
-    })
-    errSpy.mockRestore()
-    expect(errored).toMatchObject({ errored: 1, passed: false })
-    expect(errored.scores).toEqual([{ id: 'c1', score: null }, { id: 'c2', score: 5 }])
-  })
-
-  it('requireEvalConfig lists what is missing', async () => {
-    const { requireEvalConfig } = await vi.importActual<typeof import('@/lib/evals/run-eval')>('@/lib/evals/run-eval')
-    expect(requireEvalConfig({} as NodeJS.ProcessEnv, null, null)).toEqual(['ANTHROPIC_API_KEY', 'EVAL_ORG_ID', 'EVAL_AGENT_ID'])
-    expect(requireEvalConfig({ ANTHROPIC_API_KEY: 'k' } as NodeJS.ProcessEnv, 'o', 'a')).toEqual([])
   })
 })
