@@ -50,24 +50,11 @@ describe('demo config (lib/demo/config)', () => {
     })
   })
 
-  describe('getDemoCredentials', () => {
-    it('returns null when either credential is missing', async () => {
-      const { getDemoCredentials } = await import('@/lib/demo/config')
-
-      vi.stubEnv('DEMO_USER_EMAIL', '')
-      vi.stubEnv('DEMO_USER_PASSWORD', 'secret')
-      expect(getDemoCredentials()).toBeNull()
-
-      vi.stubEnv('DEMO_USER_EMAIL', DEMO_EMAIL)
-      vi.stubEnv('DEMO_USER_PASSWORD', '')
-      expect(getDemoCredentials()).toBeNull()
-    })
-
-    it('returns the raw credentials when both are set', async () => {
-      vi.stubEnv('DEMO_USER_EMAIL', DEMO_EMAIL)
-      vi.stubEnv('DEMO_USER_PASSWORD', 'secret')
-      const { getDemoCredentials } = await import('@/lib/demo/config')
-      expect(getDemoCredentials()).toEqual({ email: DEMO_EMAIL, password: 'secret' })
+  describe('getDemoUserEmail', () => {
+    it('normalizes the configured email', async () => {
+      vi.stubEnv('DEMO_USER_EMAIL', `  ${DEMO_EMAIL.toUpperCase()} `)
+      const { getDemoUserEmail } = await import('@/lib/demo/config')
+      expect(getDemoUserEmail()).toBe(DEMO_EMAIL.toLowerCase())
     })
   })
 })

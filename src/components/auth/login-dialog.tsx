@@ -1,17 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { useEffect, useRef, useState } from 'react'
-import { useRouter, unstable_rethrow } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Eye, EyeOff, Loader2, ArrowRight, ArrowLeft, UserPlus } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react'
+import { defaultCountries, parseCountry, type CountryIso2 } from 'react-international-phone'
 
-import { createClient } from '@/lib/supabase/client'
-import { getSiteOrigin } from '@/lib/site-url'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Dialog,
   DialogContent,
@@ -20,115 +16,62 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { mapSupabaseError, authErrorCodeToMessage } from '@/lib/auth/errors'
-import { signInWithEmail, signUpWithEmail } from '@/actions/auth'
-import { trackEvent } from '@/lib/tracking/events'
-import { HoneypotField } from '@/components/security/honeypot-field'
-import { stripOrgPrefix } from '@/lib/org/request-org'
-
-export type AuthMode = 'signin' | 'signup'
-export type AuthView = 'step1' | 'step2' | 'reset'
+  cancelGooglePhoneChallenge,
+  confirmGooglePhoneCode,
+  googlePhoneError,
+  prepareGoogleIdentity,
+  sendGooglePhoneCode,
+  signInGoogleAlternative,
+  type GoogleLoginConfig,
+} from '@/lib/auth/google-identity-client'
+import {
+  GOOGLE_NEEDS_PHONE_MESSAGE,
+  NO_WORKSPACE_MESSAGE,
+  signInErrorMessage,
+} from '@/lib/auth/errors'
 
 export interface LoginDialogProps {
   children?: React.ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  initialMode?: AuthMode
-  initialView?: AuthView
-  /** Pre-filled error, e.g. an OAuth failure carried back by /auth/callback. */
-  initialError?: string | null
 }
 
-const emailSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-})
+type Step = 'phone' | 'code' | 'no_workspace'
 
-const passwordSchema = z.object({
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-})
+type IdentityResponse =
+  | { status: 'active'; invite?: string }
+  | { status: 'phone_required' }
+  | { status: 'no_access' }
+  | { status: 'no_org'; invite?: string }
+  | { code?: string }
 
-const signUpSchema = z.object({
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-})
+const RESEND_AFTER_MS = 30_000
 
-type EmailValues = z.infer<typeof emailSchema>
-type SignInPasswordValues = z.infer<typeof passwordSchema>
-type SignUpValues = z.infer<typeof signUpSchema>
+// Loose on purpose: Identity Platform is the real validator and answers
+// auth/invalid-phone-number. This only keeps an empty "+1" from costing a SMS
+// round trip.
+const E164 = /^\+[1-9]\d{7,14}$/
+
+/** The server's guess at the visitor's country, if it names a country the phone field knows. */
+function knownCountry(iso: string | null | undefined): CountryIso2 | null {
+  const lower = iso?.toLowerCase()
+  return defaultCountries.some((country) => parseCountry(country).iso2 === lower)
+    ? (lower as CountryIso2)
+    : null
+}
 
 const inputClass =
   'h-10 text-base md:text-sm bg-white/4 border-white/10 text-[#FAFAFA] placeholder:text-[#3F3F46] focus-visible:ring-indigo-500/40 focus-visible:border-indigo-500/50'
-const inputWithIconClass = `${inputClass} pr-10`
 
-function PasswordInput({
-  disabled,
-  autoComplete,
-  placeholder,
-  field,
-}: {
-  disabled: boolean
-  autoComplete: string
-  placeholder?: string
-  field: React.InputHTMLAttributes<HTMLInputElement>
-}) {
-  const [show, setShow] = useState(false)
-  return (
-    <div className="relative">
-      <Input
-        type={show ? 'text' : 'password'}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        disabled={disabled}
-        className={inputWithIconClass}
-        {...field}
-      />
-      <button
-        type="button"
-        aria-label={show ? 'Hide password' : 'Show password'}
-        onClick={() => setShow((p) => !p)}
-        className="absolute inset-y-0 right-0 flex items-center px-3 text-[#52525B] hover:text-[#A1A1AA] transition-colors"
-        tabIndex={-1}
-      >
-        {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-      </button>
-    </div>
-  )
-}
-
-/**
- * How long a client-side navigation to the dashboard may take before we stop
- * trusting it and force a real page load. Generous on purpose — this is a net
- * for the case where the soft navigation never commits (stale router cache,
- * a bounce back to "/"), not a timeout on a slow-but-working render. Without
- * it a failed soft navigation would leave the locked overlay up forever, which
- * is a worse failure than the one this whole change is fixing.
- */
-const NAVIGATION_FALLBACK_MS = 10_000
-
-/** Navigate to the dashboard, falling back to a hard load if the SPA nav stalls. */
-function goToDashboard(router: ReturnType<typeof useRouter>) {
-  router.replace('/dashboard')
-  window.setTimeout(() => {
-    // The dashboard re-pins the URL to `/o/<org-id>/dashboard` once it renders.
-    if (stripOrgPrefix(window.location.pathname) !== '/dashboard') {
-      window.location.assign('/dashboard')
-    }
-  }, NAVIGATION_FALLBACK_MS)
-}
+const primaryButtonClass =
+  'w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium'
 
 /**
  * Covers the whole dialog once a sign-in has succeeded and we are navigating.
  *
  * The dashboard layout renders server-side before the browser paints anything
  * new, so without this the dialog sat there looking idle and clickable for the
- * whole navigation — users read that as a failed login and signed in again,
+ * whole navigation: users read that as a failed login and signed in again,
  * opening a second session. The overlay is deliberately not dismissible.
  */
 function NavigatingOverlay({ label }: { label: string }) {
@@ -145,35 +88,14 @@ function NavigatingOverlay({ label }: { label: string }) {
   )
 }
 
-function GoogleButton({
-  disabled,
-  onStart,
-  onError,
-}: {
-  disabled: boolean
-  onStart: () => void
-  onError: (msg: string) => void
-}) {
-  async function handleClick() {
-    // signInWithOAuth does a full-page navigation to the provider. Lock the
-    // dialog first so the gap before the browser leaves can't take a 2nd click.
-    onStart()
-    const supabase = createClient()
-    const origin = getSiteOrigin()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${origin}/auth/callback?next=/dashboard` },
-    })
-    if (error) onError(mapSupabaseError(error.message))
-  }
-
+function GoogleButton({ disabled, onClick }: { disabled: boolean; onClick: () => void }) {
   return (
     <Button
       type="button"
       variant="outline"
       disabled={disabled}
-      className="w-full mb-4 h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
-      onClick={handleClick}
+      className="w-full h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
+      onClick={onClick}
     >
       <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -188,13 +110,24 @@ function GoogleButton({
 
 function Divider() {
   return (
-    <div className="relative mb-4">
+    <div className="relative my-4">
       <div className="absolute inset-0 flex items-center">
         <div className="w-full border-t border-white/8" />
       </div>
       <div className="relative flex justify-center text-xs">
         <span className="bg-[#08090A] px-2 text-[#3F3F46]">or</span>
       </div>
+    </div>
+  )
+}
+
+function Notice({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      className="text-sm text-[#A1A1AA] p-3 rounded-lg bg-white/4 border border-white/10"
+    >
+      {message}
     </div>
   )
 }
@@ -210,529 +143,210 @@ function AuthError({ message }: { message: string }) {
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Sign-in — Step 1: Email + Google                                          */
-/* -------------------------------------------------------------------------- */
-
-function Step1Form({
-  initialEmail,
-  busy,
-  onNavigating,
-  onContinue,
-  onError,
-}: {
-  initialEmail: string
-  busy: boolean
-  onNavigating: () => void
-  onContinue: (email: string) => void
-  onError: (msg: string | null) => void
-}) {
-  const form = useForm<EmailValues>({
-    resolver: zodResolver(emailSchema),
-    mode: 'onSubmit',
-    defaultValues: { email: initialEmail },
-  })
-
-  const isSubmitting = form.formState.isSubmitting || busy
-
-  function onSubmit(values: EmailValues) {
-    onError(null)
-    onContinue(values.email)
-  }
-
-  return (
-    <>
-      <GoogleButton disabled={busy} onStart={onNavigating} onError={(m) => onError(m)} />
-      <Divider />
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    autoFocus
-                    autoComplete="email"
-                    placeholder="Enter your email address"
-                    disabled={isSubmitting}
-                    className={inputClass}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-400 text-xs" />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Continuing&hellip;
-              </>
-            ) : (
-              <>
-                <span>Continue</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </form>
-      </Form>
-    </>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Sign-in — Step 2: Password                                                */
-/* -------------------------------------------------------------------------- */
-
-function Step2SignInForm({
-  email,
-  busy,
-  onNavigating,
-  onBack,
-  onForgot,
-  onError,
-}: {
-  email: string
-  busy: boolean
-  onNavigating: () => void
-  onBack: () => void
-  onForgot: () => void
-  onError: (msg: string | null) => void
-}) {
-  const router = useRouter()
-  const form = useForm<SignInPasswordValues>({
-    resolver: zodResolver(passwordSchema),
-    mode: 'onSubmit',
-    defaultValues: { password: '' },
-  })
-  const isSubmitting = form.formState.isSubmitting || busy
-
-  async function handleSubmit(values: SignInPasswordValues) {
-    onError(null)
-    try {
-      const result = await signInWithEmail({ email, password: values.password })
-      if (!result.ok) {
-        onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
-        return
-      }
-
-      if (result.hasSession) {
-        // The server action no longer redirects (a redirect rejects the action
-        // promise, which react-hook-form treats as "done" and re-enables this
-        // button mid-navigation). Lock the dialog and navigate from here; the
-        // overlay stays up until the dashboard replaces this page.
-        onNavigating()
-        goToDashboard(router)
-        return
-      }
-
-      // No session and no error means the account needs email confirmation.
-      onError('Confirm your email address before signing in.')
-    } catch (err) {
-      unstable_rethrow(err)
-      onError('Unable to connect. Check your internet connection and try again.')
-    }
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="space-y-4">
-        <div className="space-y-1">
-          <p className="text-[0.8125rem] text-[#A1A1AA]">Signed in as</p>
-          <p className="text-[0.875rem] text-[#FAFAFA] truncate">{email}</p>
-        </div>
-
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Password</FormLabel>
-              <FormControl>
-                <PasswordInput
-                  disabled={isSubmitting}
-                  autoComplete="current-password"
-                  placeholder="Enter your password"
-                  field={field}
-                />
-              </FormControl>
-              <FormMessage className="text-red-400 text-xs" />
-            </FormItem>
-          )}
-        />
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onForgot}
-            disabled={isSubmitting}
-            className="text-[0.8125rem] text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
-          >
-            Forgot password?
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in&hellip;
-              </>
-            ) : (
-              <>
-                <span>Sign in</span>
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Sign-up — single screen: email + password                                 */
-/* -------------------------------------------------------------------------- */
-
-function SignUpForm({
-  busy,
-  onNavigating,
-  onEmailSent,
-  onError,
-}: {
-  busy: boolean
-  onNavigating: () => void
-  onEmailSent: (email: string) => void
-  onError: (msg: string | null) => void
-}) {
-  const router = useRouter()
-  const honeypotRef = useRef<HTMLInputElement>(null)
-  const form = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
-    mode: 'onSubmit',
-    defaultValues: { email: '', password: '' },
-  })
-  const isSubmitting = form.formState.isSubmitting || busy
-
-  async function handleSubmit(values: SignUpValues) {
-    onError(null)
-    try {
-      const origin = getSiteOrigin()
-      const result = await signUpWithEmail({
-        email: values.email,
-        password: values.password,
-        emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
-        hp_extra: honeypotRef.current?.value ?? '',
-      })
-      if (!result.ok) {
-        onError(result.errorMessage ?? authErrorCodeToMessage(result.errorCode))
-        return
-      }
-      trackEvent('sign_up', { method: 'email' })
-      if (result.hasSession) {
-        // Confirmations disabled → signed in immediately. Same lock-and-go path
-        // as sign-in so the button can't be pressed a second time.
-        onNavigating()
-        goToDashboard(router)
-        return
-      }
-      onEmailSent(values.email)
-    } catch (err) {
-      unstable_rethrow(err)
-      onError('Unable to connect. Check your internet connection and try again.')
-    }
-  }
-
-  return (
-    <>
-      <GoogleButton disabled={busy} onStart={onNavigating} onError={(m) => onError(m)} />
-      <Divider />
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} noValidate className="relative space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Email</FormLabel>
-                <FormControl>
-                  <Input
-                    type="email"
-                    autoFocus
-                    autoComplete="email"
-                    placeholder="Enter your email address"
-                    disabled={isSubmitting}
-                    className={inputClass}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-400 text-xs" />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Password</FormLabel>
-                <FormControl>
-                  <PasswordInput
-                    disabled={isSubmitting}
-                    autoComplete="new-password"
-                    placeholder="Create a password"
-                    field={field}
-                  />
-                </FormControl>
-                <FormMessage className="text-red-400 text-xs" />
-              </FormItem>
-            )}
-          />
-          <Button
-            type="submit"
-            className="w-full h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating account&hellip;
-              </>
-            ) : (
-              <>
-                <span>Sign up</span>
-                <UserPlus className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
-          {/* Last child: an extra first child would shift space-y margins. */}
-          <HoneypotField ref={honeypotRef} />
-        </form>
-      </Form>
-    </>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Reset password view                                                       */
-/* -------------------------------------------------------------------------- */
-
-function ResetForm({
-  initialEmail,
-  resetSent,
-  onBack,
-  onSent,
-  onError,
-}: {
-  initialEmail: string
-  resetSent: string | null
-  onBack: () => void
-  onSent: (email: string) => void
-  onError: (msg: string | null) => void
-}) {
-  const form = useForm<EmailValues>({
-    resolver: zodResolver(emailSchema),
-    mode: 'onSubmit',
-    defaultValues: { email: initialEmail },
-  })
-
-  const isSubmitting = form.formState.isSubmitting
-
-  async function onSubmit(values: EmailValues) {
-    onError(null)
-    try {
-      const supabase = createClient()
-      const origin = getSiteOrigin()
-      const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
-        redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
-      })
-      if (error) {
-        onError(mapSupabaseError(error.message))
-        return
-      }
-      onSent(values.email)
-    } catch (err) {
-      unstable_rethrow(err)
-      onError('Unable to connect. Check your internet connection and try again.')
-    }
-  }
-
-  if (resetSent) {
-    return (
-      <div className="space-y-4">
-        <Button
-          type="button"
-          onClick={onBack}
-          variant="outline"
-          className="w-full h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to sign in
-        </Button>
-      </div>
-    )
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-4">
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="text-[0.8125rem] text-[#A1A1AA]">Email</FormLabel>
-              <FormControl>
-                <Input
-                  type="email"
-                  autoFocus
-                  autoComplete="email"
-                  placeholder="Enter your email address"
-                  disabled={isSubmitting}
-                  className={inputClass}
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage className="text-red-400 text-xs" />
-            </FormItem>
-          )}
-        />
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="h-10 text-sm text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-white/5"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 h-10 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending&hellip;
-              </>
-            ) : (
-              <span>Send reset link</span>
-            )}
-          </Button>
-        </div>
-      </form>
-    </Form>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Top-level dialog                                                          */
-/* -------------------------------------------------------------------------- */
-
 export function LoginDialog(props: LoginDialogProps) {
   const isControlled = props.open !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = isControlled ? (props.open as boolean) : internalOpen
 
-  const [view, setView] = useState<AuthView>(props.initialView ?? 'step1')
-  const [mode, setMode] = useState<AuthMode>(props.initialMode ?? 'signin')
-  const [email, setEmail] = useState('')
-  const [emailSent, setEmailSent] = useState<string | null>(null)
-  const [resetSent, setResetSent] = useState<string | null>(null)
-  const [authError, setAuthError] = useState<string | null>(props.initialError ?? null)
+  const [config, setConfig] = useState<GoogleLoginConfig | null>(null)
+  const [configFailed, setConfigFailed] = useState(false)
+  const [countryIso, setCountryIso] = useState<CountryIso2 | null>(null)
+  const [step, setStep] = useState<Step>('phone')
+  const [phone, setPhone] = useState('')
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [note, setNote] = useState<string | null>(null)
+  const [resendAt, setResendAt] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   // Once true this NEVER goes back to false: we are leaving this page. It is
-  // what stops the "did my login work?" second click.
+  // what stops the "did my login work?" second click. There is no redirect in
+  // the flow, so nothing else can re-enable the controls mid-navigation.
   const [navigating, setNavigating] = useState(false)
+  const pending = useRef(false)
+  const navigationLock = useRef(false)
+  const codeRef = useRef<HTMLInputElement>(null)
 
   const setOpen = (next: boolean) => {
-    if (navigating) return // don't let the user dismiss a sign-in in flight
+    if (navigationLock.current) return // don't let the user dismiss a sign-in in flight
     if (!isControlled) setInternalOpen(next)
     props.onOpenChange?.(next)
   }
 
-  const startNavigating = React.useCallback(() => setNavigating(true), [])
+  // The config names the Identity Platform project; fetched when the dialog
+  // first opens so the landing page itself loads nothing for sign-in.
+  useEffect(() => {
+    if (!open || config) return
+    let cancelled = false
+    setConfigFailed(false)
+    fetch('/api/auth/config', { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('config')
+        const body = (await response.json()) as { google?: GoogleLoginConfig; countryIso?: string | null }
+        if (!body.google || body.google.enabled === false) throw new Error('config')
+        return { google: body.google, countryIso: knownCountry(body.countryIso) }
+      })
+      .then(({ google, countryIso: guessed }) => {
+        if (cancelled) return
+        setConfig(google)
+        setCountryIso(guessed)
+        // Warm the SDK so the first tap on "Send code" does not wait for it.
+        void prepareGoogleIdentity(google).catch(() => {})
+      })
+      .catch(() => {
+        if (!cancelled) setConfigFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [open, config])
+
+  // Back to a clean first step when the dialog closes (never mid-navigation).
+  useEffect(() => {
+    if (open || navigationLock.current) return
+    cancelGooglePhoneChallenge()
+    setStep('phone')
+    setCode('')
+    setError(null)
+    setNote(null)
+  }, [open])
+
+  useEffect(() => cancelGooglePhoneChallenge, [])
 
   useEffect(() => {
-    if (open) {
-      if (props.initialView) setView(props.initialView)
-      if (props.initialMode) setMode(props.initialMode)
+    if (step !== 'code') return
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    const focus = window.setTimeout(() => codeRef.current?.focus(), 50)
+    return () => {
+      window.clearInterval(id)
+      window.clearTimeout(focus)
     }
-  }, [open, props.initialView, props.initialMode])
+  }, [step])
 
-  // Surface an error handed in from outside (e.g. ?auth_error= from the OAuth
-  // callback) whenever it changes.
-  useEffect(() => {
-    if (props.initialError) setAuthError(props.initialError)
-  }, [props.initialError])
+  const failure = useCallback((code: string | undefined) => {
+    setError(signInErrorMessage(code))
+  }, [])
 
-  function switchMode(m: AuthMode) {
-    setMode(m)
-    setView('step1')
-    setEmail('')
-    setEmailSent(null)
-    setResetSent(null)
-    setAuthError(null)
-  }
+  /** Hands the verified Firebase token to the server and acts on the outcome. */
+  const completeSignIn = useCallback(
+    async (idToken: string) => {
+      const response = await fetch('/api/auth/identity', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      })
+      const data = (await response.json().catch(() => ({}))) as IdentityResponse
+      if (!response.ok || !('status' in data)) {
+        failure((data as { code?: string }).code)
+        return
+      }
+      if (data.status === 'active') {
+        // The lock is taken before the navigation and never released: the
+        // button must not come back to life while the page is leaving.
+        navigationLock.current = true
+        setNavigating(true)
+        const invite = data.invite ? `?invite=${encodeURIComponent(data.invite)}` : ''
+        window.location.assign(`/dashboard${invite}`)
+        return
+      }
+      if (data.status === 'phone_required') {
+        cancelGooglePhoneChallenge()
+        setStep('phone')
+        setCode('')
+        setNote(GOOGLE_NEEDS_PHONE_MESSAGE)
+        return
+      }
+      // no_access and no_org read the same to the person: nobody has put
+      // them in a workspace yet.
+      setStep('no_workspace')
+    },
+    [failure],
+  )
 
-  function resetToStep1() {
-    setView('step1')
-    setResetSent(null)
-    setEmailSent(null)
-    setAuthError(null)
-  }
-
-  let title: string
-  let subtitle: string
-  if (view === 'reset') {
-    if (resetSent) {
-      title = 'Check your email'
-      subtitle = `We sent a reset link to ${resetSent}`
-    } else {
-      title = 'Reset your password'
-      subtitle = "We'll email you a reset link"
+  async function sendCode(target: string) {
+    if (pending.current || navigationLock.current || !config) return
+    if (!E164.test(target)) {
+      failure('invalid_phone')
+      return
     }
-  } else if (mode === 'signup' && emailSent) {
-    title = 'Check your email'
-    subtitle = `We sent a confirmation link to ${emailSent}`
-  } else if (view === 'step1') {
-    title = mode === 'signin' ? 'Welcome back' : 'Create your account'
-    subtitle = mode === 'signin' ? 'Sign in to your workspace' : 'Get started with Xphere'
-  } else {
-    // step2 — sign in only
-    title = 'Welcome back'
-    subtitle = `Continue as ${email}`
+    pending.current = true
+    setBusy(true)
+    setError(null)
+    setNote(null)
+    try {
+      await sendGooglePhoneCode(config, target)
+      setCode('')
+      setResendAt(Date.now() + RESEND_AFTER_MS)
+      setNow(Date.now())
+      setStep('code')
+    } catch (err) {
+      if ((err as { name?: string })?.name !== 'AbortError') failure(googlePhoneError(err))
+    } finally {
+      pending.current = false
+      setBusy(false)
+    }
   }
 
-  const showFooterModeToggle = view !== 'reset'
+  async function verify(value: string) {
+    if (pending.current || navigationLock.current) return
+    pending.current = true
+    setBusy(true)
+    setError(null)
+    try {
+      await completeSignIn(await confirmGooglePhoneCode(phone, value))
+    } catch (err) {
+      setCode('')
+      failure(googlePhoneError(err))
+    } finally {
+      pending.current = false
+      // While navigating, busy stays true: nothing re-enables.
+      if (!navigationLock.current) setBusy(false)
+    }
+  }
+
+  async function continueWithGoogle() {
+    if (pending.current || navigationLock.current || !config) return
+    pending.current = true
+    setBusy(true)
+    setError(null)
+    setNote(null)
+    try {
+      await completeSignIn(await signInGoogleAlternative(config))
+    } catch (err) {
+      failure(googlePhoneError(err))
+    } finally {
+      pending.current = false
+      if (!navigationLock.current) setBusy(false)
+    }
+  }
+
+  function onCodeChange(value: string) {
+    const digits = value.replace(/\D/g, '').slice(0, 6)
+    setCode(digits)
+    if (digits.length === 6 && !pending.current) void verify(digits)
+  }
+
+  function backToStart() {
+    cancelGooglePhoneChallenge()
+    setStep('phone')
+    setCode('')
+    setError(null)
+    setNote(null)
+  }
+
+  const locked = busy || navigating
+  const waitSeconds = Math.max(0, Math.ceil((resendAt - now) / 1000))
+
+  let title = 'Welcome back'
+  let subtitle = 'Sign in to your workspace'
+  if (step === 'code') {
+    title = 'Enter your code'
+    subtitle = `We texted a 6-digit code to ${phone}`
+  } else if (step === 'no_workspace') {
+    title = 'No workspace yet'
+    subtitle = 'You are signed out'
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -749,17 +363,9 @@ export function LoginDialog(props: LoginDialogProps) {
         }}
         className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border-0 overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
       >
-        <DialogTitle className="sr-only">
-          {mode === 'signin' ? 'Sign in' : 'Sign up'} to Xphere
-        </DialogTitle>
-        <DialogDescription className="sr-only">
-          {mode === 'signin' ? 'Sign in to your workspace' : 'Create a new account'}
-        </DialogDescription>
-        {navigating && (
-          <NavigatingOverlay
-            label={mode === 'signup' ? 'Account created' : 'Signing you in'}
-          />
-        )}
+        <DialogTitle className="sr-only">Sign in to Xphere</DialogTitle>
+        <DialogDescription className="sr-only">Sign in to your workspace</DialogDescription>
+        {navigating && <NavigatingOverlay label="Signing you in" />}
         <div className="p-6">
           <div className="mb-6 text-center">
             <h1 className="text-[1.25rem] font-semibold tracking-[-0.02em] text-[#FAFAFA]">
@@ -768,110 +374,144 @@ export function LoginDialog(props: LoginDialogProps) {
             <p className="text-[0.8125rem] text-[#71717A] mt-0.5">{subtitle}</p>
           </div>
 
-          {authError && view !== 'reset' ? (
+          {configFailed ? (
             <div className="mb-4">
-              <AuthError message={authError} />
+              <AuthError message={signInErrorMessage('auth_unavailable')} />
+            </div>
+          ) : null}
+          {error ? (
+            <div className="mb-4">
+              <AuthError message={error} />
+            </div>
+          ) : null}
+          {note && step === 'phone' ? (
+            <div className="mb-4">
+              <Notice message={note} />
             </div>
           ) : null}
 
-          {/* Sign in — step 1: email */}
-          {view === 'step1' && mode === 'signin' ? (
-            <Step1Form
-              initialEmail={email}
-              busy={navigating}
-              onNavigating={startNavigating}
-              onContinue={(em) => {
-                setEmail(em)
-                setView('step2')
-              }}
-              onError={setAuthError}
-            />
-          ) : null}
-
-          {/* Sign in — step 2: password */}
-          {view === 'step2' && mode === 'signin' ? (
-            <Step2SignInForm
-              email={email}
-              busy={navigating}
-              onNavigating={startNavigating}
-              onBack={() => setView('step1')}
-              onForgot={() => setView('reset')}
-              onError={setAuthError}
-            />
-          ) : null}
-
-          {/* Sign up — single screen */}
-          {view === 'step1' && mode === 'signup' && !emailSent ? (
-            <SignUpForm
-              busy={navigating}
-              onNavigating={startNavigating}
-              onEmailSent={setEmailSent}
-              onError={setAuthError}
-            />
-          ) : null}
-
-          {view === 'reset' ? (
+          {step === 'phone' ? (
             <>
-              {authError ? (
-                <div className="mb-4">
-                  <AuthError message={authError} />
+              <form
+                noValidate
+                className="space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  void sendCode(phone)
+                }}
+              >
+                <div className="space-y-1.5">
+                  <label htmlFor="login-phone" className="text-[0.8125rem] text-[#A1A1AA]">
+                    Phone number
+                  </label>
+                  <PhoneInput
+                    // Remounts once the config lands so the guessed country applies.
+                    key={countryIso ?? 'default'}
+                    defaultCountry={countryIso ?? 'us'}
+                    id="login-phone"
+                    value={phone}
+                    onChange={setPhone}
+                    disabled={locked}
+                    aria-label="Phone number"
+                  />
                 </div>
-              ) : null}
-              <ResetForm
-                initialEmail={email}
-                resetSent={resetSent}
-                onBack={resetToStep1}
-                onSent={setResetSent}
-                onError={setAuthError}
-              />
+                <Button
+                  type="submit"
+                  className={primaryButtonClass}
+                  disabled={locked || !config}
+                >
+                  {busy ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending code&hellip;
+                    </>
+                  ) : (
+                    <>
+                      <span>Send code</span>
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </form>
+              <Divider />
+              <GoogleButton disabled={locked || !config} onClick={() => void continueWithGoogle()} />
             </>
+          ) : null}
+
+          {step === 'code' ? (
+            <form
+              noValidate
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (code.length === 6) void verify(code)
+              }}
+            >
+              <Input
+                ref={codeRef}
+                value={code}
+                onChange={(e) => onCodeChange(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="000000"
+                aria-label="6-digit code"
+                disabled={locked}
+                className={`${inputClass} text-center font-mono tracking-[0.5em]`}
+              />
+              <Button
+                type="submit"
+                className={primaryButtonClass}
+                disabled={locked || code.length !== 6}
+              >
+                {locked ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying&hellip;
+                  </>
+                ) : (
+                  <span>Verify</span>
+                )}
+              </Button>
+              <div className="flex items-center justify-between text-[0.8125rem]">
+                <button
+                  type="button"
+                  onClick={backToStart}
+                  disabled={locked}
+                  className="flex items-center gap-1 text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Change number
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void sendCode(phone)}
+                  disabled={locked || waitSeconds > 0}
+                  className="text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
+                >
+                  {waitSeconds > 0 ? `Resend in ${waitSeconds}s` : 'Resend code'}
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {step === 'no_workspace' ? (
+            <div className="space-y-4">
+              <Notice message={NO_WORKSPACE_MESSAGE} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={backToStart}
+                className="w-full h-10 border-white/10 bg-white/4 text-[#FAFAFA] hover:bg-white/8 hover:border-white/20 text-sm"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to sign in
+              </Button>
+            </div>
           ) : null}
         </div>
-        <div className="flex items-center justify-center gap-1 px-6 py-3.5 bg-white/[0.02] text-[0.8125rem] text-[#71717A] rounded-b-[inherit]">
-          {!showFooterModeToggle ? (
-            <button
-              type="button"
-              onClick={resetToStep1}
-              className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
-            >
-              Back to sign in
-            </button>
-          ) : mode === 'signin' ? (
-            <>
-              Don&apos;t have an account?{' '}
-              <button
-                type="button"
-                onClick={() => switchMode('signup')}
-                disabled={navigating}
-                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
-              >
-                Sign up
-              </button>
-            </>
-          ) : emailSent ? (
-            <>
-              Already confirmed?{' '}
-              <button
-                type="button"
-                onClick={() => switchMode('signin')}
-                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors"
-              >
-                Sign in
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{' '}
-              <button
-                type="button"
-                onClick={() => switchMode('signin')}
-                disabled={navigating}
-                className="font-medium text-[#A1A1AA] hover:text-[#FAFAFA] transition-colors disabled:opacity-50"
-              >
-                Sign in
-              </button>
-            </>
-          )}
+        <div className="px-6 py-3.5 bg-white/[0.02] text-center text-[0.75rem] text-[#52525B] rounded-b-[inherit]">
+          Access is by invitation. New here? Ask an administrator to invite you.
         </div>
       </DialogContent>
     </Dialog>

@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createTestUser, deleteTestUser, signedInClient } from '../helpers/test-users'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -15,7 +16,6 @@ suite('NOTIF-01: Notifications RLS isolation', () => {
   const suffix = Math.random().toString(36).slice(2, 10)
   const userAEmail = `notif-a-${suffix}@example.test`
   const userBEmail = `notif-b-${suffix}@example.test`
-  const password = `Notif-Test-${suffix}!`
 
   let admin: SupabaseClient
   let clientA: SupabaseClient
@@ -57,22 +57,10 @@ suite('NOTIF-01: Notifications RLS isolation', () => {
     orgBId = orgB.id
 
     // Create User A (in Org A)
-    const { data: uA, error: uAErr } = await admin.auth.admin.createUser({
-      email: userAEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uAErr) throw uAErr
-    userAId = uA.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
 
     // Create User B (in Org B)
-    const { data: uB, error: uBErr } = await admin.auth.admin.createUser({
-      email: userBEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uBErr) throw uBErr
-    userBId = uB.user!.id
+    userBId = (await createTestUser(admin, userBEmail)).id
 
     // Add org memberships
     const { error: memErr } = await admin.from('org_members').insert([
@@ -109,16 +97,8 @@ suite('NOTIF-01: Notifications RLS isolation', () => {
     notifId = notif.id
 
     // Create authenticated clients
-    const makeClient = () =>
-      createClient(url!, anonKey!, { auth: { persistSession: false } })
-    clientA = makeClient()
-    clientB = makeClient()
-
-    const signIns = await Promise.all([
-      clientA.auth.signInWithPassword({ email: userAEmail, password }),
-      clientB.auth.signInWithPassword({ email: userBEmail, password }),
-    ])
-    for (const { error } of signIns) if (error) throw error
+    clientA = await signedInClient(userAEmail)
+    clientB = await signedInClient(userBEmail)
   }, 60000)
 
   afterAll(async () => {
@@ -131,8 +111,8 @@ suite('NOTIF-01: Notifications RLS isolation', () => {
     if (orgBId) await admin.from('org_members').delete().eq('organization_id', orgBId)
     // Delete users
     const cleanups: Promise<unknown>[] = []
-    if (userAId) cleanups.push(admin.auth.admin.deleteUser(userAId))
-    if (userBId) cleanups.push(admin.auth.admin.deleteUser(userBId))
+    if (userAId) cleanups.push(deleteTestUser(admin, userAId))
+    if (userBId) cleanups.push(deleteTestUser(admin, userBId))
     await Promise.allSettled(cleanups)
     // Delete orgs
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)

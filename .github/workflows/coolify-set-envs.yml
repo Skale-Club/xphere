@@ -46,6 +46,12 @@ jobs:
           TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
           GOOGLE_MAPS_BROWSER_KEY: ${{ secrets.GOOGLE_MAPS_BROWSER_KEY }}
           LOCAL_SEO_POSTBACK_SECRET: ${{ secrets.LOCAL_SEO_POSTBACK_SECRET }}
+          # Identity Platform sign-in (docs/auth/identity-platform-migration.md).
+          GOOGLE_AUTH_PROJECT_ID: ${{ secrets.GOOGLE_AUTH_PROJECT_ID }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         run: |
           set -euo pipefail
           if [ -z "${COOLIFY_TOKEN}" ]; then
@@ -102,6 +108,14 @@ jobs:
           # capped at PROSPECTING_AUTO_VERIFY_MAX_PER_DAY (default 100/day).
           # Not a secret, so it lives here rather than in GitHub Secrets.
           upsert PROSPECTING_AUTO_VERIFY              "1"
+
+          # Identity Platform sign-in. The flag is not a secret; the rest come from GitHub Secrets.
+          upsert GOOGLE_AUTH_ENABLED                  "true"
+          upsert GOOGLE_AUTH_PROJECT_ID               "${GOOGLE_AUTH_PROJECT_ID}"
+          upsert FIREBASE_API_KEY                     "${FIREBASE_API_KEY}"
+          upsert FIREBASE_AUTH_DOMAIN                 "${FIREBASE_AUTH_DOMAIN}"
+          upsert GOOGLE_WEB_CLIENT_ID                 "${GOOGLE_WEB_CLIENT_ID}"
+          upsert SESSION_SECRET                       "${SESSION_SECRET}"
 
           # Local SEO values are optional until the provider and Maps key are
           # provisioned. Do not overwrite an existing production value with an

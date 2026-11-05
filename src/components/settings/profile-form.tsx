@@ -10,10 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { createClient } from '@/lib/supabase/client'
-import { sendTestPush, updatePassword, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
+import { sendTestPush, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 interface Props {
+  /** The signed-in user's id: the avatar upload path is prefixed with it (storage RLS). */
+  userId: string
   initial: { email: string; full_name: string; avatar_url: string | null; phone: string }
 }
 
@@ -27,7 +29,7 @@ function initialsFrom(name: string, email: string): string {
   return base[0]?.toUpperCase() ?? '?'
 }
 
-export function ProfileForm({ initial }: Props) {
+export function ProfileForm({ userId, initial }: Props) {
   const [fullName, setFullName] = React.useState(initial.full_name)
   const [phone, setPhone] = React.useState(initial.phone)
   const [savingName, setSavingName] = React.useState(false)
@@ -36,9 +38,6 @@ export function ProfileForm({ initial }: Props) {
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(initial.avatar_url)
   const [uploadingAvatar, setUploadingAvatar] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
-
-  const [password, setPassword] = React.useState('')
-  const [savingPassword, setSavingPassword] = React.useState(false)
 
   async function saveName(e: React.FormEvent) {
     e.preventDefault()
@@ -58,23 +57,6 @@ export function ProfileForm({ initial }: Props) {
     window.setTimeout(() => setSavedName(false), 3000)
   }
 
-  async function savePassword(e: React.FormEvent) {
-    e.preventDefault()
-    if (password.length < 8) {
-      toast.error('Password must be at least 8 characters')
-      return
-    }
-    setSavingPassword(true)
-    const res = await updatePassword({ password })
-    setSavingPassword(false)
-    if (!res.ok) {
-      toast.error(res.error ?? 'Failed to update password')
-      return
-    }
-    setPassword('')
-    toast.success('Password updated')
-  }
-
   async function handleAvatarSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -92,12 +74,9 @@ export function ProfileForm({ initial }: Props) {
     setUploadingAvatar(true)
     try {
       const supabase = createClient()
-      // Need the user id to build the storage path (RLS enforces this prefix).
-      const { data: { user }, error: userErr } = await supabase.auth.getUser()
-      if (userErr || !user) throw new Error('Not authenticated')
-
+      // The storage path is prefixed with the user id (RLS enforces this).
       const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5)
-      const path = `${user.id}/avatar-${Date.now()}.${ext}`
+      const path = `${userId}/avatar-${Date.now()}.${ext}`
 
       const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
         cacheControl: '3600',
@@ -254,32 +233,6 @@ export function ProfileForm({ initial }: Props) {
 
       {/* Right column */}
       <div className="flex flex-col gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Password</CardTitle>
-            <CardDescription>Set a new password. At least 8 characters.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={savePassword} className="space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="password">New password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                />
-              </div>
-              <Button type="submit" disabled={savingPassword || password.length < 8}>
-                {savingPassword ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Update password
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
         <PushNotificationsCard />
       </div>
     </div>

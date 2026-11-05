@@ -46,8 +46,9 @@ export async function getPromptVersionHistory(
   const userIds = [...new Set(versions.map((v) => v.created_by).filter(Boolean) as string[])]
   const userEmailMap: Record<string, string> = {}
   if (userIds.length > 0) {
-    const { data: { users } } = await adminClient.auth.admin.listUsers()
-    for (const u of users ?? []) {
+    const { listAppUsers } = await import('@/lib/auth/users')
+    const users = await listAppUsers({ perPage: 1000 })
+    for (const u of users) {
       if (userIds.includes(u.id)) {
         userEmailMap[u.id] = u.email ?? u.id
       }

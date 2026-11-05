@@ -15,9 +15,10 @@ export default async function ProfilePage() {
         eyebrow="Account"
         eyebrowIcon={User}
         title="Profile"
-        description="Update your personal information and password."
+        description="Update your personal information."
       />
       <ProfileForm
+        userId={user.id}
         initial={{
           email: user.email ?? '',
           full_name: (user.user_metadata?.full_name as string | undefined) ?? '',

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Clock, Video, Phone, MapPin, Link2, CalendarDays } from 'lucide-react'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { getAppUserById } from '@/lib/auth/users'
 
 const LOCATION_ICONS: Record<string, React.ElementType> = {
   google_meet: Video,
@@ -52,12 +53,12 @@ export default async function PublicBookingProfilePage({ params }: Props) {
   if (!profile) notFound()
 
   // Fetch host display name
-  const { data: authUser } = await supabase.auth.admin.getUserById(profile.user_id)
-  const meta = (authUser?.user?.user_metadata ?? {}) as Record<string, unknown>
+  const hostUser = await getAppUserById(profile.user_id)
+  const meta = (hostUser?.user_metadata ?? {}) as Record<string, unknown>
   const hostName: string =
     (typeof meta.full_name === 'string' && meta.full_name) ||
     (typeof meta.name === 'string' && meta.name) ||
-    authUser?.user?.email?.split('@')[0] ||
+    hostUser?.email?.split('@')[0] ||
     'Host'
 
   // Fetch all active event types for this user

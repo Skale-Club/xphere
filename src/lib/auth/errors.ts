@@ -1,95 +1,46 @@
 /**
- * Maps Supabase auth error messages into user-friendly strings.
- * Shared between client-side dialog display and server action returns.
- */
-export function mapSupabaseError(message: string): string {
-  if (message.includes('Invalid login credentials')) {
-    return 'Invalid email or password. Check your credentials and try again.'
-  }
-  const lower = message.toLowerCase()
-  if (lower.includes('network') || lower.includes('fetch')) {
-    return 'Unable to connect. Check your internet connection and try again.'
-  }
-  if (lower.includes('disabled') || lower.includes('banned')) {
-    return 'This account has been disabled. Contact your administrator.'
-  }
-  return message
-}
-
-/**
- * Stable error codes returned by the auth server actions.
- * The dialog maps these to user-facing copy.
- */
-export type AuthErrorCode = 'unknown_error'
-
-export function authErrorCodeToMessage(code: AuthErrorCode): string {
-  switch (code) {
-    case 'unknown_error':
-    default:
-      return 'Something went wrong. Please try again.'
-  }
-}
-
-/* -------------------------------------------------------------------------- */
-/*  OAuth round-trip failures                                                 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Query param used to carry an OAuth failure from /auth/callback back to the
- * landing page so the login dialog can explain what happened.
+ * User-facing copy for every way sign-in can fail. Every failure explains
+ * itself in the dialog: a silent bounce to a bare landing page reads as "my
+ * login didn't work" and invites a second sign-in (the duplicate-session bug
+ * this flow was built to avoid).
  *
- * WHY THIS EXISTS: every failure path in the callback used to `redirect('/')`
- * with no explanation. The user lands back on the marketing page, reads it as
- * "my login didn't work", and signs in again — which is exactly the duplicate
- * sign-in we were chasing (production logs, 2026-09-09 13:36 UTC: an expired
- * OAuth state bounced silently to `/`, followed by three sign-ins in 12 s).
+ * Codes come from two places: `googlePhoneError()` (Firebase SDK failures in
+ * the browser) and the `code` field of POST /api/auth/identity errors.
  */
-export const AUTH_ERROR_PARAM = 'auth_error'
+export type SignInErrorCode =
+  // Browser / Firebase
+  | 'invalid_phone'
+  | 'wrong_code'
+  | 'too_many_codes'
+  | 'sms_failed'
+  | 'popup_closed'
+  // POST /api/auth/identity
+  | 'origin_denied'
+  | 'rate_limited'
+  | 'auth_unavailable'
+  | 'invalid_token'
+  | 'generic'
 
-export type OAuthFailureCode =
-  | 'oauth_state_expired'
-  | 'oauth_cancelled'
-  | 'oauth_failed'
-  | 'exchange_failed'
-  | 'no_org'
-
-const OAUTH_FAILURE_MESSAGES: Record<OAuthFailureCode, string> = {
-  oauth_state_expired:
-    'Your sign-in took too long and the link expired. Please sign in again.',
-  oauth_cancelled: 'Sign-in was cancelled before it finished. Please try again.',
-  oauth_failed:
-    'We could not complete sign-in with that provider. Please try again.',
-  exchange_failed: 'We could not finish signing you in. Please try again.',
-  no_org:
-    'Your account is not part of any workspace yet. Ask an administrator to invite you.',
+const MESSAGES: Record<SignInErrorCode, string> = {
+  invalid_phone: 'Enter a valid phone number, including the country.',
+  wrong_code: 'That code is not right or has expired. Check it or request a new one.',
+  too_many_codes: 'Too many codes were requested for this number. Try again later.',
+  sms_failed: 'We could not send the code. Check your connection and try again.',
+  popup_closed: 'The Google window was closed before sign-in finished. Please try again.',
+  origin_denied: 'Sign-in is not available from this address. Use xphere.app and try again.',
+  rate_limited: 'Too many attempts. Wait a minute and try again.',
+  auth_unavailable: 'Sign-in is temporarily unavailable. Please try again in a few minutes.',
+  invalid_token: 'We could not verify your sign-in. Please try again.',
+  generic: 'Something went wrong. Please try again.',
 }
 
-export function isOAuthFailureCode(
-  value: string | null | undefined,
-): value is OAuthFailureCode {
-  return !!value && Object.prototype.hasOwnProperty.call(OAUTH_FAILURE_MESSAGES, value)
-}
+export const NO_WORKSPACE_MESSAGE =
+  'Your account is not part of any workspace yet. Ask an administrator to invite you.'
 
-/** User-facing copy for a failure code, or null when the code is unknown. */
-export function oauthFailureToMessage(code: string | null | undefined): string | null {
-  return isOAuthFailureCode(code) ? OAUTH_FAILURE_MESSAGES[code] : null
-}
+export const GOOGLE_NEEDS_PHONE_MESSAGE = 'Confirm your phone number to link this Google account.'
 
-/**
- * Classify the `error` / `error_code` / `error_description` params Supabase
- * appends to the callback URL when the provider round-trip fails.
- */
-export function classifyOAuthCallbackError(
-  error: string | null,
-  errorCode: string | null,
-  description: string | null,
-): OAuthFailureCode {
-  const haystack = `${error ?? ''} ${errorCode ?? ''} ${description ?? ''}`.toLowerCase()
-  if (haystack.includes('state') && (haystack.includes('expired') || haystack.includes('invalid'))) {
-    return 'oauth_state_expired'
-  }
-  if (haystack.includes('access_denied') || haystack.includes('cancel')) {
-    return 'oauth_cancelled'
-  }
-  return 'oauth_failed'
+export function signInErrorMessage(code: string | null | undefined): string {
+  return code && Object.prototype.hasOwnProperty.call(MESSAGES, code)
+    ? MESSAGES[code as SignInErrorCode]
+    : MESSAGES.generic
 }

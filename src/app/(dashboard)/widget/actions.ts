@@ -146,7 +146,7 @@ export async function uploadWidgetAvatar(
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const file = formData.get('file')

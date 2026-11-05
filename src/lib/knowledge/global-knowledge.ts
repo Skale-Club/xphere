@@ -16,6 +16,7 @@ import { getProviderKey } from '@/lib/integrations/get-provider-key'
 import { getPlatformSetting } from '@/lib/platform-settings'
 import { embed, embedBatch } from '@/lib/knowledge/embed'
 import { chunkText } from '@/lib/knowledge/chunk-text'
+import { getAppUserById } from '@/lib/auth/users'
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 export const GLOBAL_KNOWLEDGE_EMBED_MODEL = 'text-embedding-3-small'
@@ -110,8 +111,8 @@ export async function isPlatformAdminUser(userId: string | null): Promise<boolea
   const adminEmail = process.env.PLATFORM_ADMIN_EMAIL
   if (!adminEmail) return false
   try {
-    const { data } = await supabase.auth.admin.getUserById(userId)
-    return data?.user?.email?.toLowerCase() === adminEmail.toLowerCase()
+    const user = await getAppUserById(userId)
+    return user?.email?.toLowerCase() === adminEmail.toLowerCase()
   } catch {
     return false
   }

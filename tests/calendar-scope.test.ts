@@ -22,6 +22,16 @@ vi.mock('@/lib/calendar/location-resolver', () => ({
   }),
 }))
 
+// buildMeetingScope reads the host through getAppUserById. The cases below
+// describe the host via the fake client's auth.admin.getUserById, so bridge the
+// two: the most recently built fake client answers the lookup.
+const userLookup = vi.hoisted(() => ({
+  fn: null as null | ((id: string) => Promise<{ data: { user: unknown } }>),
+}))
+vi.mock('@/lib/auth/users', () => ({
+  getAppUserById: async (id: string) => (await userLookup.fn?.(id))?.data.user ?? null,
+}))
+
 import { resolveMeetingLocation } from '@/lib/calendar/location-resolver'
 import { buildMeetingScope } from '@/lib/calendar/scope'
 
@@ -95,6 +105,7 @@ function buildFakeSupabase(opts: {
     opts.getUserById ??
     vi.fn(async () => ({ data: { user: null }, error: null }))
 
+  userLookup.fn = getUserById as typeof userLookup.fn
   const client: any = {
     from: vi.fn((table: string) => {
       if (table === 'bookings') return makeProxy(bookingResp)

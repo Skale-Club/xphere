@@ -16,6 +16,18 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }))
 
+// The action reads users through listAppUsers; these tests still describe the
+// users via the fake admin client's auth.admin.listUsers, so bridge the two.
+vi.mock('@/lib/auth/users', () => ({
+  listAppUsers: async () => {
+    const { createServiceRoleClient } = await import('@/lib/supabase/admin')
+    const admin = createServiceRoleClient() as unknown as {
+      auth: { admin: { listUsers: () => Promise<{ data: { users: unknown[] } }> } }
+    }
+    return (await admin.auth.admin.listUsers()).data.users
+  },
+}))
+
 vi.mock('next/cache', () => ({
   revalidatePath: vi.fn(),
 }))

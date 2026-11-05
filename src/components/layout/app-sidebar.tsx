@@ -27,9 +27,10 @@ import {
   Sparkles,
   Workflow,
 } from 'lucide-react'
-import type { User } from '@supabase/supabase-js'
+import type { AppUser as User } from '@/lib/auth/users'
 
-import { createClient } from '@/lib/supabase/client'
+import { signOutEverywhere } from '@/lib/auth/sign-out'
+import { toast } from 'sonner'
 import { APP_NAME } from '@/lib/config'
 import {
   Sidebar,
@@ -108,8 +109,14 @@ export function AppSidebar({ user, isPlatformAdmin }: AppSidebarProps) {
   const avatarUrl = (user.user_metadata?.avatar_url as string | undefined) ?? null
 
   async function handleSignOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    try {
+      await signOutEverywhere()
+    } catch (error) {
+      // Still signed in: stay put instead of landing on "/" as an
+      // authenticated user who is bounced straight back to the dashboard.
+      toast.error(error instanceof Error ? error.message : 'Could not sign out. Please try again.')
+      return
+    }
     // Clear the active-org cookie so the next account on this browser doesn't
     // inherit a stale org name (the cookie is non-httpOnly, 30-day).
     document.cookie = 'vo_active_org=; path=/; max-age=0; samesite=lax'

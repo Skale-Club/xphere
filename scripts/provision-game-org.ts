@@ -48,9 +48,10 @@ async function main() {
   if (ownersError) throw ownersError
   if (!owners || owners.length !== 1) throw new Error(`Expected one owner in the reference org, found ${owners?.length ?? 0}`)
   const ownerId: string = owners[0].user_id
-  const { data: ownerUser, error: ownerError } = await admin.auth.admin.getUserById(ownerId)
+  // public.users, not '@/lib/auth/users': that module imports 'server-only', which throws under tsx.
+  const { data: ownerUser, error: ownerError } = await admin.from('users').select('email').eq('id', ownerId).maybeSingle()
   if (ownerError) throw ownerError
-  if (ownerUser.user?.email?.toLowerCase() !== ownerEmail) throw new Error('Reference org owner does not match --owner-email')
+  if (ownerUser?.email?.toLowerCase() !== ownerEmail) throw new Error('Reference org owner does not match --owner-email')
 
   let { data: org } = await admin.from('organizations').select('id, name').eq('slug', slug).maybeSingle()
   if (org) plan.push(`org exists: ${org.id}`)

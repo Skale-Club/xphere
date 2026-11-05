@@ -24,6 +24,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { Client } from 'pg'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { createTestUser, deleteTestUser, signedInClient } from './helpers/test-users'
 
 // ─── Environment detection ────────────────────────────────────────────────────
 
@@ -301,7 +302,6 @@ fullSuite('SC1 (CF-14) reality: custom_field_definitions cross-org isolation', (
   const suffix = Math.random().toString(36).slice(2, 10)
   const userAEmail = `cf-rls-a-${suffix}@example.test`
   const userBEmail = `cf-rls-b-${suffix}@example.test`
-  const password = `Cf-Rls-${suffix}!`
 
   let admin: SupabaseClient<Database>
   let clientA: SupabaseClient<Database>
@@ -342,21 +342,8 @@ fullSuite('SC1 (CF-14) reality: custom_field_definitions cross-org isolation', (
     if (orgBErr) throw orgBErr
     orgBId = orgB.id
 
-    const { data: uA, error: uAErr } = await admin.auth.admin.createUser({
-      email: userAEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uAErr) throw uAErr
-    userAId = uA.user!.id
-
-    const { data: uB, error: uBErr } = await admin.auth.admin.createUser({
-      email: userBEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uBErr) throw uBErr
-    userBId = uB.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
+    userBId = (await createTestUser(admin, userBEmail)).id
 
     const { error: memErr } = await admin.from('org_members').insert([
       { user_id: userAId, organization_id: orgAId, role: 'admin' },
@@ -380,23 +367,15 @@ fullSuite('SC1 (CF-14) reality: custom_field_definitions cross-org isolation', (
     if (defErr) throw defErr
     defAId = def.id
 
-    const makeClient = () =>
-      createClient<Database>(url!, anonKey!, { auth: { persistSession: false } })
-    clientA = makeClient()
-    clientB = makeClient()
-
-    const signIns = await Promise.all([
-      clientA.auth.signInWithPassword({ email: userAEmail, password }),
-      clientB.auth.signInWithPassword({ email: userBEmail, password }),
-    ])
-    for (const { error } of signIns) if (error) throw error
+    clientA = await signedInClient(userAEmail)
+    clientB = await signedInClient(userBEmail)
   }, 60000)
 
   afterAll(async () => {
     if (!admin) return
     const cleanups: Promise<unknown>[] = []
-    if (userAId) cleanups.push(admin.auth.admin.deleteUser(userAId))
-    if (userBId) cleanups.push(admin.auth.admin.deleteUser(userBId))
+    if (userAId) cleanups.push(deleteTestUser(admin, userAId))
+    if (userBId) cleanups.push(deleteTestUser(admin, userBId))
     await Promise.allSettled(cleanups)
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)
     if (orgBId) await admin.from('organizations').delete().eq('id', orgBId)

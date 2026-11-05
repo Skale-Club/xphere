@@ -40,16 +40,16 @@ Always run `npm run build` after changes to catch type errors before finishing.
 ## Key Patterns
 
 ### Auth
-Always use the cached helpers - never call `supabase.auth.getUser()` directly:
+Sign-in is Google Identity Platform (texted code or Google) with an app-owned session cookie and `public.users`. Read the session with the cached helpers - never call `supabase.auth.*` (clients use `accessToken`, so it throws, and a test enforces it):
 
 ```ts
 import { createClient, getUser } from '@/lib/supabase/server'
 
-const user = await getUser()
+const user = await getUser()   // reads the app session, not Supabase Auth
 const supabase = await createClient()
 ```
 
-`cache()` deduplicates these across the render tree per request. Auth gating happens in layouts, pages, route handlers, and server actions instead of middleware.
+`cache()` deduplicates these across the render tree per request. Auth gating happens in layouts, pages, route handlers, and server actions instead of middleware. The only file allowed to touch Supabase Auth is `src/lib/auth/supabase-jwt.ts`, a temporary bridge that fetches the database token with the service role key and goes away with Supabase. Design: `docs/auth/identity-platform-migration.md`.
 
 ### API Routes
 

@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createTestUser, deleteTestUser, signedInClient } from './helpers/test-users'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -16,7 +17,6 @@ suite('TEN-02: RLS cross-org data isolation', () => {
   const userAEmail = `rls-a-${suffix}@example.test`
   const userBEmail = `rls-b-${suffix}@example.test`
   const userCEmail = `rls-c-${suffix}@example.test`
-  const password = `Rls-Test-${suffix}!`
 
   let admin: SupabaseClient
   let clientA: SupabaseClient
@@ -50,29 +50,9 @@ suite('TEN-02: RLS cross-org data isolation', () => {
     if (orgBErr) throw orgBErr
     orgBId = orgB.id
 
-    const { data: uA, error: uAErr } = await admin.auth.admin.createUser({
-      email: userAEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uAErr) throw uAErr
-    userAId = uA.user!.id
-
-    const { data: uB, error: uBErr } = await admin.auth.admin.createUser({
-      email: userBEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uBErr) throw uBErr
-    userBId = uB.user!.id
-
-    const { data: uC, error: uCErr } = await admin.auth.admin.createUser({
-      email: userCEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uCErr) throw uCErr
-    userCId = uC.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
+    userBId = (await createTestUser(admin, userBEmail)).id
+    userCId = (await createTestUser(admin, userCEmail)).id
 
     const { error: memErr } = await admin.from('org_members').insert([
       { user_id: userAId, organization_id: orgAId, role: 'admin' },
@@ -104,26 +84,19 @@ suite('TEN-02: RLS cross-org data isolation', () => {
     if (mBErr) throw mBErr
     mappingBId = mB.id
 
-    const makeClient = () =>
-      createClient(url!, anonKey!, { auth: { persistSession: false } })
-    clientA = makeClient()
-    clientB = makeClient()
-    clientC = makeClient()
-
-    const signIns = await Promise.all([
-      clientA.auth.signInWithPassword({ email: userAEmail, password }),
-      clientB.auth.signInWithPassword({ email: userBEmail, password }),
-      clientC.auth.signInWithPassword({ email: userCEmail, password }),
+    ;[clientA, clientB, clientC] = await Promise.all([
+      signedInClient(userAEmail),
+      signedInClient(userBEmail),
+      signedInClient(userCEmail),
     ])
-    for (const { error } of signIns) if (error) throw error
   }, 60000)
 
   afterAll(async () => {
     if (!admin) return
     const cleanups: Promise<unknown>[] = []
-    if (userAId) cleanups.push(admin.auth.admin.deleteUser(userAId))
-    if (userBId) cleanups.push(admin.auth.admin.deleteUser(userBId))
-    if (userCId) cleanups.push(admin.auth.admin.deleteUser(userCId))
+    if (userAId) cleanups.push(deleteTestUser(admin, userAId))
+    if (userBId) cleanups.push(deleteTestUser(admin, userBId))
+    if (userCId) cleanups.push(deleteTestUser(admin, userCId))
     await Promise.allSettled(cleanups)
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)
     if (orgBId) await admin.from('organizations').delete().eq('id', orgBId)
