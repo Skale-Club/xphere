@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['sharp', 'playwright', 'playwright-core', 'cheerio'],
   turbopack: {},
   experimental: {
+    // Profile avatars go through a server action and may be up to 5 MB; the default is 1 MB.
+    serverActions: { bodySizeLimit: '6mb' },
     optimizePackageImports: ['@phosphor-icons/react'],
   },
   async redirects() {
