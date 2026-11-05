@@ -41,8 +41,9 @@ credential upgrade.
 Permanent regression coverage was added in `tests/db-exit.test.ts`.
 The focused database-exit/storage/retention suites passed (110 tests); the
 critical battery and all workflow definitions passed. The local Next.js build
-was stopped at the user's request because it burdened their PC; the production
-build will run in GitHub Actions.
+was stopped at the user's request because it burdened their PC. PR 54 merged
+as `62039d8f`; GitHub Actions run `42120608697` passed the release gate,
+production image build, and deploy. No local build was restarted.
 
 ## Retention
 
@@ -52,12 +53,34 @@ Before activation, production reported both flags disabled. Simulation:
   and 600 objects, without deleting or clearing anything.
 - Chat: 929 eligible messages; the remaining time budget selected 169 messages
   and objects, without deleting or flagging anything.
-- Size estimates were unavailable with the invalid Storage credential.
+- Size estimates were unavailable with the invalid Storage credential. After
+  deploying the fix, another simulation returned known sizes (13,702,135 bytes
+  sampled for screenshots; 49,351,808 bytes for its capped 144 chat objects),
+  zero unknown sizes, and zero failures. It did not delete anything.
 
 The existing `skale-cron` schedule invokes `/api/cron/storage-retention` at
 minute 41 of every hour (UTC), with the established bearer authentication.
 Each run is bounded to 60 seconds and reports when further runs are needed.
 
-Activation and first live-run results: pending deployment of the runtime fix.
+Enabled `STORAGE_RETENTION_SCREENSHOTS_ENABLED=true` and
+`STORAGE_RETENTION_CHAT_ENABLED=true` in production runtime only; both flags
+are explicitly `false` in Preview. Config deployment:
+`t4wjy580qbbmjjp9gjmoisxt`. Container:
+`fwjo7xriuqibl01v96vah7fz-20261105T223234`.
+
+The first real pass was invoked manually through the authenticated app endpoint:
+
+| Sweep | Result |
+| --- | --- |
+| Screenshots | 600 objects removed; URLs cleared on 300 analysis rows; 0 failed rows |
+| Chat | 59 objects removed; 59 messages flagged expired; 8,699,260 bytes reported; 0 failures |
+
+Both sweeps reported `truncated: true`, as expected from the configured limits.
+An independent database count at the same cutoff found 4,576 remaining eligible
+analysis rows, 870 remaining eligible chat messages, and exactly 59 messages
+marked with this run's expiry timestamp. The existing hourly job continues
+draining the backlog. `/api/health` returned 200 after the live pass.
+
 Retention deletes only expired attachments and screenshot objects, preserves
-message text and analysis rows, and marks affected messages as expired.
+message text and analysis rows, and marks affected messages as expired. No
+wholesale deletion of the old Storage buckets was performed.
