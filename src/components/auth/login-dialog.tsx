@@ -38,6 +38,8 @@ import {
   normalizePhone,
   phoneCountryCodeFromIso,
   phoneCountryCodeFromLocales,
+  rememberCountryCode,
+  rememberedCountryCode,
   phonePlaceholderFor,
 } from '@/lib/auth/phone'
 
@@ -222,7 +224,7 @@ export function LoginDialog(props: LoginDialogProps) {
   const [configFailed, setConfigFailed] = useState(false)
   // The server's guess (from the request's geo headers) at the visitor's country.
   const [countryGuess, setCountryGuess] = useState<string | null>(null)
-  const [countryCode, setCountryCode] = useState<string>(browserCountryCode)
+  const [countryCode, setCountryCode] = useState<string>(() => rememberedCountryCode() ?? browserCountryCode())
   const [step, setStep] = useState<Step>('phone')
   // What the person typed, masked ("(508) 555-0100"), and the E.164 we sent the code to.
   const [phoneInput, setPhoneInput] = useState('')
@@ -242,7 +244,7 @@ export function LoginDialog(props: LoginDialogProps) {
   const navigationLock = useRef(false)
   const codeRef = useRef<HTMLInputElement>(null)
   // A country the person picked is never overwritten by a guess.
-  const countryChosen = useRef(false)
+  const countryChosen = useRef(rememberedCountryCode() !== null)
 
   const setOpen = (next: boolean) => {
     if (navigationLock.current) return // don't let the user dismiss a sign-in in flight
@@ -278,8 +280,8 @@ export function LoginDialog(props: LoginDialogProps) {
     }
   }, [open, config])
 
-  // The geo guess beats the browser-language guess, but only while the person
-  // has neither picked a country nor started typing.
+  // The geo guess beats the browser-language guess, but only while the person has
+  // not picked a country (now or on an earlier sign-in) and has not started typing.
   useEffect(() => {
     if (!open || !countryGuess || countryChosen.current || phoneInput) return
     setCountryCode(countryGuess)
@@ -295,8 +297,9 @@ export function LoginDialog(props: LoginDialogProps) {
     setCode('')
     setError(null)
     setNote(null)
-    countryChosen.current = false
-    setCountryCode(browserCountryCode())
+    const remembered = rememberedCountryCode()
+    countryChosen.current = remembered !== null
+    setCountryCode(remembered ?? browserCountryCode())
   }, [open])
 
   useEffect(() => cancelGooglePhoneChallenge, [])
@@ -365,6 +368,8 @@ export function LoginDialog(props: LoginDialogProps) {
     setNote(null)
     try {
       await sendGooglePhoneCode(config, target)
+      // Only after a code really went out, so a mistaken pick is not remembered.
+      rememberCountryCode(dialCodeOf(target) ?? countryCode)
       setPhone(target)
       setCode('')
       setResendAt(Date.now() + RESEND_AFTER_MS)
