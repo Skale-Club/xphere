@@ -39,6 +39,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { MEDIA_ROUTE_PREFIX, parseMediaPath } from '@/lib/storage'
+import { stripTrailingSlashes } from './strip-slashes'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ export function screenshotObjectPath(analysisId: string, variant: 'desktop' | 'm
 /** Public URL prefix of this project's chat-media bucket, or null when unconfigured. */
 export function chatMediaPublicPrefix(supabaseUrl: string | undefined): string | null {
   if (!supabaseUrl) return null
-  return `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${CHAT_MEDIA_BUCKET}/`
+  return `${stripTrailingSlashes(supabaseUrl)}/storage/v1/object/public/${CHAT_MEDIA_BUCKET}/`
 }
 
 /**
@@ -274,7 +275,7 @@ export function extractChatMediaPaths(
  * base, Supabase otherwise (the only store that existed before the cut-over).
  */
 export function screenshotBackendFromUrl(url: string, r2PublicBase: string | null | undefined): StorageBackend {
-  const base = r2PublicBase?.replace(/\/+$/, '')
+  const base = (r2PublicBase ? stripTrailingSlashes(r2PublicBase) : undefined)
   return base && url.startsWith(`${base}/`) ? 'r2' : 'supabase'
 }
 

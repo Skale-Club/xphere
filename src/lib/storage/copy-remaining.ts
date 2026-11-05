@@ -16,6 +16,7 @@
 import { createHash } from 'node:crypto'
 import { DEFAULT_CHAT_MEDIA_RETENTION_DAYS } from '@/lib/storage/retention'
 import { assertSafePath, mediaPath, parseMediaPath, PUBLIC_BUCKETS } from '@/lib/storage'
+import { stripTrailingSlashes } from './strip-slashes'
 
 // ── Scope ───────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export function parseSupabasePublicUrl(
   url: string,
   supabaseUrl: string,
 ): { bucket: string; path: string; suffix: string } | null {
-  const prefix = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/`
+  const prefix = `${stripTrailingSlashes(supabaseUrl)}/storage/v1/object/public/`
   if (!url.startsWith(prefix)) return null
   const rest = url.slice(prefix.length)
   const cut = rest.search(/[?#]/)
@@ -103,7 +104,7 @@ export function parseSupabasePublicUrl(
  */
 export function classifyUrl(url: unknown, ctx: UrlContext, allowed: readonly CopyBucket[]): Classified {
   if (typeof url !== 'string' || url.trim() === '') return { kind: 'skip', reason: 'not-url' }
-  if (ctx.r2PublicBase && url.startsWith(`${ctx.r2PublicBase.replace(/\/+$/, '')}/`)) return { kind: 'already-r2' }
+  if (ctx.r2PublicBase && url.startsWith(`${stripTrailingSlashes(ctx.r2PublicBase)}/`)) return { kind: 'already-r2' }
   if (url.startsWith('/api/media/')) {
     return parseMediaPath(url.split(/[?#]/)[0]) ? { kind: 'already-r2' } : { kind: 'skip', reason: 'not-url' }
   }
@@ -136,7 +137,7 @@ export function allowedBucketsFor(kind: ColumnKind): readonly CopyBucket[] {
 export function newUrlFor(bucket: CopyBucket, path: string, suffix: string, ctx: UrlContext): string {
   if (bucket === 'chat-media') return `${mediaPath(bucket, path)}${suffix}`
   if (!ctx.r2PublicBase) throw new Error('R2_PUBLIC_BASE_URL is required to map a public URL')
-  return `${ctx.r2PublicBase.replace(/\/+$/, '')}/${bucket}/${encodePath(path)}${suffix}`
+  return `${stripTrailingSlashes(ctx.r2PublicBase)}/${bucket}/${encodePath(path)}${suffix}`
 }
 
 export function isPublicCopyBucket(bucket: CopyBucket): boolean {

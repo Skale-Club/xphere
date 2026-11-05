@@ -70,7 +70,7 @@ async function extractText(
     let data: Blob | null = null
     // Why the signed download did not produce the file, for the error shown to the user.
     let signedFailure: string | null = null
-    if (downloadUrl) {
+    if (downloadUrl && isTrustedDownloadUrl(downloadUrl)) {
       try {
         // A stuck request must fail, not hang the job in 'processing'.
         const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(30_000) })
@@ -220,6 +220,20 @@ async function processGlobalKnowledgeJob(
       .eq('id', globalKnowledgeSourceId)
     console.error(`[process-embeddings] Global Knowledge job failed for ${globalKnowledgeSourceId}:`, errorMessage)
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500 })
+  }
+}
+
+// Signed downloads only ever come from R2. Without this check the function would
+// fetch any URL a caller put in the body (SSRF).
+function isTrustedDownloadUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return false
+    if (url.hostname.endsWith('.r2.cloudflarestorage.com')) return true
+    const custom = Deno.env.get('R2_ENDPOINT')
+    return !!custom && url.hostname === new URL(custom).hostname
+  } catch {
+    return false
   }
 }
 

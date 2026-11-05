@@ -74,6 +74,20 @@ function composeContactName(firstName: string | null, lastName: string | null): 
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
+// Signed downloads only ever come from R2. Without this check the function would
+// fetch any URL a caller put in the body (SSRF).
+function isTrustedDownloadUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return false
+    if (url.hostname.endsWith('.r2.cloudflarestorage.com')) return true
+    const custom = Deno.env.get('R2_ENDPOINT')
+    return !!custom && url.hostname === new URL(custom).hostname
+  } catch {
+    return false
+  }
+}
+
 Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -85,7 +99,7 @@ Deno.serve(async (req) => {
   let downloadUrl: string | null = null
   try {
     const body = await req.json()
-    if (typeof body?.downloadUrl === 'string') downloadUrl = body.downloadUrl
+    if (typeof body?.downloadUrl === 'string' && isTrustedDownloadUrl(body.downloadUrl)) downloadUrl = body.downloadUrl
     if (body?.importId) {
       importId = body.importId
     } else if (body?.record?.status === 'queued') {

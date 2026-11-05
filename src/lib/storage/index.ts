@@ -28,6 +28,7 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { stripTrailingSlashes } from './strip-slashes'
 
 /** Readable by anyone holding the URL: avatars, branding, email images, screenshots. */
 export const PUBLIC_BUCKETS = ['branding', 'avatars', 'email-assets', 'website-screenshots'] as const
@@ -120,7 +121,7 @@ export function resolveR2Target(bucket: StorageBucket, env: Env = process.env): 
   let publicBaseUrl: string | null = null
   if (isPublic) {
     if (!env.R2_PUBLIC_BASE_URL) missing.push('R2_PUBLIC_BASE_URL')
-    else publicBaseUrl = env.R2_PUBLIC_BASE_URL.replace(/\/+$/, '')
+    else publicBaseUrl = stripTrailingSlashes(env.R2_PUBLIC_BASE_URL)
   }
 
   if (missing.length > 0) {
@@ -130,7 +131,7 @@ export function resolveR2Target(bucket: StorageBucket, env: Env = process.env): 
   }
 
   return {
-    endpoint: (env.R2_ENDPOINT || `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`).replace(/\/+$/, ''),
+    endpoint: stripTrailingSlashes(env.R2_ENDPOINT || `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`),
     accessKeyId: env.R2_ACCESS_KEY_ID!,
     secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
     r2Bucket: r2Bucket!,
@@ -331,7 +332,7 @@ export function publicUrl(bucket: PublicBucket, path: string, opts: ClientOption
  */
 export function pathFromPublicUrl(bucket: PublicBucket, url: string, env: Env = process.env): string | null {
   const clean = url.split(/[?#]/)[0]
-  const base = env.R2_PUBLIC_BASE_URL?.replace(/\/+$/, '')
+  const base = env.R2_PUBLIC_BASE_URL ? stripTrailingSlashes(env.R2_PUBLIC_BASE_URL) : undefined
   const r2Prefix = base ? `${base}/${bucket}/` : null
   let encoded: string | null = null
   if (r2Prefix && clean.startsWith(r2Prefix)) {
