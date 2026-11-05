@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { parse } from 'yaml'
 
 const root = process.cwd()
-const scriptPath = path.join(root, 'scripts', 'meta-audience-sync.ts')
+const scriptPath = path.join(root, 'src', 'lib', 'meta', 'audience-job.ts')
 const workflowPath = path.join(root, '.github', 'workflows', 'meta-audience-sync.yml')
 
 describe('Meta audience scheduler contract', () => {
@@ -29,23 +29,24 @@ describe('Meta audience scheduler contract', () => {
 
   it('names every required runtime key and reports a legitimate no-work success', () => {
     const source = readFileSync(scriptPath, 'utf8')
-    expect(source).toContain('NEXT_PUBLIC_SUPABASE_URL')
-    expect(source).toContain('SUPABASE_SERVICE_ROLE_KEY')
+    // Database access now comes from createServiceRoleClient(); only the tenant token key is validated here.
+    expect(source).toContain('createServiceRoleClient')
+    expect(source).not.toContain('SUPABASE_SERVICE_ROLE_KEY')
     expect(source).toContain('ENCRYPTION_SECRET')
     expect(source).toContain('0 audiences due')
-    expect(source).toContain('throw new Error(`Missing required configuration: ${missing.join(\', \')}`)')
+    expect(source).toContain('Missing required configuration')
   })
 
-  it('keeps an hourly/manual workflow that fails closed without a global Meta token', () => {
+  it('keeps a manual-only workflow that calls the in-app route and holds no database secrets', () => {
     const source = readFileSync(workflowPath, 'utf8')
     const workflow = parse(source) as Record<string, unknown>
     expect(workflow).toBeTruthy()
-    expect(source).toContain("cron: '15 * * * *'")
     expect(source).toContain('workflow_dispatch:')
+    expect(source).not.toContain('schedule:')
     expect(source).toContain('audience_id:')
-    expect(source).toContain('SUPABASE_SERVICE_ROLE_KEY')
-    expect(source).toContain('ENCRYPTION_SECRET')
+    expect(source).toContain('/api/cron/meta-audience-sync')
+    expect(source).not.toContain('SUPABASE_SERVICE_ROLE_KEY')
+    expect(source).not.toContain('ENCRYPTION_SECRET')
     expect(source).not.toContain('META_SYSTEM_USER_TOKEN')
-    expect(source).not.toContain('configured=false')
   })
 })

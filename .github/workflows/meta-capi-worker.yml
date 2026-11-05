@@ -1,14 +1,10 @@
 name: Meta CAPI Worker
 
-# Drains the Meta Conversions API outbox (meta_capi_events) every 5 minutes.
-# Sends queued Lead / QualifiedLead / Purchase events to each org's dataset
-# with retry/backoff. Fails closed: if required secrets are absent the job
-# no-ops (green). Configure these repo secrets to enable:
-#   SUPABASE_SERVICE_ROLE_KEY, ENCRYPTION_SECRET, META_SYSTEM_USER_TOKEN
-# and repo variable NEXT_PUBLIC_SUPABASE_URL.
-#
-# NOTE: run this OR a Hetzner crontab — not both, or events send twice
-# (harmless thanks to event_id dedup, but wasteful).
+# Manual / emergency trigger only. The Meta Conversions API outbox is drained by
+# the app itself: GET /api/cron/meta-capi-worker (src/lib/meta/capi-worker.ts),
+# scheduled every 5 minutes from skale-cron. Production data is a self-hosted
+# Postgres reachable only from the app's network, so this workflow no longer
+# talks to the database: it just calls the route.
 
 on:
   workflow_dispatch:
@@ -17,15 +13,13 @@ on:
         description: 'Process a single org (optional)'
         required: false
       test:
-        description: 'Send with each org test_event_code (Events Manager → Test Events)'
+        description: 'Send with each org test_event_code (Events Manager -> Test Events)'
         type: boolean
         default: false
       dry_run:
-        description: 'Dry run — log, do not POST to Meta'
+        description: 'Dry run - log, do not POST to Meta'
         type: boolean
         default: false
-  schedule:
-    - cron: '*/5 * * * *' # every 5 minutes
 
 concurrency:
   group: meta-capi-worker
@@ -38,45 +32,29 @@ jobs:
   drain:
     name: Drain CAPI outbox
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Check configuration
-        id: cfg
+      - name: Fire meta-capi-worker endpoint
         env:
-          SRK: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ENC: ${{ secrets.ENCRYPTION_SECRET }}
-        run: |
-          if [ -z "$SRK" ] || [ -z "$ENC" ]; then
-            echo "Required secrets missing — skipping (no-op)."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install dependencies
-        if: steps.cfg.outputs.configured == 'true'
-        run: npm ci
-
-      - name: Run meta-capi-worker
-        if: steps.cfg.outputs.configured == 'true'
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          ENCRYPTION_SECRET: ${{ secrets.ENCRYPTION_SECRET }}
-          META_SYSTEM_USER_TOKEN: ${{ secrets.META_SYSTEM_USER_TOKEN }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.SITE_URL }}
           ORG_ID: ${{ inputs.org_id }}
           TEST: ${{ inputs.test }}
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          ARGS=""
-          if [ -n "$ORG_ID" ]; then ARGS="$ARGS --org $ORG_ID"; fi
-          if [ "$TEST" = "true" ]; then ARGS="$ARGS --test"; fi
-          if [ "$DRY_RUN" = "true" ]; then ARGS="$ARGS --dry-run"; fi
-          npx tsx scripts/meta-capi-worker.ts $ARGS
+          QUERY=""
+          if [ -n "$ORG_ID" ]; then QUERY="${QUERY}&org=${ORG_ID}"; fi
+          if [ "$TEST" = "true" ]; then QUERY="${QUERY}&test=1"; fi
+          if [ "$DRY_RUN" = "true" ]; then QUERY="${QUERY}&dry_run=1"; fi
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --connect-timeout 15 --max-time 95 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${SITE_URL}/api/cron/meta-capi-worker?${QUERY#&}")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "meta-capi-worker cron failed with status $STATUS" >&2
+            exit 1
+          fi
