@@ -5,8 +5,7 @@ name: Auth Branch Build
 # Delete this file before merging feat/identity-platform-auth.
 
 on:
-  push:
-    branches: [feat/identity-platform-auth]
+  pull_request: {}
 
 permissions:
   contents: read
