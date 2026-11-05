@@ -45,7 +45,7 @@ describe('maskPhoneInput', () => {
   })
 
   it('ignores letters and punctuation', () => {
-    expect(maskPhoneInput('abc508-740.2109x', '1')).toBe('(508) 555-0100')
+    expect(maskPhoneInput('abc508-555.0100x', '1')).toBe('(508) 555-0100')
   })
 
   it('produces something normalizePhone accepts once complete, in the placeholder shape', () => {
