@@ -36,6 +36,21 @@ jobs:
           tests/website-analyzer-scheduling.test.ts tests/website-analyzer-concurrency.test.ts
           tests/calendar-tick-route.test.ts
 
+  baseline:
+    # The same two files on main, to tell pre-existing failures from new ones.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Baseline on main
+        run: npx vitest run --reporter=default tests/outbound-reply-routing.test.ts tests/calendar-tick-route.test.ts || true
+
   build:
     runs-on: ubuntu-latest
     steps:
