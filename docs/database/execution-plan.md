@@ -78,6 +78,37 @@ Não coberto pelo ensaio: o app inteiro apontado para o banco novo. `xphere-stag
 | Edge Functions no app | Ligar `EDGE_FUNCTIONS_IN_APP` antes do corte. Antes disso, fazer as importações gravarem em lote |
 | Segredos de produção | Senha do banco, segredo do JWT e chave do backup no R2: criados pelo dono da conta |
 
+## Corte realizado — 2026-11-05
+
+| Hora (UTC) | Passo |
+|---|---|
+| 21:02 | Banco `xphere-db` criado no Coolify (`mpvfrbenkwtvziunmelx7ars`, imagem `xphere-postgres:17`, rede `coolify`, sem porta pública, 1 GB) |
+| 21:04 | Bootstrap aplicado; PostgREST v14.5 (`xphere-postgrest`) no ar. Senha do `authenticator` e segredo do JWT gerados no servidor (`/root/xphere-db-build/prod`, só root) |
+| 21:08:03 | `skale-cron` e app parados. Movimento nos 30 min anteriores: 0 mensagens, 0 chamadas |
+| 21:09:36 | Dump final de 18,8 MB (sha256 `4884dd1217b584b5…`) |
+| 21:09:44 | Restore sem erros |
+| 21:09:54 | Conferência idêntica nas 221 tabelas (contagem exata, objetos, sequences, pgvector) |
+| 21:09:57 | App passou a usar `DB_JWT_SECRET`, `SUPABASE_REST_URL`, `EDGE_FUNCTIONS_IN_APP` e mais 3 buckets no R2 (`contact-imports`, `global-knowledge`, `knowledge-docs`) |
+| 21:10:18 | App saudável no banco novo; `skale-cron` retomado. **Parada total: 2 min 15 s** |
+
+Verificação depois do corte:
+- O inbox e o sino carregam pela sessão real.
+- As leituras sobem no banco novo (por exemplo, `app_sessions` de 139 para 178 em 20 s).
+- O PostgREST tem 2 conexões abertas.
+- Nenhum outro projeto acessa o banco do Xphere direto.
+
+Desligados no corte (`meta-capi-worker`, `meta-audience-sync`, `eval-harness`): esses workflows falam direto com o Supabase e passariam a usar o dev. O último `meta-capi-worker` rodou às 17:37, antes do corte. **Pendente:** levar os três para rotas do app chamadas pelo `skale-cron`.
+
+Recuperação:
+- Dump de antes do corte em `migration-backups/2026-11-05/xphere-pre-cutover.dump` (R2 privado).
+- Backup diário em `db-backups/AAAA-MM-DD.dump`, às 03:17 UTC, com 14 dias de retenção. O restore foi testado: 0 erros e 221 tabelas idênticas.
+- `infra/postgres/cutover.sh rollback` volta o app ao Supabase, mas as escritas feitas desde o corte ficam só no banco novo.
+
+Supabase como dev:
+- O `.env.local` aponta para ele, com uma `ENCRYPTION_SECRET` só de dev.
+- O backup do `.env.local` anterior está em `.env.local.bak-pre-dev`, ignorado pelo git.
+- Migrations novas: `npx supabase db push` (dev) e depois `scripts/migrate-prod.sh --apply` (produção).
+
 ## Fase C — corte
 
 1. Dump final para o R2 privado, com SHA-256 e um restore conferido.
