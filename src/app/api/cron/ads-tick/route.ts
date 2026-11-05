@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic'
 // The snapshot walks every active connection across every org; give it room.
 export const maxDuration = 300
 
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import type { Database } from '@/types/database'
 import { captureApiError } from '@/lib/api-error'
 import { createLogger } from '@/lib/obs/logger'
@@ -40,7 +40,7 @@ import { planExpiryNotices, sendExpiryNotices, type ExpiryCandidate } from '@/li
 
 const CRON_SECRET = process.env.CRON_SECRET
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_KEY = getServiceRoleKey()
 
 type ConnectionRow = {
   id: string

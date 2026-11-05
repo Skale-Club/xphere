@@ -1,11 +1,12 @@
 // src/lib/import/process-import.ts
 // Node port of supabase/functions/process-imports (Deno). Same claim rules,
 // concurrency caps, per-row logic, progress updates, status transitions and
-// error rows. Runs inside the app when EDGE_FUNCTIONS_IN_APP lists
-// "process-imports" (see lib/edge-functions/switch).
+// error rows, now written a chunk at a time (see import-batch.ts). Runs inside
+// the app when EDGE_FUNCTIONS_IN_APP lists "process-imports" (see
+// lib/edge-functions/switch).
 //
 // startImportJob() validates and atomically claims the job (queued ->
-// processing) and returns at once; the row-by-row work is handed to `defer`
+// processing) and returns at once; the work is handed to `defer`
 // (runAfterResponse by default), because a 200k-row CSV outlives Cloudflare's
 // 100s response limit.
 //
@@ -14,10 +15,18 @@
 // and every caller passes { importId } directly.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  IMPORT_CHUNK_SIZE,
+  applyUpdates,
+  insertContacts,
+  linkContactsToAccounts,
+  lookupExisting,
+  type AccountCache,
+  type ContactFields,
+} from '@/lib/import/import-batch'
 import { runAfterResponse } from '@/lib/edge-functions/switch'
 import { isTrustedDownloadUrl } from '@/lib/edge-functions/trusted-download-url'
 
-const CHUNK_SIZE = 200
 const PER_ORG_CONCURRENCY_CAP = 2
 const GLOBAL_CONCURRENCY_CAP = 8
 const BUCKET = 'contact-imports'
@@ -249,42 +258,56 @@ export async function processImport(
     const usePhone = dKeys.includes('phone') && phoneIdx >= 0
     const useEmail = dKeys.includes('email') && emailIdx >= 0
 
+    const errorPayload = (rowNum: number, row: string[], field: string | null, message: string) => ({
+      import_id: importId,
+      row_number: rowNum,
+      raw_row: Object.fromEntries(headers.map((h, hi) => [h, row[hi] ?? ''])),
+      field,
+      message,
+    })
+
     let insertedRows = 0, updatedRows = 0, skippedRows = 0, errorRows = 0, processedRows = 0
+    const accountCache: AccountCache = new Map()
 
-    const recordError = (rowNum: number, row: string[], headers: string[], field: string | null, message: string) =>
-      db.from('contact_import_errors').insert({
-        import_id: importId,
-        row_number: rowNum,
-        raw_row: Object.fromEntries(headers.map((h, hi) => [h, row[hi] ?? ''])),
-        field,
-        message,
-      })
+    interface PendingError { rowNum: number; row: string[]; field: string | null; message: string }
+    // A row that writes a key an earlier row of the chunk also writes (same phone,
+    // same email, same existing contact) must see that write first, exactly as in
+    // row-by-row processing. Such rows run one by one after the batched ones.
+    interface Pending {
+      rowNum: number
+      row: string[]
+      company: string | null
+      kind: 'insert' | 'update'
+      fields: ContactFields
+      existingId?: string
+      patch?: Record<string, unknown>
+    }
 
-    for (let chunkStart = 0; chunkStart < rows.length; chunkStart += CHUNK_SIZE) {
+    for (let chunkStart = 0; chunkStart < rows.length; chunkStart += IMPORT_CHUNK_SIZE) {
       // Cancellation between chunks (IMP-12): leave the row as 'cancelled'.
       const { data: status } = await db.from('contact_imports').select('status').eq('id', importId).single()
       if (status?.status === 'cancelled') return
 
-      const chunk = rows.slice(chunkStart, chunkStart + CHUNK_SIZE)
+      const chunk = rows.slice(chunkStart, chunkStart + IMPORT_CHUNK_SIZE)
 
       const chunkPhones = usePhone
-        ? chunk.map((r: string[]) => normalisePhone(r[phoneIdx])).filter(Boolean)
+        ? chunk.map((r: string[]) => normalisePhone(r[phoneIdx])).filter((v): v is string => !!v)
         : []
       const chunkEmails = useEmail
-        ? chunk.map((r: string[]) => normaliseEmail(r[emailIdx])).filter(Boolean)
+        ? chunk.map((r: string[]) => normaliseEmail(r[emailIdx])).filter((v): v is string => !!v)
         : []
 
-      const existingByPhone = new Map<string, string>()
-      const existingByEmail = new Map<string, string>()
+      // One query per key type (split only to keep the URL short)
+      const [existingByPhone, existingByEmail] = await Promise.all([
+        chunkPhones.length > 0 ? lookupExisting(db, orgId, 'phone', chunkPhones) : new Map<string, string>(),
+        chunkEmails.length > 0 ? lookupExisting(db, orgId, 'email', chunkEmails) : new Map<string, string>(),
+      ])
 
-      if (chunkPhones.length > 0) {
-        const { data } = await db.from('contacts').select('id, phone').eq('org_id', orgId).in('phone', chunkPhones)
-        for (const c of data ?? []) { if (c.phone) existingByPhone.set(c.phone, c.id) }
-      }
-      if (chunkEmails.length > 0) {
-        const { data } = await db.from('contacts').select('id, email').eq('org_id', orgId).in('email', chunkEmails)
-        for (const c of data ?? []) { if (c.email) existingByEmail.set(c.email, c.id) }
-      }
+      const errors: PendingError[] = []
+      const batched: Pending[] = []
+      const sequential: Pending[] = []
+      const written = new Set<string>()
+      const accountLinks: Array<{ company: string; contactId: string }> = []
 
       for (let i = 0; i < chunk.length; i++) {
         const row = chunk[i] as string[]
@@ -295,8 +318,10 @@ export async function processImport(
 
         if (!phone && !email) {
           errorRows++
-          await recordError(rowNum, row, headers, 'phone_or_email',
-            'Row has no phone or email — cannot identify contact for dedup')
+          errors.push({
+            rowNum, row, field: 'phone_or_email',
+            message: 'Row has no phone or email — cannot identify contact for dedup',
+          })
           continue
         }
 
@@ -321,13 +346,16 @@ export async function processImport(
           if (val !== undefined && val !== '') cfPatch[cfKey] = val
         }
 
-        const insertFields = {
+        const fields: ContactFields = {
           name, phone, email, notes, company, allTags, defaultSource, defaultAssignedTo, cfPatch,
           firstName, lastName,
         }
 
+        let pending: Pending
+        let keys: string[]
         if (existingId && dedup === 'skip_existing') {
           skippedRows++
+          continue
         } else if (existingId && dedup === 'update_existing') {
           // Non-empty fields from the row win; empty fields leave the existing value
           const patch: Record<string, unknown> = {}
@@ -342,30 +370,84 @@ export async function processImport(
           if (defaultAssignedTo) patch.assigned_to = defaultAssignedTo
           if (allTags.length > 0) patch.tags = allTags
           if (Object.keys(cfPatch).length > 0) patch.custom_fields = cfPatch
-
-          const { error: updateErr } = await db.from('contacts').update(patch).eq('id', existingId)
-          if (updateErr) {
-            errorRows++
-            await recordError(rowNum, row, headers, null, updateErr.message)
-          } else {
-            updatedRows++
-          }
+          pending = { rowNum, row, company, kind: 'update', fields, existingId, patch }
+          keys = [`id:${existingId}`]
+          if (patch.phone) keys.push(`p:${phone}`)
+          if (patch.email) keys.push(`e:${email}`)
         } else {
           // No existing contact, or create_duplicate
-          const contactId = await insertContact(db, orgId, insertFields)
-          if (contactId) {
+          pending = { rowNum, row, company, kind: 'insert', fields }
+          keys = []
+          if (phone) keys.push(`p:${phone}`)
+          if (email) keys.push(`e:${email}`)
+        }
+
+        (keys.some((k) => written.has(k)) ? sequential : batched).push(pending)
+        for (const k of keys) written.add(k)
+      }
+
+      // ── Batched writes ───────────────────────────────────────────────────────
+      const batchInserts = batched.filter((p) => p.kind === 'insert')
+      const batchUpdates = batched.filter((p) => p.kind === 'update')
+
+      const insertOutcomes = await insertContacts(db, orgId, batchInserts.map((p) => p.fields))
+      batchInserts.forEach((p, idx) => {
+        const out = insertOutcomes[idx]
+        if (out.ok) {
+          insertedRows++
+          if (p.company && out.id) accountLinks.push({ company: p.company, contactId: out.id }) // IMP-20
+        } else {
+          errorRows++
+          errors.push({ rowNum: p.rowNum, row: p.row, field: null, message: 'Insert failed' })
+        }
+      })
+
+      const updateErrors = await applyUpdates(db, batchUpdates.map((p) => ({ id: p.existingId!, patch: p.patch! })))
+      batchUpdates.forEach((p, idx) => {
+        const message = updateErrors[idx]
+        if (message === null) updatedRows++
+        else {
+          errorRows++
+          errors.push({ rowNum: p.rowNum, row: p.row, field: null, message })
+        }
+      })
+
+      // ── Rows that depend on an earlier row of this chunk, in row order ────────
+      for (const p of sequential) {
+        if (p.kind === 'insert') {
+          const [out] = await insertContacts(db, orgId, [p.fields])
+          if (out.ok) {
             insertedRows++
-            if (company) await findOrCreateAccount(db, orgId, company, contactId) // IMP-20
+            if (p.company && out.id) accountLinks.push({ company: p.company, contactId: out.id })
           } else {
             errorRows++
-            await recordError(rowNum, row, headers, null, 'Insert failed')
+            errors.push({ rowNum: p.rowNum, row: p.row, field: null, message: 'Insert failed' })
+          }
+        } else {
+          const [message] = await applyUpdates(db, [{ id: p.existingId!, patch: p.patch! }])
+          if (message === null) updatedRows++
+          else {
+            errorRows++
+            errors.push({ rowNum: p.rowNum, row: p.row, field: null, message })
           }
         }
-      } // end chunk rows loop
+      }
+
+      await linkContactsToAccounts(db, orgId, accountLinks, accountCache)
+
+      if (errors.length > 0) {
+        errors.sort((a, b) => a.rowNum - b.rowNum)
+        const payload = errors.map((e) => errorPayload(e.rowNum, e.row, e.field, e.message))
+        const { error: batchErr } = await db.from('contact_import_errors').insert(payload)
+        if (batchErr) {
+          // Same as before: one row at a time, so the rest are still recorded
+          for (const p of payload) await db.from('contact_import_errors').insert(p)
+        }
+      }
 
       processedRows += chunk.length
 
-      // Progress update; the import screen follows it live (IMP-11)
+      // Progress update, once per chunk; the import screen follows it live (IMP-11)
       await db.from('contact_imports').update({
         processed_rows: processedRows,
         inserted_rows: insertedRows,
@@ -392,67 +474,5 @@ export async function processImport(
       status_message: message,
       finished_at: deps.now(),
     }).eq('id', importId)
-  }
-}
-
-// ── Contact insert helper ─────────────────────────────────────────────────────
-
-async function insertContact(
-  db: Db,
-  orgId: string,
-  fields: {
-    name: string | null
-    firstName: string | null
-    lastName: string | null
-    phone: string | null
-    email: string | null
-    notes: string | null
-    company: string | null
-    allTags: string[]
-    defaultSource: string | null
-    defaultAssignedTo: string | null
-    cfPatch: Record<string, unknown>
-  },
-): Promise<string | null> {
-  const { name, phone, email, notes, company, allTags, defaultSource, defaultAssignedTo, cfPatch } = fields
-  const row: Record<string, unknown> = {
-    org_id: orgId,
-    first_name: fields.firstName || null,
-    last_name: fields.lastName || null,
-    name: name || null,
-    phone: phone || null,
-    email: email || null,
-    notes: notes || null,
-    company: company || null,
-    source: defaultSource || 'csv_import',
-    assigned_to: defaultAssignedTo || null,
-    tags: allTags,
-  }
-  if (Object.keys(cfPatch).length > 0) row.custom_fields = cfPatch
-
-  const { data, error } = await db.from('contacts').insert(row).select('id').single()
-  if (error) return null
-  return data?.id ?? null
-}
-
-// ── Account auto-create helper (IMP-20) ──────────────────────────────────────
-
-async function findOrCreateAccount(db: Db, orgId: string, name: string, contactId: string): Promise<void> {
-  const escaped = name.replace(/[%_]/g, '\\$&')
-
-  const { data: existing } = await db
-    .from('accounts').select('id').eq('org_id', orgId).ilike('name', escaped).limit(1).single()
-
-  let accountId: string | null = existing?.id ?? null
-
-  if (!accountId) {
-    const { data: created } = await db
-      .from('accounts').insert({ org_id: orgId, name: name.trim(), source: 'manual' })
-      .select('id').single()
-    accountId = created?.id ?? null
-  }
-
-  if (accountId) {
-    await db.from('contacts').update({ account_id: accountId }).eq('id', contactId)
   }
 }

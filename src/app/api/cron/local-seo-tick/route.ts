@@ -15,7 +15,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 90
 
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 
 import type { Database } from '@/types/database'
 import { captureApiError } from '@/lib/api-error'
@@ -24,7 +24,7 @@ import { runLocalSeoTick } from '@/lib/local-seo/worker'
 
 const CRON_SECRET = process.env.CRON_SECRET
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_KEY = getServiceRoleKey()
 
 export async function GET(request: Request): Promise<Response> {
   if (!CRON_SECRET) {

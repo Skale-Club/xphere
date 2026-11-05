@@ -17,7 +17,7 @@
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import type { Database } from '@/types/database'
 import { emitCalendarEvent } from '@/lib/calendar/transition'
 import {
@@ -37,7 +37,7 @@ import {
 } from '@/lib/calendar/tick'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_KEY = getServiceRoleKey()
 
 function parseOffset(offset: string): number | null {
   // Supports "-5m", "-1h", "-24h", "-2d", and positive variants.

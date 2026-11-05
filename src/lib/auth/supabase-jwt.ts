@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { AppUser } from '@/lib/auth/users'
+import { dbJwtSecret, signUserJwt } from '@/lib/supabase/db-exit'
 
 // Temporary bridge. The database trusts only Supabase-issued tokens until it leaves Supabase,
 // so the server asks Supabase for one with the service role key; the sign-in itself never
@@ -80,6 +81,16 @@ export async function mintSupabaseJwt(user: AppUser): Promise<{ token: string; e
   const now = Math.floor(Date.now() / 1000)
   const hit = cache.get(user.id)
   if (hit && hit.expiresAt - now > REFRESH_MARGIN_SECONDS) return hit
+
+  // Self-hosted database (DB_JWT_SECRET set): sign the token here, no network call. Same cache
+  // and refresh margin as the bridge below, which is untouched when the secret is unset.
+  const secret = dbJwtSecret()
+  if (secret) {
+    const fresh = signUserJwt(user, secret, now)
+    for (const [id, entry] of cache) if (entry.expiresAt <= now) cache.delete(id)
+    cache.set(user.id, fresh)
+    return fresh
+  }
 
   const pending = inflight.get(user.id)
   if (pending) return pending

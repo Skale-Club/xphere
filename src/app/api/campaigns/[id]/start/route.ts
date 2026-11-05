@@ -4,7 +4,7 @@
 // Called from UI via fetch() in client component.
 
 import { after } from 'next/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createDbClient as createServiceClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { isDemoSession } from '@/lib/demo/guard'
 import { startCampaignBatch } from '@/lib/campaigns/engine'
@@ -44,7 +44,7 @@ export async function POST(
 
   const serviceClient = createServiceClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    getServiceRoleKey()!,
     { auth: { persistSession: false } }
   )
 

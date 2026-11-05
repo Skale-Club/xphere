@@ -1,6 +1,6 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve, basename } from 'node:path'
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import { parse as parseYaml } from 'yaml'
 import type { Database } from '@/types/database'
 import { yamlToFlow } from '@/lib/workflows/yaml-to-flow'
@@ -18,7 +18,7 @@ function listSeedFiles(): string[] {
 
 export async function seedOrgWorkflows(orgId: string): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceKey = getServiceRoleKey()
   if (!supabaseUrl || !serviceKey) {
     console.warn('[seed-org] Supabase env not set, skipping seed for org', orgId)
     return

@@ -85,7 +85,9 @@ export async function createAppUser(input: {
   if (!email) throw new Error('createAppUser failed: email is required')
   // The shadow goes first so public.users reuses its id; a failed insert then leaves only an
   // unused auth.users row, which is harmless and gets reused on the next attempt.
-  const id = await createAuthShadow({ email })
+  // With DB_JWT_SECRET set the app signs its own database tokens and auth.users no longer
+  // exists (self-hosted Postgres), so the id is generated here instead.
+  const id = process.env.DB_JWT_SECRET ? crypto.randomUUID() : await createAuthShadow({ email })
   const { data, error } = await createServiceRoleClient()
     .from('users')
     .insert({

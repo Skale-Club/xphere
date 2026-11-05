@@ -5,6 +5,7 @@
 
 import { getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { dbExitFetch, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import { redirect } from 'next/navigation'
 import { orgRedirect } from '@/lib/org/redirect'
 import { revalidatePath } from 'next/cache'
@@ -417,11 +418,11 @@ async function triggerGlobalKnowledgeJob(
       )
       return
     }
-    const response = await fetch(functionUrl, {
+    const response = await dbExitFetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        Authorization: `Bearer ${getServiceRoleKey()}`,
       },
       // Keep the wire payload compatible with the currently deployed Edge
       // Function during the rolling rename. The new Function accepts both IDs.

@@ -10,7 +10,7 @@
 //   - Zero dependencies beyond @supabase/supabase-js (already a project dep)
 //   - Safe to call in webhook hot paths
 
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import type { Database } from '@/types/database'
 import { recordError } from '@/lib/obs/error-spike'
 
@@ -84,7 +84,7 @@ let _client: ReturnType<typeof createClient<Database>> | null = null
 function getServiceClient(): ReturnType<typeof createClient<Database>> {
   if (!_client) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const key = getServiceRoleKey()
     if (!url || !key) {
       // Return a dummy that will silently fail on any operation
       // (allows tests without real credentials to import this module).

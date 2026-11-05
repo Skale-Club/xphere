@@ -19,6 +19,7 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 90
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { getServiceRoleKey } from '@/lib/supabase/db-exit'
 import { captureApiError } from '@/lib/api-error'
 import * as storage from '@/lib/storage'
 import { createSupabaseRetentionStore, runStorageRetention, type R2Ops } from '@/lib/storage/retention'
@@ -42,7 +43,7 @@ export async function GET(request: Request): Promise<Response> {
   if (auth !== `Bearer ${CRON_SECRET}`) {
     return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !getServiceRoleKey()) {
     return Response.json({ ok: false, error: 'Supabase env not set' }, { status: 500 })
   }
 

@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createDbClient as createSupabaseClient } from '@/lib/supabase/db-exit'
 import { cookies, headers } from 'next/headers'
 import { cache } from 'react'
 import { ORG_HEADER, resolveRequestOrgId } from '@/lib/org/request-org'

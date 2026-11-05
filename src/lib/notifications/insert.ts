@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createDbClient as createClient, dbExitFetch, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import type { Database } from '@/types/database'
 import { runsInApp } from '@/lib/edge-functions/switch'
 import { sendPushForNotification } from '@/lib/notifications/push-sender'
@@ -46,7 +46,7 @@ export async function insertNotification(
   try {
     const supabase = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      getServiceRoleKey()!,
       { auth: { persistSession: false } },
     )
 
@@ -114,13 +114,13 @@ async function sendPushNotifications(
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const serviceKey = getServiceRoleKey()
   if (!supabaseUrl || !serviceKey) return
 
   await Promise.all(
     rows.map(async (row) => {
       try {
-        await fetch(`${supabaseUrl}/functions/v1/push-sender`, {
+        await dbExitFetch(`${supabaseUrl}/functions/v1/push-sender`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
