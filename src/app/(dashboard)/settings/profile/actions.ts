@@ -7,6 +7,7 @@ import { getUser } from '@/lib/supabase/server'
 import { updateUserMetadata } from '@/lib/auth/users'
 import { getActiveOrg } from '@/lib/org/active-org'
 import { insertNotification } from '@/lib/notifications/insert'
+import * as storage from '@/lib/storage'
 
 const profileSchema = z.object({
   full_name: z.string().trim().min(1, 'Name is required').max(120, 'Name is too long').optional(),
@@ -44,6 +45,46 @@ export async function updateProfile(input: z.infer<typeof profileSchema>): Promi
   }
   revalidatePath('/', 'layout')
   return { ok: true }
+}
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024
+const ACCEPTED_AVATAR_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif']
+
+/**
+ * Uploads the signed-in user's own avatar and saves its URL on the profile.
+ * Used to run in the browser against Storage with RLS; now the server checks
+ * size and type and prefixes the path with the session user id itself.
+ */
+export async function uploadProfileAvatar(
+  formData: FormData,
+): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const user = await getUser()
+  if (!user) return { ok: false, error: 'Not authenticated' }
+
+  const file = formData.get('file')
+  if (!(file instanceof File)) return { ok: false, error: 'Missing file' }
+  if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) return { ok: false, error: 'Use PNG, JPEG, WEBP or GIF' }
+  if (file.size > MAX_AVATAR_BYTES) return { ok: false, error: 'Image must be smaller than 5 MB' }
+
+  const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'png'
+  const path = `${user.id}/avatar-${Date.now()}.${ext}`
+
+  let url: string
+  try {
+    const { error } = await storage.put('avatars', path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type,
+      cacheControl: '3600',
+      upsert: false,
+    })
+    if (error) return { ok: false, error: error.message }
+    url = storage.publicUrl('avatars', path)
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Avatar upload failed' }
+  }
+
+  const saved = await updateProfile({ avatar_url: url })
+  if (!saved.ok) return { ok: false, error: saved.error ?? 'Failed to save avatar' }
+  return { ok: true, url }
 }
 
 /**

@@ -8,6 +8,7 @@ import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt, encrypt } from '@/lib/crypto'
 import type { WhatsAppProvider, WhatsAppProviderStatus } from '@/lib/whatsapp/types'
 import { BUSINESS_TYPES, deriveServiceLocationModeFromBusinessType } from '@/lib/org/business-type'
+import * as storage from '@/lib/storage'
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/
 
@@ -463,16 +464,15 @@ export async function uploadOrgLogo(
   const nonce = Math.random().toString(36).slice(2, 10)
   const objectPath = `${orgId as string}/logo/${nonce}.webp`
 
-  const { error: uploadErr } = await supabase.storage
-    .from('avatars')
-    .upload(objectPath, processed, {
-      contentType: 'image/webp',
-      upsert: false,
-      cacheControl: '3600',
-    })
+  const { error: uploadErr } = await storage.put('avatars', objectPath, processed, {
+    client: supabase,
+    contentType: 'image/webp',
+    upsert: false,
+    cacheControl: '3600',
+  })
   if (uploadErr) return { ok: false, error: uploadErr.message }
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(objectPath)
-  if (!data.publicUrl) return { ok: false, error: 'Could not resolve public URL' }
-  return { ok: true, url: data.publicUrl }
+  const publicUrl = storage.publicUrl('avatars', objectPath, { client: supabase })
+  if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
+  return { ok: true, url: publicUrl }
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/supabase/server'
+import * as storage from '@/lib/storage'
 import { SCROLL_IMAGES_LIMIT } from './landing-config-constants'
 
 
@@ -77,15 +78,12 @@ export async function clearScrollImages(id: string): Promise<void> {
 
   const current = await getLandingConfig()
   const storagePaths = current.scroll_images
-    .map(url => {
-      // Extract path after /object/public/branding/ and strip ?v= cache-buster
-      const match = url.match(/\/object\/public\/branding\/(.+?)(\?|$)/)
-      return match ? match[1] : null
-    })
+    // Path inside the branding bucket, from either a Supabase or an R2 public URL (?v= stripped)
+    .map(url => storage.pathFromPublicUrl('branding', url))
     .filter(Boolean) as string[]
 
   if (storagePaths.length > 0) {
-    await admin.storage.from('branding').remove(storagePaths)
+    await storage.remove('branding', storagePaths, { client: admin })
   }
 
   const { error } = await admin

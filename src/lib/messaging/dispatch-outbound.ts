@@ -31,6 +31,7 @@ import { markHumanTakeover } from '@/lib/agent-runtime/human-takeover'
 import { sendZernioCommentReply } from '@/lib/zernio/send-comment-reply'
 import { isZernioChannel } from '@/lib/zernio/channel'
 import { getProviderKey } from '@/lib/integrations/get-provider-key'
+import { resolveExternalUrl } from '@/lib/storage'
 
 export interface OutboundMediaItem {
   url: string
@@ -387,9 +388,10 @@ export async function dispatchOutboundMessage(
         400,
       )
     }
-    // MMS: forward the public media URLs to Twilio.
-    const mediaUrls = media?.map((m) => m.url) ?? []
+    // MMS: forward the media URLs to Twilio. An /api/media app path needs a session, which
+    // Twilio does not have, so it is signed here right before it is handed over.
     try {
+      const mediaUrls = await Promise.all((media ?? []).map((m) => resolveExternalUrl(m.url)))
       await sendSms(
         {
           to,
@@ -545,7 +547,8 @@ export async function dispatchOutboundMessage(
               zernioAccountId,
               index === 0 ? outboundContent : '',
               apiKey,
-              { attachment: item, voiceNote: isWhatsAppVoice },
+              // Same as Twilio: the provider fetches the file, so an /api/media path becomes a signed URL.
+              { attachment: { ...item, url: await resolveExternalUrl(item.url) }, voiceNote: isWhatsAppVoice },
             )
             if (messageId) sentIds.push(messageId)
           }

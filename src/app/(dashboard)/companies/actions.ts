@@ -18,6 +18,7 @@
  */
 
 import { revalidatePath } from "next/cache";
+import * as storage from "@/lib/storage";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { assertWritableOrThrow } from "@/lib/demo/guard";
 import { getDefinitions } from "@/app/(dashboard)/settings/custom-fields/actions";
@@ -599,17 +600,15 @@ export async function uploadAccountAvatar(
   const nonce = Math.random().toString(36).slice(2, 10)
   const objectPath = `${user.id}/accounts/${accountId}-${nonce}.webp`
 
-  const { error: uploadErr } = await supabase.storage
-    .from('avatars')
-    .upload(objectPath, processed, {
-      contentType: 'image/webp',
-      upsert: false,
-      cacheControl: '3600',
-    })
+  const { error: uploadErr } = await storage.put('avatars', objectPath, processed, {
+    client: supabase,
+    contentType: 'image/webp',
+    upsert: false,
+    cacheControl: '3600',
+  })
   if (uploadErr) return { ok: false, error: uploadErr.message }
 
-  const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(objectPath)
-  const publicUrl = publicUrlData.publicUrl
+  const publicUrl = storage.publicUrl('avatars', objectPath, { client: supabase })
   if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
 
   const { error: updateErr } = await supabase
@@ -617,7 +616,7 @@ export async function uploadAccountAvatar(
     .update({ avatar_url: publicUrl })
     .eq('id', accountId)
   if (updateErr) {
-    await supabase.storage.from('avatars').remove([objectPath]).catch(() => {})
+    await storage.remove('avatars', [objectPath], { client: supabase }).catch(() => {})
     return { ok: false, error: updateErr.message }
   }
 

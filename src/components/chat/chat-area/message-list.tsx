@@ -25,7 +25,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ChannelBadge, type Channel } from '@/components/design-system/channel-badge'
 import { cn } from '@/lib/utils'
-import { MediaBlock } from './media-block'
+import { MediaBlock, MediaExpiredNotice } from './media-block'
 
 // Map a raw message/conversation channel to the design-system badge channel.
 const MSG_BADGE_CHANNEL: Record<string, Channel> = {
@@ -547,7 +547,12 @@ export function MessageList({
                 const agentId = message.metadata?.agent_id as string | undefined
                 const agentName = agentId ? agentMap?.[agentId] ?? null : null
 
-                const attachments = (message.metadata?.media as MediaAttachment[] | undefined) ?? []
+                // The retention job removes old media and sets media_expired_at; show a
+                // placeholder instead of a broken image/player.
+                const mediaExpired = typeof message.metadata?.media_expired_at === 'string'
+                const attachments = mediaExpired
+                  ? []
+                  : ((message.metadata?.media as MediaAttachment[] | undefined) ?? [])
                 // Audio needs an explicit preferred width. A percentage-width
                 // player inside an auto-sized bubble otherwise shrinks to its
                 // controls, leaving no usable room for the waveform.
@@ -578,6 +583,7 @@ export function MessageList({
                             </div>
                           )}
                           {message.content}
+                          {mediaExpired && <MediaExpiredNotice />}
                           {attachments.length > 0 && (
                             <div className="mt-1.5 space-y-1">
                               {attachments.map((att, i) => (
@@ -620,6 +626,7 @@ export function MessageList({
                             <DeliveryTicks status={message.metadata.delivery_status as string} />
                           </span>
                         )}
+                        {mediaExpired && <MediaExpiredNotice />}
                         {attachments.length > 0 && (
                           <div className="mt-1.5 space-y-1">
                             {attachments.map((att, i) => (

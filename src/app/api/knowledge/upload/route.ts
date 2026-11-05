@@ -4,8 +4,7 @@
 // Caller (client component) then invokes insertDocument server action.
 
 import { createClient as createServerClient, getUser } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import * as storage from '@/lib/storage'
 import { randomUUID } from 'crypto'
 
 // Do NOT set runtime = 'edge' | formData() requires Node.js runtime
@@ -57,23 +56,15 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Unsupported file type. Use PDF, TXT, or CSV.' }, { status: 400 })
   }
 
-  // Upload to Supabase Storage using service-role client
-  const serviceClient = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
-  )
-
   const fileExt = file.name.split('.').pop() ?? 'bin'
   const storagePath = `${organizationId}/${randomUUID()}.${fileExt}`
   const arrayBuffer = await file.arrayBuffer()
 
-  const { error: storageError } = await serviceClient.storage
-    .from('knowledge-docs')
-    .upload(storagePath, arrayBuffer, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    })
+  // Supabase Storage, or R2 once knowledge-docs is enabled there
+  const { error: storageError } = await storage.put('knowledge-docs', storagePath, arrayBuffer, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  })
 
   if (storageError) {
     return Response.json({ error: `Storage upload failed: ${storageError.message}` }, { status: 500 })

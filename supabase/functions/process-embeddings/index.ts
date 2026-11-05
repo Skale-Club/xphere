@@ -24,6 +24,9 @@ interface JobPayload {
   globalKnowledgeSourceId?: string
   playbookSourceId?: string // rolling-deploy compatibility
   platform?: 'meta' | 'google' | 'global'
+  // Presigned GET for the source file, sent when its bucket lives on R2. Preferred
+  // over reading Supabase Storage; if it fails we still try the bucket.
+  downloadUrl?: string
 }
 
 // Decrypts a key encrypted by src/lib/crypto.ts (AES-256-GCM, format: ivBase64:ciphertextBase64)
@@ -49,6 +52,7 @@ async function extractText(
   sourceType: string,
   sourceUrl: string | null,
   bucket: string,
+  downloadUrl?: string | null,
 ): Promise<string> {
   if (sourceType === 'url' && sourceUrl) {
     const response = await fetch(sourceUrl)
@@ -63,8 +67,33 @@ async function extractText(
   }
 
   if (sourceUrl) {
-    const { data, error } = await supabase.storage.from(bucket).download(sourceUrl)
-    if (error) throw new Error(`Storage download failed: ${error.message}`)
+    let data: Blob | null = null
+    // Why the signed download did not produce the file, for the error shown to the user.
+    let signedFailure: string | null = null
+    if (downloadUrl) {
+      try {
+        // A stuck request must fail, not hang the job in 'processing'.
+        const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(30_000) })
+        if (res.ok) data = await res.blob()
+        else signedFailure = `signed URL returned HTTP ${res.status}`
+      } catch (err) {
+        signedFailure = `signed URL request failed (${err instanceof Error ? err.name : 'error'})`
+      }
+      if (signedFailure) console.warn(`[process-embeddings] ${signedFailure}; trying Supabase Storage`)
+    }
+    if (!data) {
+      const { data: blob, error } = await supabase.storage.from(bucket).download(sourceUrl)
+      if (error || !blob) {
+        // A file that lives only on R2 cannot be read here without a signed URL
+        // (e.g. a retry that carries no downloadUrl). Say so; the caller marks the source as errored.
+        throw new Error(
+          `Source file could not be read: ${signedFailure ?? 'no signed download URL was provided'}, ` +
+            `and it is not in Supabase Storage (${error?.message ?? 'no data'}). ` +
+            'If the file is stored on R2, upload it again to re-run processing.',
+        )
+      }
+      data = blob as Blob
+    }
 
     if (sourceType === 'pdf') {
       const buffer = await data.arrayBuffer()
@@ -83,6 +112,7 @@ async function processGlobalKnowledgeJob(
   supabase: ReturnType<typeof createClient>,
   encryptionSecret: string,
   globalKnowledgeSourceId: string,
+  downloadUrl?: string | null,
 ): Promise<Response> {
   // 1) Platform OpenRouter key (billed to the platform owner)
   const { data: settingRow, error: settingErr } = await supabase
@@ -136,6 +166,7 @@ async function processGlobalKnowledgeJob(
       src.source_type,
       src.source_url,
       src.storage_bucket ?? 'global-knowledge',
+      downloadUrl,
     )
     if (!rawText.trim()) throw new Error('No text content extracted')
 
@@ -224,6 +255,7 @@ Deno.serve(async (req: Request) => {
       supabase,
       encryptionSecret,
       sourceId,
+      payload.downloadUrl,
     )
   }
 
@@ -273,7 +305,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     // Step 1: Extract raw text
-    const rawText = await extractText(supabase, source.source_type, source.source_url, 'knowledge-docs')
+    const rawText = await extractText(supabase, source.source_type, source.source_url, 'knowledge-docs', payload.downloadUrl)
     if (!rawText.trim()) throw new Error('No text content extracted')
 
     // Step 2: Split into chunks using LangChain RecursiveCharacterTextSplitter

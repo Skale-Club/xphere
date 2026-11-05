@@ -47,7 +47,8 @@ export function useCallRecorder(call: Call | null, shouldRecord: boolean) {
             const form = new FormData()
             form.append('audio', blob, `recording.${blob.type.includes('mp4') ? 'mp4' : 'webm'}`)
             form.append('callSid', callSid)
-            await fetch('/api/recording/upload', { method: 'POST', body: form })
+            const res = await fetch('/api/recording/upload', { method: 'POST', body: form })
+            if (!res.ok) console.warn(`[use-call-recorder] recording was not stored (HTTP ${res.status})`)
           } catch (err) {
             console.warn('[use-call-recorder] upload failed:', err)
           }

@@ -1,6 +1,6 @@
 export const runtime = 'nodejs'
 
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import { getUser } from '@/lib/supabase/server'
 
 const ALLOWED = new Set([
@@ -36,16 +36,14 @@ export async function POST(request: Request) {
     const path = `favicon/favicon-${Date.now()}.${ext}`
     const bytes = await file.arrayBuffer()
 
-    const admin = createServiceRoleClient()
-    const { error: uploadError } = await admin.storage
-      .from('branding')
-      .upload(path, bytes, { contentType: file.type, upsert: true })
+    const { error: uploadError } = await storage.put('branding', path, bytes, {
+      contentType: file.type,
+      upsert: true,
+    })
 
-    if (uploadError) throw uploadError
+    if (uploadError) throw new Error(uploadError.message)
 
-    const {
-      data: { publicUrl },
-    } = admin.storage.from('branding').getPublicUrl(path)
+    const publicUrl = storage.publicUrl('branding', path)
 
     return Response.json({ url: publicUrl })
   } catch (err) {

@@ -65,6 +65,13 @@ const nextConfig: NextConfig = {
   async headers() {
     const isProd = process.env.NODE_ENV === 'production'
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+    // Browser PUTs to presigned R2 URLs (contact imports) need the R2 host in
+    // connect-src. Added only when some bucket is switched to R2
+    // (STORAGE_R2_BUCKETS), and a custom R2_ENDPOINT is named exactly. This runs
+    // at build time, so the variable must be present for the image build too.
+    const r2Hosts = process.env.STORAGE_R2_BUCKETS?.trim()
+      ? ` https://*.r2.cloudflarestorage.com${process.env.R2_ENDPOINT ? ` ${new URL(process.env.R2_ENDPOINT).origin}` : ''}`
+      : ''
 
     // CSP is deployed in Report-Only mode first. After a week of observing
     // violation reports in production, switch the directive name to
@@ -79,7 +86,7 @@ const nextConfig: NextConfig = {
       // Twilio Voice SDK browser calling opens a signaling WebSocket to
       // chunderw-*.twilio.com and posts insights to eventgw.twilio.com. (WebRTC
       // media itself is exempt from connect-src.) Required once CSP enforces.
-      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com https://maps.googleapis.com`,
+      `connect-src 'self' ${supabaseUrl} https://*.supabase.co wss://*.supabase.co https://*.twilio.com wss://*.twilio.com https://maps.googleapis.com${r2Hosts}`,
       "img-src 'self' data: blob: https:",
       "media-src 'self' data: blob: https:",
       "style-src 'self' 'unsafe-inline'",

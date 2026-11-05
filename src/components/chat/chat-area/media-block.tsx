@@ -12,7 +12,7 @@
  */
 
 import { useState } from 'react'
-import { FileText, Download } from 'lucide-react'
+import { FileText, Download, ImageOff } from 'lucide-react'
 import type { MediaAttachment } from '@/types/chat'
 import { AudioPlayer } from './audio-player'
 import { ImageLightbox } from './image-lightbox'
@@ -85,5 +85,18 @@ export function MediaBlock({ attachment }: MediaBlockProps) {
       <span className="text-[12px] text-text-primary truncate flex-1">{filename ?? 'Documento'}</span>
       <Download className="h-3.5 w-3.5 shrink-0 text-text-tertiary ml-auto" />
     </a>
+  )
+}
+
+/**
+ * Placeholder for a message whose media was removed by the storage retention
+ * job (metadata.media_expired_at). Replaces every attachment of that message.
+ */
+export function MediaExpiredNotice() {
+  return (
+    <div className="mt-1 mb-1.5 flex items-center gap-1.5 text-[12px] text-text-tertiary">
+      <ImageOff className="h-3.5 w-3.5 shrink-0" />
+      <span>Media expired</span>
+    </div>
   )
 }

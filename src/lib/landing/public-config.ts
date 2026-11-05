@@ -1,7 +1,8 @@
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 
-export const DEFAULT_CTA_IMAGE_URL =
-  'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
+import { DEFAULT_CTA_IMAGE_URL } from './default-cta-image'
+
+export { DEFAULT_CTA_IMAGE_URL }
 
 export async function getLandingPublicConfig(): Promise<{
   ctaImageUrl: string

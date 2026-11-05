@@ -4,7 +4,7 @@
 // failure (so callers can insert the message text without media gracefully).
 // SEED-032.
 
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 
 interface DownloadMetaMediaParams {
   url: string
@@ -93,17 +93,15 @@ export async function downloadMetaMedia(
     const ext = mimeToExt(mimeType)
     const path = `${orgId}/${conversationId}/${messageId}/${ts}-${index}.${ext}`
 
-    const supabase = createServiceRoleClient()
-    const { error } = await supabase.storage
-      .from('chat-media')
-      .upload(path, buffer, { contentType: mimeType, upsert: false })
+    const { error } = await storage.put('chat-media', path, buffer, { contentType: mimeType, upsert: false })
 
     if (error) {
       console.error('[meta/media] upload error:', error.message)
       return null
     }
 
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/chat-media/${path}`
+    // Supabase public URL today; the session-gated /api/media path once chat-media is on R2.
+    const publicUrl = storage.storedMediaUrl('chat-media', path)
 
     return { url: publicUrl, mimeType, size }
   } catch (err) {

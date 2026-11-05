@@ -27,6 +27,7 @@
 
 import { decrypt } from '@/lib/crypto'
 import type { ActionContext } from '@/lib/action-engine/execute-action'
+import { resolveExternalUrl } from '@/lib/storage'
 
 export interface TwilioCredentials {
   accountSid: string
@@ -388,7 +389,9 @@ export async function sendSms(
 
   const form = new URLSearchParams({ To: to, From: creds.fromNumber })
   if (body) form.set('Body', body)
-  for (const mediaUrl of mediaUrls) form.append('MediaUrl', mediaUrl)
+  // Twilio fetches these without a session, so an /api/media app path (private chat
+  // media on R2) is signed right here. Any other URL passes through untouched.
+  for (const mediaUrl of mediaUrls) form.append('MediaUrl', await resolveExternalUrl(mediaUrl))
 
   const res = await fetch(url, {
     method: 'POST',

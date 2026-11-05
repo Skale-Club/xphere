@@ -7,6 +7,8 @@
 // it directly (401 Unauthorized). This route streams the audio server-side with the
 // org's Twilio credentials.
 //
+// Private recordings in R2 (stored as /api/media/... paths) are signed here, server side.
+//
 // Everything else — Vapi-hosted AI-call recordings, and Twilio recordings already
 // copied to our own object storage — is streamed too rather than redirected. The
 // player (components/calls/call-waveform-player.tsx) runs WaveSurfer on the
@@ -19,6 +21,7 @@
 
 import { getUser, createClient } from '@/lib/supabase/server'
 import { resolveTwilioCredentialsForOrg } from '@/lib/twilio/voice'
+import { parseMediaPath, signedUrl } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -66,10 +69,21 @@ export async function GET(
 
   // Twilio's resource URL returns JSON unless an extension is appended; other
   // hosts already point at the media file, so leave those untouched.
-  const mediaUrl =
+  let mediaUrl =
     fromTwilio && !/\.(mp3|wav)$/.test(call.recording_url)
       ? `${call.recording_url}.mp3`
       : call.recording_url
+
+  // Recordings kept in private R2 are stored as an /api/media/recordings/... path.
+  // The row was read through RLS, so it is this org's; fetch it with a short-lived signed URL.
+  const stored = parseMediaPath(call.recording_url)
+  if (stored) {
+    try {
+      mediaUrl = await signedUrl(stored.bucket, stored.path, 300)
+    } catch {
+      return new Response('Failed to fetch recording', { status: 502 })
+    }
+  }
 
   const range = request.headers.get('range')
 

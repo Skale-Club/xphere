@@ -9,13 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { createClient } from '@/lib/supabase/client'
-import { sendTestPush, updateProfile } from '@/app/(dashboard)/settings/profile/actions'
+import { sendTestPush, updateProfile, uploadProfileAvatar } from '@/app/(dashboard)/settings/profile/actions'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 
 interface Props {
-  /** The signed-in user's id: the avatar upload path is prefixed with it (storage RLS). */
-  userId: string
+  /** The signed-in user's id. No longer used here: the server prefixes the avatar path with the session user. */
+  userId?: string
   initial: { email: string; full_name: string; avatar_url: string | null; phone: string }
 }
 
@@ -29,7 +28,7 @@ function initialsFrom(name: string, email: string): string {
   return base[0]?.toUpperCase() ?? '?'
 }
 
-export function ProfileForm({ userId, initial }: Props) {
+export function ProfileForm({ initial }: Props) {
   const [fullName, setFullName] = React.useState(initial.full_name)
   const [phone, setPhone] = React.useState(initial.phone)
   const [savingName, setSavingName] = React.useState(false)
@@ -73,25 +72,14 @@ export function ProfileForm({ userId, initial }: Props) {
 
     setUploadingAvatar(true)
     try {
-      const supabase = createClient()
-      // The storage path is prefixed with the user id (RLS enforces this).
-      const ext = (file.name.split('.').pop() || 'png').toLowerCase().slice(0, 5)
-      const path = `${userId}/avatar-${Date.now()}.${ext}`
+      // The server checks size/type, prefixes the path with the session user id
+      // and saves the URL on the profile.
+      const body = new FormData()
+      body.set('file', file)
+      const res = await uploadProfileAvatar(body)
+      if (!res.ok) throw new Error(res.error)
 
-      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type,
-      })
-      if (upErr) throw upErr
-
-      const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path)
-      const url = pub.publicUrl
-
-      const res = await updateProfile({ avatar_url: url })
-      if (!res.ok) throw new Error(res.error ?? 'Failed to save avatar')
-
-      setAvatarUrl(url)
+      setAvatarUrl(res.url)
       toast.success('Avatar updated')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Avatar upload failed')

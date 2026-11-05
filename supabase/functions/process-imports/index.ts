@@ -81,8 +81,11 @@ Deno.serve(async (req) => {
 
   // Parse importId from direct POST or from DB webhook payload
   let importId: string | null = null
+  // Presigned GET for the CSV, sent when the contact-imports bucket lives on R2.
+  let downloadUrl: string | null = null
   try {
     const body = await req.json()
+    if (typeof body?.downloadUrl === 'string') downloadUrl = body.downloadUrl
     if (body?.importId) {
       importId = body.importId
     } else if (body?.record?.status === 'queued') {
@@ -149,7 +152,7 @@ Deno.serve(async (req) => {
   // Return response immediately — processing continues in background (IMP-11 Realtime)
   // @ts-ignore — Deno Deploy / Supabase Edge Runtime API
   const ctx = (typeof EdgeRuntime !== 'undefined' ? EdgeRuntime : null)
-  const processPromise = processImport(supabase, importRow)
+  const processPromise = processImport(supabase, importRow, downloadUrl)
   if (ctx?.waitUntil) {
     ctx.waitUntil(processPromise)
   } else {
@@ -169,6 +172,7 @@ async function processImport(
   supabase: any,
   // deno-lint-ignore no-explicit-any
   importRow: any,
+  downloadUrl: string | null,
 ): Promise<void> {
   const {
     id: importId,
@@ -184,13 +188,39 @@ async function processImport(
 
   try {
     // Download CSV from Storage
-    const { data: blob, error: dlError } = await supabase.storage
-      .from(BUCKET)
-      .download(storagePath)
+    // Prefer the presigned URL (R2); otherwise, or if it fails, read Supabase Storage.
+    let csvText: string | null = null
+    // Why the signed download did not produce the file, for the status message.
+    let signedFailure: string | null = null
+    if (downloadUrl) {
+      try {
+        // A stuck request must fail, not leave the import in 'processing'.
+        const res = await fetch(downloadUrl, { signal: AbortSignal.timeout(30_000) })
+        if (res.ok) csvText = await res.text()
+        else signedFailure = `signed URL returned HTTP ${res.status}`
+      } catch (err) {
+        signedFailure = `signed URL request failed (${err instanceof Error ? err.name : 'error'})`
+      }
+      if (signedFailure) console.warn(`[process-imports] ${signedFailure}; trying Supabase Storage`)
+    }
+    if (csvText === null) {
+      const { data: blob, error: dlError } = await supabase.storage
+        .from(BUCKET)
+        .download(storagePath)
 
-    if (dlError || !blob) throw new Error(dlError?.message ?? 'Storage download failed')
-
-    const csvText = await blob.text()
+      if (dlError || !blob) {
+        // A CSV that lives only on R2 cannot be read here without a signed URL: a
+        // queued import picked up by a DB webhook, or retried, carries none. Fail the
+        // import with a message the user sees (status_message) instead of leaving it
+        // in 'processing'.
+        throw new Error(
+          `CSV could not be read: ${signedFailure ?? 'no signed download URL was provided'}, ` +
+            `and it is not in Supabase Storage (${dlError?.message ?? 'no data'}). ` +
+            'If the file is stored on R2, start the import again from the app.',
+        )
+      }
+      csvText = await blob.text()
+    }
     const { headers, rows } = parseCsv(csvText)
     if (headers.length === 0) throw new Error('CSV has no headers')
 

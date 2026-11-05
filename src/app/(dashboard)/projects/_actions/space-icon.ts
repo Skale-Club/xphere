@@ -6,6 +6,7 @@
 // updateSpaceMeta({ icon: url }).
 
 import { createClient, getUser } from '@/lib/supabase/server'
+import * as storage from '@/lib/storage'
 
 const MAX_BYTES = 4 * 1024 * 1024 // 4MB
 const ALLOWED_MIME = new Set([
@@ -46,16 +47,15 @@ export async function uploadSpaceIcon(formData: FormData): Promise<Result> {
   const nonce = Math.random().toString(36).slice(2, 10)
   const objectPath = `${user.id}/space-icons/${nonce}.webp`
 
-  const { error: uploadErr } = await supabase.storage
-    .from('avatars')
-    .upload(objectPath, processed, {
-      contentType: 'image/webp',
-      upsert: false,
-      cacheControl: '3600',
-    })
+  const { error: uploadErr } = await storage.put('avatars', objectPath, processed, {
+    client: supabase,
+    contentType: 'image/webp',
+    upsert: false,
+    cacheControl: '3600',
+  })
   if (uploadErr) return { ok: false, error: uploadErr.message }
 
-  const { data } = supabase.storage.from('avatars').getPublicUrl(objectPath)
-  if (!data.publicUrl) return { ok: false, error: 'Could not resolve public URL' }
-  return { ok: true, url: data.publicUrl }
+  const publicUrl = storage.publicUrl('avatars', objectPath, { client: supabase })
+  if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
+  return { ok: true, url: publicUrl }
 }

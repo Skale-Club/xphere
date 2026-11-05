@@ -4,6 +4,7 @@
 // Called fire-and-forget from POST /api/v1/accounts/:id/analyze.
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import { analyzeWebsite, calculateLeadScore, normaliseUrl } from './extractor'
 import { AnalyzerBusyError } from './concurrency'
 import { buildWebsiteInsights } from './outreach-insights'
@@ -11,13 +12,13 @@ import { computeRetryOutcome } from './retry-classification'
 import type { AnalysisResult } from './types'
 import type { Json } from '@/types/database'
 
-const SCREENSHOT_BUCKET = 'website-screenshots'
+const SCREENSHOT_BUCKET = 'website-screenshots' as const
 
 const SKALECLUB_WEBSITES_URL =
   process.env.SKALECLUB_WEBSITES_URL ?? 'https://websites.skale.club'
 const SKALECLUB_WEBSITES_API_KEY = process.env.SKALECLUB_WEBSITES_API_KEY ?? ''
 
-/** Upload a screenshot Buffer to Supabase Storage and return its public URL. */
+/** Upload a screenshot Buffer (Supabase Storage, or R2 once enabled) and return its public URL. */
 async function uploadScreenshot(
   supabase: ReturnType<typeof createServiceRoleClient>,
   analysisId: string,
@@ -25,15 +26,16 @@ async function uploadScreenshot(
   data: Buffer,
 ): Promise<string | null> {
   const path = `${analysisId}/${variant}.jpg`
-  const { error } = await supabase.storage
-    .from(SCREENSHOT_BUCKET)
-    .upload(path, data, { contentType: 'image/jpeg', upsert: true })
+  const { error } = await storage.put(SCREENSHOT_BUCKET, path, data, {
+    client: supabase,
+    contentType: 'image/jpeg',
+    upsert: true,
+  })
   if (error) {
     console.error(`[website-analyzer] screenshot upload failed (${variant}):`, error.message)
     return null
   }
-  const { data: urlData } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
-  return urlData?.publicUrl ?? null
+  return storage.publicUrl(SCREENSHOT_BUCKET, path, { client: supabase }) || null
 }
 
 /** Generate a preview site for a prospect by calling skaleclub-websites, and

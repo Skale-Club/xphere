@@ -1,50 +1,22 @@
 // src/app/api/recording/upload/route.ts
-// Receives a browser-captured call recording (MediaRecorder output) and stores
-// it in Hetzner Object Storage, then updates call_logs.recording_url.
+// Receives a browser-captured call recording (MediaRecorder output), stores it
+// privately (R2 `recordings` bucket, or the legacy Hetzner store) and updates
+// call_logs.recording_url. Playback goes through /api/calls/[id]/recording.
 //
 // POST multipart/form-data
 //   audio    | audio Blob (audio/webm, audio/mp4, audio/ogg)
 //   callSid  | Twilio CallSid to match the call_logs row
+//
+// The response tells the truth about the audio: 200 { ok: true } only once the
+// object is stored and the row updated; 503 when no recording store is
+// configured (the audio is NOT kept); 502 when the store or the row update
+// failed. It never says ok for audio it threw away.
 
-import { after } from 'next/server'
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { putRecordingObject, recordingStore } from '@/lib/calls/upload-recording'
 
 export const runtime = 'nodejs'
-
-function hasHetznerConfig(): boolean {
-  return Boolean(
-    process.env.HETZNER_S3_ENDPOINT &&
-    process.env.HETZNER_S3_ACCESS_KEY &&
-    process.env.HETZNER_S3_SECRET_KEY &&
-    process.env.HETZNER_S3_BUCKET,
-  )
-}
-
-let s3: S3Client | null = null
-function getS3(): S3Client {
-  if (s3) return s3
-  s3 = new S3Client({
-    endpoint: process.env.HETZNER_S3_ENDPOINT!,
-    region: process.env.HETZNER_S3_REGION ?? 'auto',
-    credentials: {
-      accessKeyId: process.env.HETZNER_S3_ACCESS_KEY!,
-      secretAccessKey: process.env.HETZNER_S3_SECRET_KEY!,
-    },
-    forcePathStyle: true,
-    // A stuck request must fail, never hang. The SDK ships with no request
-    // timeout and a 50-socket pool, so one socket that is never released stays
-    // checked out for the life of the process; enough of them and every later
-    // call queues behind them with nothing to break the wait.
-    requestHandler: {
-      connectionTimeout: 5_000,
-      requestTimeout: 30_000,
-      httpsAgent: { maxSockets: 200 },
-    },
-  })
-  return s3
-}
 
 export async function POST(request: Request): Promise<Response> {
   const user = await getUser()
@@ -88,38 +60,32 @@ export async function POST(request: Request): Promise<Response> {
   const contentType = audioEntry.type || 'audio/webm'
   const ext = contentType.includes('mp4') ? 'mp4' : contentType.includes('ogg') ? 'ogg' : 'webm'
 
-  if (!hasHetznerConfig()) {
-    // Dev mode | skip upload, return placeholder
-    return Response.json({ ok: true, url: null, uploaded: false })
+  if (recordingStore() === 'none') {
+    // Nowhere to put the audio: say so instead of pretending it was kept.
+    return Response.json(
+      { ok: false, uploaded: false, error: 'Recording storage is not configured' },
+      { status: 503 },
+    )
   }
 
-  after(async () => {
-    try {
-      const key = `recordings/${orgId}/${callSid}/browser_recording.${ext}`
-      const bucket = process.env.HETZNER_S3_BUCKET!
+  try {
+    const url = await putRecordingObject({
+      orgId,
+      callSid,
+      fileName: `browser_recording.${ext}`,
+      body: audioBuffer,
+      contentType,
+    })
 
-      await getS3().send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: key,
-          Body: audioBuffer,
-          ContentType: contentType,
-        }),
-      )
+    const { error: updateError } = await admin
+      .from('call_logs')
+      .update({ recording_url: url })
+      .eq('id', callLog.id)
+    if (updateError) throw new Error(updateError.message)
+  } catch (err) {
+    console.error('[recording/upload] upload error:', err)
+    return Response.json({ ok: false, uploaded: false, error: 'Recording upload failed' }, { status: 502 })
+  }
 
-      const publicBase = process.env.HETZNER_S3_PUBLIC_BASE_URL
-      const url = publicBase
-        ? `${publicBase.replace(/\/$/, '')}/${key}`
-        : `${process.env.HETZNER_S3_ENDPOINT!.replace(/\/$/, '')}/${bucket}/${key}`
-
-      await admin
-        .from('call_logs')
-        .update({ recording_url: url })
-        .eq('id', callLog.id)
-    } catch (err) {
-      console.error('[recording/upload] upload error:', err)
-    }
-  })
-
-  return Response.json({ ok: true })
+  return Response.json({ ok: true, uploaded: true })
 }

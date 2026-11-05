@@ -6,6 +6,7 @@ import { createClient, getUser } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import type { Database } from '@/types/database'
+import * as storage from '@/lib/storage'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getAuthedOrgId(): Promise<{ supabase: any; orgId: string }> {
@@ -84,7 +85,7 @@ export async function insertDocument(
   if (error) throw new Error(error.message)
 
   // Trigger async embedding pipeline (fire-and-forget)
-  void triggerEmbeddingJob(data.id, orgId)
+  void triggerEmbeddingJob(data.id, orgId, storagePath)
 
   return { id: data.id }
 }
@@ -161,9 +162,7 @@ export async function deleteDocument(sourceId: string): Promise<void> {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     )
-    await serviceClient.storage
-      .from('knowledge-docs')
-      .remove([sourceTyped.source_url!])
+    await storage.remove('knowledge-docs', [sourceTyped.source_url!], { client: serviceClient })
   }
 }
 
@@ -208,17 +207,27 @@ export async function hasOpenAiIntegration(): Promise<boolean> {
  * Errors are logged but do not throw | source stays in 'processing'
  * and can be retried later.
  */
-async function triggerEmbeddingJob(sourceId: string, organizationId: string): Promise<void> {
+async function triggerEmbeddingJob(
+  sourceId: string,
+  organizationId: string,
+  storagePath?: string,
+): Promise<void> {
   const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/process-embeddings`
 
   try {
+    // With knowledge-docs on R2 the Edge Function cannot read the bucket, so it
+    // gets a presigned GET. Only for a file inside this org's own folder.
+    const downloadUrl =
+      storagePath && storagePath.startsWith(`${organizationId}/`)
+        ? await storage.signedUrlIfR2('knowledge-docs', storagePath)
+        : null
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
       },
-      body: JSON.stringify({ documentId: sourceId, organizationId }),
+      body: JSON.stringify({ documentId: sourceId, organizationId, ...(downloadUrl ? { downloadUrl } : {}) }),
     })
     if (!response.ok) {
       console.error(`[knowledge] Edge Function returned ${response.status}`)

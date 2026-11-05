@@ -3,7 +3,7 @@
 // the chat-media bucket. Returns a MediaAttachment payload ready to embed
 // in conversation_messages.metadata. SEED-034.
 
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import type { MediaAttachment } from '@/types/chat'
 
 interface StoreTelegramMediaParams {
@@ -94,17 +94,15 @@ export async function storeTelegramMedia(
     const filename = `${timestamp}-${idx}.${ext}`
     const path = `${orgId}/${conversationId}/${messageId}/${filename}`
 
-    const supabase = createServiceRoleClient()
-    const { error } = await supabase.storage
-      .from('chat-media')
-      .upload(path, buffer, { contentType: mimeType, upsert: false })
+    const { error } = await storage.put('chat-media', path, buffer, { contentType: mimeType, upsert: false })
 
     if (error) {
       console.error('[telegram/storage] upload error:', error.message)
       return null
     }
 
-    const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/chat-media/${path}`
+    // Supabase public URL today; the session-gated /api/media path once chat-media is on R2.
+    const publicUrl = storage.storedMediaUrl('chat-media', path)
 
     const out: MediaAttachment = {
       url: publicUrl,
