@@ -3,7 +3,7 @@
 'use server'
 
 import { createClient, getUser } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createDbClient as createServiceClient, dbExitFetch, getServiceRoleKey } from '@/lib/supabase/db-exit'
 import { redirect } from 'next/navigation'
 import type { Database } from '@/types/database'
 import * as storage from '@/lib/storage'
@@ -162,7 +162,7 @@ export async function deleteDocument(sourceId: string): Promise<void> {
   if (sourceTyped.source_type !== 'url' && sourceTyped.source_url) {
     const serviceClient = createServiceClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      getServiceRoleKey()!,
       { auth: { persistSession: false } }
     )
     await storage.remove('knowledge-docs', [sourceTyped.source_url!], { client: serviceClient })
@@ -241,11 +241,11 @@ async function triggerEmbeddingJob(
       )
       return
     }
-    const response = await fetch(functionUrl, {
+    const response = await dbExitFetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Authorization': `Bearer ${getServiceRoleKey()}`,
       },
       body: JSON.stringify({ documentId: sourceId, organizationId, ...(downloadUrl ? { downloadUrl } : {}) }),
     })

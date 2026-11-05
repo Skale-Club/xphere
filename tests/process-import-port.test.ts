@@ -135,9 +135,12 @@ describe('process-imports in-app port', () => {
     const t = setup({ csv: CSV })
     await startImportJob(t.db, { importId: 'imp-1' }, t.overrides)
     await t.run()
+    // Error rows go in one insert per chunk
     const errors = writes(t.calls, 'contact_import_errors', 'insert')
     expect(errors).toHaveLength(1)
-    expect(errors[0].payload).toMatchObject({ import_id: 'imp-1', row_number: 3, field: 'phone_or_email' })
+    const recorded = errors[0].payload as Array<Record<string, unknown>>
+    expect(recorded).toHaveLength(1)
+    expect(recorded[0]).toMatchObject({ import_id: 'imp-1', row_number: 3, field: 'phone_or_email' })
     expect(statusUpdates(t.calls).pop()).toMatchObject({ status: 'partial' })
   })
 
