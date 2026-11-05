@@ -43,3 +43,5 @@ export async function markAllNotificationsRead(): Promise<void> {
     .eq('user_id', user.id)
     .is('read_at', null)
 }
+
+// The bell's incremental poll lives in GET /api/poll/notifications.

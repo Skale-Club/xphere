@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { runsInApp } from '@/lib/edge-functions/switch'
+import { sendPushForNotification } from '@/lib/notifications/push-sender'
 
 export type NotificationType =
   | 'new_conversation'
@@ -83,9 +85,9 @@ export async function insertNotification(
     if (inserted && inserted.length > 0) {
       const rows = inserted as { id: string; user_id: string }[]
       if (options?.waitForPush) {
-        await sendPushNotifications(rows)
+        await sendPushNotifications(rows, supabase)
       } else {
-        void sendPushNotifications(rows)
+        void sendPushNotifications(rows, supabase)
       }
     }
   } catch (err) {
@@ -93,7 +95,24 @@ export async function insertNotification(
   }
 }
 
-async function sendPushNotifications(rows: { id: string; user_id: string }[]): Promise<void> {
+async function sendPushNotifications(
+  rows: { id: string; user_id: string }[],
+  supabase: ReturnType<typeof createClient<Database>>,
+): Promise<void> {
+  // EDGE_FUNCTIONS_IN_APP=push-sender: send from the app; default stays the Edge Function.
+  if (runsInApp('push-sender')) {
+    await Promise.all(
+      rows.map(async (row) => {
+        try {
+          await sendPushForNotification(supabase, { user_id: row.user_id, notification_id: row.id })
+        } catch (err) {
+          console.error('[notifications/insert] in-app push error:', err)
+        }
+      }),
+    )
+    return
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !serviceKey) return

@@ -23,6 +23,10 @@
  *   - remove(id): drops a conversation from the current page.
  *   - refresh(): hard refetch the current page (used after mutations that
  *     might change ordering or counts).
+ *   - silentRefresh(): the same refetch for polling. No loading flags, a
+ *     result that is identical to what is on screen is not committed, and it
+ *     yields to any user-driven fetch (filter change, paging) that starts while
+ *     it is in flight.
  *
  * The hook owns its own AbortController so rapid filter changes don't race |
  * only the latest fetch's result is committed.
@@ -56,6 +60,12 @@ interface FetchPageResponse {
   totalPages: number
 }
 
+/** What a silent (polling) refresh committed. */
+export interface SilentRefreshResult {
+  conversations: ConversationSummary[]
+  pinned: ConversationSummary[]
+}
+
 export interface UsePaginatedConversationsResult {
   /** UNPINNED conversations for the current page (max pageSize). */
   conversations: ConversationSummary[]
@@ -77,6 +87,8 @@ export interface UsePaginatedConversationsResult {
   nextPage: () => void
   prevPage: () => void
   refresh: () => void
+  /** Polling refetch of the current page. Resolves null when superseded; rejects on failure. */
+  silentRefresh: () => Promise<SilentRefreshResult | null>
   prepend: (c: ConversationSummary) => void
   upsert: (c: ConversationSummary) => void
   remove: (id: string) => void
@@ -237,6 +249,31 @@ export function usePaginatedConversations(
     fetchPage(pageRef.current, { initial: false })
   }, [fetchPage])
 
+  const silentRefresh = useCallback(async (): Promise<SilentRefreshResult | null> => {
+    const userRequestId = requestIdRef.current
+    const res = await fetch(buildUrl(filtersRef.current, pageRef.current, pageSize), {
+      headers: { 'Cache-Control': 'no-cache' },
+    })
+    if (!res.ok) throw new Error(`Failed (${res.status})`)
+    const data: FetchPageResponse = await res.json()
+    // A filter change or page change started meanwhile: its result wins.
+    if (userRequestId !== requestIdRef.current) return null
+
+    const nextConversations = data.conversations ?? []
+    const nextPinned = data.pinned ?? []
+    const keepIfSame = <T,>(prev: T[], next: T[]): T[] =>
+      JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+    setConversations((prev) => keepIfSame(prev, nextConversations))
+    setPinned((prev) => keepIfSame(prev, nextPinned))
+    setTotalCount(data.totalCount ?? 0)
+    setTotalPages(Math.max(1, data.totalPages ?? 1))
+    if (typeof data.page === 'number' && data.page !== pageRef.current) {
+      setPage(data.page)
+      pageRef.current = data.page
+    }
+    return { conversations: nextConversations, pinned: nextPinned }
+  }, [pageSize])
+
   const prepend = useCallback((c: ConversationSummary) => {
     if (c.pinned) {
       setPinned((prev) => {
@@ -323,6 +360,7 @@ export function usePaginatedConversations(
     nextPage,
     prevPage,
     refresh,
+    silentRefresh,
     prepend,
     upsert,
     remove,

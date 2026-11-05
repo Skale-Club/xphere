@@ -5,8 +5,16 @@ import { Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { NotificationList } from './notification-list'
-import { createClient } from '@/lib/supabase/client'
 import { getTabOrgId } from '@/lib/org/tab-org'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_NOTIFICATIONS_HIDDEN_MS, POLL_NOTIFICATIONS_MS } from '@/lib/polling/intervals'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
+import {
+  isFreshIncomingCall,
+  laterCreatedAt,
+  overlapSince,
+  takeUnseen,
+} from '@/lib/notifications/poll-window'
 import { toast } from 'sonner'
 import {
   fetchNotifications,
@@ -65,69 +73,102 @@ export function getBadgeLabel(unreadCount: number): string | null {
 export function NotificationBell({ userId }: NotificationBellProps) {
   const [notifications, setNotifications] = React.useState<NotificationRow[]>([])
   const [open, setOpen] = React.useState(false)
-  const instanceId = React.useId().replace(/:/g, '')
 
   const unreadCount = notifications.filter((n) => !n.read_at).length
   const badgeLabel = getBadgeLabel(unreadCount)
 
+  // `created_at` of the newest notification seen (exactly as the server sent
+  // it). Each poll re-reads from a few seconds before it (a row can commit
+  // after a newer one was already visible) and drops rows by id, so nothing is
+  // skipped and nothing is handled twice. Null until the initial fetch lands.
+  const newestCreatedAtRef = React.useRef<string | null>(null)
+  const knownIdsRef = React.useRef<Set<string>>(new Set())
+  const initialLoadedRef = React.useRef(false)
+  const stopRingtoneRef = React.useRef<(() => void) | null>(null)
+
   // Initial fetch on mount
   React.useEffect(() => {
     if (!userId) return
-    fetchNotifications().then((data) => setNotifications(data))
+    let cancelled = false
+    fetchNotifications().then((data) => {
+      if (cancelled) return
+      newestCreatedAtRef.current = data[0]?.created_at ?? null
+      knownIdsRef.current = new Set(data.map((n) => n.id))
+      initialLoadedRef.current = true
+      setNotifications(data)
+    })
+    return () => {
+      cancelled = true
+      initialLoadedRef.current = false
+    }
   }, [userId])
 
-  // Realtime subscription: prepend new notifications on INSERT
-  React.useEffect(() => {
-    if (!userId) return
+  // Stop a ringing tone when the bell unmounts.
+  React.useEffect(() => () => {
+    stopRingtoneRef.current?.()
+    stopRingtoneRef.current = null
+  }, [])
 
-    const supabase = createClient()
-    const channel = supabase.channel(`notifications:${userId}:${instanceId}`)
-    let stopRingtone: (() => void) | null = null
+  // Poll for new notifications (replaces the Realtime INSERT subscription):
+  // prepend them, and ring + toast for incoming calls. Keeps running in a
+  // hidden tab (slower) because the call alert cannot wait for a refocus.
+  usePolling(
+    async () => {
+      if (!initialLoadedRef.current) return
+      const since = overlapSince(newestCreatedAtRef.current)
+      const url = since
+        ? `/api/poll/notifications?since=${encodeURIComponent(since)}`
+        : '/api/poll/notifications'
+      const { notifications: rows } = await pollFetchJson<{ notifications: NotificationRow[] }>(url)
+      if (rows.length === 0) return
+      // Advance the cursor over everything seen, including other orgs' rows
+      // that this tab does not show.
+      newestCreatedAtRef.current = rows.reduce<string | null>(
+        (acc, r) => laterCreatedAt(acc, r.created_at),
+        newestCreatedAtRef.current,
+      )
+      // Rows not seen before, oldest first. A row first seen here rings if it
+      // is a recent call, even when the tab was hidden when it arrived.
+      const unseen = takeUnseen(knownIdsRef.current, rows)
+      // The server returns this user's notifications from every org they
+      // belong to; this tab shows only its own org's.
+      const tabOrgId = getTabOrgId()
+      const mine = tabOrgId ? unseen.filter((n) => n.org_id === tabOrgId) : unseen
+      if (mine.length === 0) return
+      setNotifications((prev) => {
+        const known = new Set(prev.map((n) => n.id))
+        const added = mine.filter((n) => !known.has(n.id)).reverse() // newest first
+        return added.length > 0 ? [...added, ...prev] : prev
+      })
 
-    channel.on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${userId}`,
-      },
-      (payload) => {
-        const newRow = payload.new as NotificationRow
-        // Realtime delivers this user's notifications from every org they
-        // belong to (migration 1309); this tab shows only its own org's.
-        const tabOrgId = getTabOrgId()
-        if (tabOrgId && newRow.org_id !== tabOrgId) return
-        setNotifications((prev) => [newRow, ...prev])
-
-        if (newRow.type === 'incoming_call') {
-          const p = newRow.payload as Record<string, unknown>
-          const caller = (p.caller_name as string | undefined)
-            ?? (p.caller_number as string | undefined)
-            ?? 'Unknown'
-          stopRingtone?.()
-          stopRingtone = playRingtone()
-          toast(`Incoming call from ${caller}`, {
-            duration: 30000,
-            icon: '📞',
-            action: {
-              label: 'View calls',
-              onClick: () => { window.location.href = '/calls' },
-            },
-            onDismiss: () => { stopRingtone?.(); stopRingtone = null },
-            onAutoClose: () => { stopRingtone?.(); stopRingtone = null },
-          })
-        }
-      },
-    )
-
-    channel.subscribe()
-
-    return () => {
-      stopRingtone?.()
-      void supabase.removeChannel(channel)
-    }
-  }, [instanceId, userId])
+      // Oldest first, so the newest call is the one left ringing.
+      for (const row of mine) {
+        if (!isFreshIncomingCall(row)) continue
+        const p = row.payload as Record<string, unknown>
+        const caller = (p.caller_name as string | undefined)
+          ?? (p.caller_number as string | undefined)
+          ?? 'Unknown'
+        stopRingtoneRef.current?.()
+        stopRingtoneRef.current = playRingtone()
+        toast(`Incoming call from ${caller}`, {
+          duration: 30000,
+          icon: '📞',
+          action: {
+            label: 'View calls',
+            onClick: () => { window.location.href = '/calls' },
+          },
+          onDismiss: () => { stopRingtoneRef.current?.(); stopRingtoneRef.current = null },
+          onAutoClose: () => { stopRingtoneRef.current?.(); stopRingtoneRef.current = null },
+        })
+      }
+    },
+    {
+      intervalMs: POLL_NOTIFICATIONS_MS,
+      hiddenIntervalMs: POLL_NOTIFICATIONS_HIDDEN_MS,
+      enabled: Boolean(userId),
+      immediate: false,
+    },
+  )
 
   const handleMarkOne = async (id: string) => {
     await markNotificationRead(id)

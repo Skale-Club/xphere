@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +13,16 @@ import {
 } from '@/components/ui/table'
 import type { Database, CampaignContactStatus, CampaignStatus } from '@/types/database'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_CAMPAIGN_ACTIVE_MS, POLL_IDLE_MS } from '@/lib/polling/intervals'
+import { mergeCampaignContacts } from '@/lib/campaigns/contact-merge'
+import {
+  drainContactUpdates,
+  newestCursor,
+  type ContactCursor,
+  type ContactUpdatesPage,
+} from '@/lib/campaigns/contact-cursor'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
 
@@ -46,32 +55,34 @@ export function ContactStatusBoard({ campaignId, initialContacts, campaignStatus
   const [controlError, setControlError] = useState<string | null>(null)
   const [currentStatus, setCurrentStatus] = useState<CampaignStatus>(campaignStatus)
 
-  // Supabase Realtime subscription for per-contact status updates
-  useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`campaign-contacts-${campaignId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'campaign_contacts',
-          filter: `campaign_id=eq.${campaignId}`,
-        },
-        (payload) => {
-          const updated = payload.new as CampaignContactRow
-          setContacts((prev) =>
-            prev.map((c) => (c.id === updated.id ? { ...c, ...updated } : c))
-          )
-        }
+  // Poll for per-contact changes (replaces the Realtime UPDATE subscription).
+  // Only rows after the keyset cursor (updated_at, id) come back, and a poll
+  // keeps following the cursor until the server says it is drained. Fast while
+  // the campaign runs, slow otherwise (e.g. a paused campaign still being
+  // edited elsewhere).
+  const cursorRef = useRef<ContactCursor | null>(newestCursor(initialContacts))
+  // A contact being dialled also counts: the status shown here can lag a
+  // campaign that was started by its schedule.
+  const isRunning =
+    currentStatus === 'in_progress' ||
+    currentStatus === 'running' ||
+    contacts.some((c) => c.status === 'calling')
+  usePolling(
+    async () => {
+      const { rows, cursor } = await drainContactUpdates(
+        (c) =>
+          pollFetchJson<ContactUpdatesPage>(
+            `/api/poll/campaign-contacts?campaignId=${encodeURIComponent(campaignId)}` +
+              (c ? `&after=${encodeURIComponent(c.updatedAt)}&afterId=${encodeURIComponent(c.id)}` : ''),
+          ),
+        cursorRef.current,
       )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [campaignId])
+      cursorRef.current = cursor
+      if (rows.length === 0) return
+      setContacts((prev) => mergeCampaignContacts(prev, rows))
+    },
+    { intervalMs: isRunning ? POLL_CAMPAIGN_ACTIVE_MS : POLL_IDLE_MS, immediate: false },
+  )
 
   // Progress metrics
   const total = contacts.length

@@ -8,6 +8,8 @@ import { isBlockedEmail } from '@/lib/contacts/blocked-emails'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { ContactImportDedupStrategy } from '@/types/database'
 import * as storage from '@/lib/storage'
+import { runsInApp } from '@/lib/edge-functions/switch'
+import { startImportJob } from '@/lib/import/process-import'
 
 const BUCKET = 'contact-imports' as const
 
@@ -337,6 +339,14 @@ export async function enqueueImport(importId: string): Promise<{ ok: true } | Er
 
   // Trigger the processing worker (returns fast; actual processing is async)
   const admin = createServiceRoleClient()
+  // EDGE_FUNCTIONS_IN_APP=process-imports: claim here and process after the
+  // response. Default (unset) keeps invoking the Edge Function below.
+  if (runsInApp('process-imports')) {
+    await startImportJob(admin, { importId, downloadUrl }).catch(() => {
+      // Job stays queued if the claim failed
+    })
+    return { ok: true }
+  }
   await admin.functions
     .invoke('process-imports', { body: { importId, ...(downloadUrl ? { downloadUrl } : {}) } })
     .catch(() => {

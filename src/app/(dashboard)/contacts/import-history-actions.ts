@@ -3,6 +3,8 @@
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import * as storage from '@/lib/storage'
+import { runsInApp } from '@/lib/edge-functions/switch'
+import { startImportJob } from '@/lib/import/process-import'
 import type { Database, ContactImportStatus, ContactImportDedupStrategy } from '@/types/database'
 
 type ImportRow = Database['public']['Tables']['contact_imports']['Row']
@@ -252,6 +254,12 @@ export async function retryImport(
 
   // Trigger the worker
   const downloadUrl = await storage.signedUrlIfR2('contact-imports', storagePath).catch(() => null)
+  // EDGE_FUNCTIONS_IN_APP=process-imports: claim here and process after the
+  // response. Default (unset) keeps invoking the Edge Function below.
+  if (runsInApp('process-imports')) {
+    await startImportJob(admin, { importId: newImportId, downloadUrl }).catch(() => {})
+    return { ok: true, newImportId }
+  }
   await admin.functions
     .invoke('process-imports', { body: { importId: newImportId, ...(downloadUrl ? { downloadUrl } : {}) } })
     .catch(() => {})

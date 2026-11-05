@@ -8,8 +8,8 @@
  * physical phone and bridges to the contact, so the browser is NOT part of the
  * call and has no Twilio Voice SDK `Call` object to read. The only source of
  * truth is the call_logs row, updated by the /api/twilio/status webhook. We
- * subscribe to it via Supabase Realtime (postgres_changes), the same mechanism
- * the chat inbox uses, and surface a UI-friendly lifecycle:
+ * poll it through a route handler (every POLL_OUTBOUND_CALL_MS, only while a
+ * call is tracked and the tab is visible) and surface a UI-friendly lifecycle:
  *
  *   Starting... -> Ringing... -> Connected -> Ended / Busy / No answer / ...
  *
@@ -19,7 +19,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { createClient } from '@/lib/supabase/client'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_OUTBOUND_CALL_MS } from '@/lib/polling/intervals'
 
 export type CallPhase =
   | 'initiating'
@@ -40,7 +42,7 @@ const TERMINAL_PHASES: ReadonlySet<CallPhase> = new Set<CallPhase>([
 ])
 
 /** Map a raw Twilio call_logs.status to a UI phase. */
-function toPhase(raw: string | null | undefined): CallPhase {
+export function toPhase(raw: string | null | undefined): CallPhase {
   switch ((raw ?? '').toLowerCase()) {
     case 'ringing':
       return 'ringing'
@@ -108,7 +110,7 @@ export function useOutboundCallStatus(): UseOutboundCallStatusResult {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Track the active sid synchronously so realtime handlers/cleanup can compare
+  // Track the active sid synchronously so poll results/cleanup can compare
   // without closing over stale state.
   const sidRef = useRef<string | null>(null)
 
@@ -155,42 +157,40 @@ export function useOutboundCallStatus(): UseOutboundCallStatusResult {
     }
   }, [])
 
-  // Subscribe to call_logs changes for the tracked sid.
+  // Poll call_logs for the tracked sid until it reaches a terminal state
+  // (replaces the Realtime subscription).
   const sid = active?.sid ?? null
-  useEffect(() => {
-    if (!sid) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`outbound-call-${sid}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'call_logs', filter: `call_sid=eq.${sid}` },
-        (payload) => {
-          if (sidRef.current !== sid) return
-          const row = payload.new as Record<string, unknown>
-          const phase = toPhase(row.status as string | null)
-          const isTerminal = TERMINAL_PHASES.has(phase)
-          const durationSeconds =
-            typeof row.duration_seconds === 'number' ? row.duration_seconds : null
-
-          setActive((prev) =>
-            prev && prev.sid === sid
-              ? {
-                  ...prev,
-                  phase,
-                  phaseLabel: PHASE_LABELS[phase],
-                  isTerminal,
-                  durationSeconds,
-                }
-              : prev,
-          )
-        },
+  // After a terminal status keep polling only until the final duration lands
+  // (the card auto-dismisses after AUTO_DISMISS_MS anyway).
+  const needsPolling = active != null && (!active.isTerminal || active.durationSeconds == null)
+  usePolling(
+    async () => {
+      if (!sid) return
+      const row = await pollFetchJson<{ status: string | null; durationSeconds: number | null }>(
+        `/api/poll/call-status?sid=${encodeURIComponent(sid)}`,
       )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [sid])
+      // No row yet (webhook has not fired) or the call was dismissed/replaced.
+      if (row.status === null || sidRef.current !== sid) return
+      const phase = toPhase(row.status)
+      const isTerminal = TERMINAL_PHASES.has(phase)
+      const durationSeconds = row.durationSeconds
+
+      setActive((prev) =>
+        prev && prev.sid === sid
+          ? prev.phase === phase && prev.durationSeconds === durationSeconds
+            ? prev
+            : {
+                ...prev,
+                phase,
+                phaseLabel: PHASE_LABELS[phase],
+                isTerminal,
+                durationSeconds,
+              }
+          : prev,
+      )
+    },
+    { intervalMs: POLL_OUTBOUND_CALL_MS, enabled: needsPolling },
+  )
 
   // Elapsed timer: counts while connected, freezes on terminal.
   const phase = active?.phase ?? null

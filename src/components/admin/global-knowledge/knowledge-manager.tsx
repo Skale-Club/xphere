@@ -1,12 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AlertTriangle, AlignLeft, BookOpen, Check, ChevronDown, ChevronsUpDown, Database,
   ExternalLink, FilePlus, FileText, Folder, Loader2, RefreshCw, Trash2, Unplug, Upload,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_IDLE_MS, POLL_KNOWLEDGE_SYNC_ACTIVE_MS } from '@/lib/polling/intervals'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
+import { hasActiveSyncJob, syncJobsSignature } from './sync-signature'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -181,27 +184,34 @@ export function GlobalKnowledgeManager({
     (page) => page.id === selectedNotionPage,
   )?.title
 
+  // Poll the Notion sync jobs and refresh the page when they change (replaces
+  // the Realtime subscription on global_knowledge_sync_jobs). The baseline is
+  // the fingerprint of the jobs this render was built from, so a refresh we
+  // trigger ourselves does not trigger another one.
+  const connectionId = notionState.connection?.id
+  const knownSyncSignature = useRef('')
+  const syncJobsActive = hasActiveSyncJob(notionState.jobs)
   useEffect(() => {
-    const connectionId = notionState.connection?.id
-    if (!connectionId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`global-knowledge-sync-${connectionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'global_knowledge_sync_jobs',
-          filter: `connection_id=eq.${connectionId}`,
-        },
-        () => router.refresh(),
+    knownSyncSignature.current = syncJobsSignature(
+      notionState.jobs.map((j) => ({ ...j, error_detail: j.error_detail ?? null })),
+    )
+  }, [notionState.jobs])
+  usePolling(
+    async () => {
+      if (!connectionId) return
+      const status = await pollFetchJson<{ signature: string; active: boolean }>(
+        `/api/poll/knowledge-sync?connectionId=${encodeURIComponent(connectionId)}`,
       )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [notionState.connection?.id, router])
+      if (status.signature === knownSyncSignature.current) return
+      knownSyncSignature.current = status.signature
+      router.refresh()
+    },
+    {
+      intervalMs: syncJobsActive ? POLL_KNOWLEDGE_SYNC_ACTIVE_MS : POLL_IDLE_MS,
+      enabled: Boolean(connectionId),
+      immediate: false,
+    },
+  )
 
   useEffect(() => {
     if (!notionState.connection?.id) {
