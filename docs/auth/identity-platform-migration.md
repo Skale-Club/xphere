@@ -77,11 +77,11 @@ Same order as Xpot, with org membership in place of Xpot's approval review:
 
 1. A linked Google identity or a known phone: signed in.
 2. Google with no link and no account found: `phone_required`, then the texted code links them.
-3. Unknown phone with a valid invite link in the browser: account created or claimed from the invited email, invite accepted. The emailed token is the proof of owning that email.
+3. Unknown phone with a valid invite link in the browser and no account on the invited email: account created, invite accepted. An invite never attaches a phone to an existing account, because org admins can read and choose invite tokens, so a token does not prove who owns the email.
 4. Unknown phone with no invite: `no_access`, no account is created.
 5. Signed in but in no organization: `no_org`, no session.
 
-Open sign-up ends: new people join by invitation. New accounts need an email, since the bridge keys on it. Existing accounts without a phone get in by a phone set with `scripts/link-user-phone.ts`, or a new invite.
+Open sign-up ends: new people join by invitation. New accounts need an email, since the bridge keys on it. Existing accounts without a phone get in by a phone set with `scripts/link-user-phone.ts`.
 
 ## Operations, in order
 

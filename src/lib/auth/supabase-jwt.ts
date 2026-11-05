@@ -86,6 +86,8 @@ export async function mintSupabaseJwt(user: AppUser): Promise<{ token: string; e
 
   const promise = fetchToken(user)
     .then((fresh) => {
+      // Dropping expired entries here keeps the map from growing for the life of the process.
+      for (const [id, entry] of cache) if (entry.expiresAt <= now) cache.delete(id)
       cache.set(user.id, fresh)
       return fresh
     })
@@ -98,8 +100,8 @@ export async function mintSupabaseJwt(user: AppUser): Promise<{ token: string; e
 
 /**
  * Creates the auth.users row that lets the bridge issue tokens for this account. No password:
- * the account can only ever be reached through the app's own sign-in. When the email already
- * exists in auth.users (an old account absent from public.users) its id is returned instead.
+ * the account can only ever be reached through the app's own sign-in. An email already in
+ * auth.users is refused rather than reused, so a new account never inherits an old one's data.
  */
 export async function createAuthShadow(input: { id?: string; email: string }): Promise<string> {
   const email = input.email.trim().toLowerCase()
@@ -110,12 +112,5 @@ export async function createAuthShadow(input: { id?: string; email: string }): P
     email_confirm: true,
   })
   if (data?.user?.id) return data.user.id
-
-  if (error && (error.code === 'email_exists' || /already (been )?registered|already exists/i.test(error.message))) {
-    // generateLink on an existing email returns that user without sending anything.
-    const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
-    if (link?.user?.id) return link.user.id
-    throw new Error(`createAuthShadow: could not look up the existing user: ${linkError?.message ?? 'no user'}`)
-  }
   throw new Error(`createAuthShadow failed: ${error?.message ?? 'no user'}`)
 }

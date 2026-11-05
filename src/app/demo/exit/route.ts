@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 
 import { getSessionToken } from '@/lib/supabase/server'
 import { destroySession, SESSION_COOKIE } from '@/lib/auth/session'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +13,7 @@ export const runtime = 'nodejs'
  * first, so signing in never collides with the demo identity.
  */
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url)
+  const origin = resolveRequestOrigin(request)
 
   try {
     const token = await getSessionToken()

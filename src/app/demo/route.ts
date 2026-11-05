@@ -9,6 +9,8 @@ import {
   sessionCookieOptions,
 } from '@/lib/auth/session'
 import { getDemoOrgId, getDemoUserEmail } from '@/lib/demo/config'
+import { getClientIp } from '@/lib/request-ip'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
 
@@ -22,7 +24,7 @@ export const runtime = 'nodejs'
  * restrictive RLS (migration 1114).
  */
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url)
+  const origin = resolveRequestOrigin(request)
   const demoEmail = getDemoUserEmail()
   const demoOrgId = getDemoOrgId()
 
@@ -52,7 +54,7 @@ export async function GET(request: Request) {
     try {
       newSession = await createSession(demoUser.id, {
         userAgent: request.headers.get('user-agent'),
-        ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+        ip: getClientIp(request),
       })
     } catch (error) {
       console.error('[demo:signin-failed]', error instanceof Error ? error.message : error)

@@ -150,15 +150,15 @@ describe('POST /api/auth/identity', () => {
     expect((await res.json()).status).toBe('active')
   })
 
-  it('claims an existing phoneless account on the invited email', async () => {
+  it('never attaches a phone to an existing account from an invite', async () => {
     m.verify.mockResolvedValue({ uid: 'p1', provider: 'phone', phone: PHONE })
     m.readPendingInvite.mockResolvedValue({ email: 'a@b.co' })
     m.getAppUserByEmail.mockResolvedValue({ ...user, phone: undefined })
     const res = await call()
-    expect(m.setUserPhone).toHaveBeenCalledWith('u1', PHONE)
+    expect(await res.json()).toEqual({ status: 'no_access' })
+    expect(m.setUserPhone).not.toHaveBeenCalled()
     expect(m.createAppUser).not.toHaveBeenCalled()
-    expect(m.bind).toHaveBeenCalledWith([{ projectId: 'proj', uid: 'p1' }], 'u1')
-    expect((await res.json()).status).toBe('active')
+    expect(m.createSession).not.toHaveBeenCalled()
   })
 
   it('never takes over an account that already has a different phone', async () => {

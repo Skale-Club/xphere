@@ -141,11 +141,10 @@ describe('createAuthShadow', () => {
     expect(m.createUser).toHaveBeenCalledWith({ email: 'a@b.co', email_confirm: true })
   })
 
-  it('looks up the existing user when the email is already registered', async () => {
+  it('refuses an email already registered, so a new account never inherits an old one', async () => {
     m.createUser.mockResolvedValue({ data: { user: null }, error: { code: 'email_exists', message: 'exists' } })
-    m.generateLink.mockResolvedValue({ data: { user: { id: 'old-id' } }, error: null })
     const { createAuthShadow } = await load()
 
-    await expect(createAuthShadow({ email: 'a@b.co' })).resolves.toBe('old-id')
+    await expect(createAuthShadow({ email: 'a@b.co' })).rejects.toThrow('createAuthShadow failed')
   })
 })

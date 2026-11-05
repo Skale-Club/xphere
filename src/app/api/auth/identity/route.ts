@@ -11,7 +11,6 @@ import {
   getAppUserById,
   getAppUserByPhone,
   markSignedIn,
-  setUserPhone,
   type AppUser,
 } from '@/lib/auth/users'
 import {
@@ -40,7 +39,7 @@ function reply(body: Record<string, unknown>, status = 200) {
 /** Drop anything that looks like a phone number before an error reaches the logs. */
 function safeMessage(err: unknown): string {
   const text = err instanceof Error ? err.message : 'unknown error'
-  return text.replace(/\+?\d[\d\s().-]{6,}\d/g, '[redacted]').slice(0, 200)
+  return text.slice(0, 200).replace(/\+?\d[\d\s().-]{6,20}\d/g, '[redacted]')
 }
 
 async function findAccount(binding: IdentityBinding, phone?: string): Promise<AppUser | null> {
@@ -53,20 +52,16 @@ async function findAccount(binding: IdentityBinding, phone?: string): Promise<Ap
 }
 
 /**
- * An unknown, verified phone may create or claim an account only with a valid
- * invite: the emailed token proves ownership of the invited address. An existing
- * account on that email without a phone adopts the number; one that already has
- * a different phone is never taken over.
+ * An unknown, verified phone may create a new account only with a valid invite.
+ * An invite never attaches a phone to an existing account: org admins can read and
+ * choose invite tokens, so the token does not prove the holder owns that email, and
+ * claiming would let an admin take over anyone's account. Existing accounts get a
+ * phone through scripts/link-user-phone.ts.
  */
 async function provisionFromInvite(phone: string): Promise<AppUser | null> {
   const invite = await readPendingInvite()
   if (!invite) return null
-  const existing = await getAppUserByEmail(invite.email)
-  if (existing) {
-    if (existing.phone) return null
-    await setUserPhone(existing.id, phone)
-    return { ...existing, phone }
-  }
+  if (await getAppUserByEmail(invite.email)) return null
   return createAppUser({ email: invite.email, phone })
 }
 
