@@ -1,6 +1,6 @@
 # Migration: Supabase Auth to Google Identity Platform
 
-Status: in progress. Xphere moves to the sign-in Xpot already runs: a texted code first, Google as the
+Status: live since 2026-11-05; step 8 of the operations is still open. Xphere uses the sign-in Xpot already runs: a texted code first, Google as the
 alternative, both through Identity Platform in the `skaleclub` Google Cloud project, with a session the
 application owns. Passwords go away. Supabase stays as the database, Storage and Realtime.
 
