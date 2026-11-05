@@ -50,6 +50,7 @@ import { resolveLiveContactId, findByPhone, findByEmail, attachChannelIdentity, 
 import { syncContactUpdateToGoogle } from '@/lib/google-contacts/sync'
 import { emitContactEvent } from '@/lib/contacts/events'
 import { mapContactBookingRow, type RawContactBookingRow } from '@/lib/contacts/booking-summary'
+import * as storage from '@/lib/storage'
 
 /**
  * Phase 108 D-04: maps conversations.channel enum values to the corresponding
@@ -1398,17 +1399,15 @@ export async function uploadContactAvatar(
   const nonce = Math.random().toString(36).slice(2, 10)
   const objectPath = `${user.id}/contacts/${contactId}-${nonce}.webp`
 
-  const { error: uploadErr } = await supabase.storage
-    .from('avatars')
-    .upload(objectPath, processed, {
-      contentType: 'image/webp',
-      upsert: false,
-      cacheControl: '3600',
-    })
+  const { error: uploadErr } = await storage.put('avatars', objectPath, processed, {
+    client: supabase,
+    contentType: 'image/webp',
+    upsert: false,
+    cacheControl: '3600',
+  })
   if (uploadErr) return { ok: false, error: uploadErr.message }
 
-  const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(objectPath)
-  const publicUrl = publicUrlData.publicUrl
+  const publicUrl = storage.publicUrl('avatars', objectPath, { client: supabase })
   if (!publicUrl) return { ok: false, error: 'Could not resolve public URL' }
 
   const { error: updateErr } = await supabase
@@ -1417,7 +1416,7 @@ export async function uploadContactAvatar(
     .eq('id', contactId)
   if (updateErr) {
     // Best-effort cleanup of the orphaned object — failure here is non-fatal.
-    await supabase.storage.from('avatars').remove([objectPath]).catch(() => {})
+    await storage.remove('avatars', [objectPath], { client: supabase }).catch(() => {})
     return { ok: false, error: updateErr.message }
   }
 

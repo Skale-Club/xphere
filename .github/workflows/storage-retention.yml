@@ -1,0 +1,34 @@
+name: Storage Retention Cron
+
+# Removes expired website screenshots and chat media. Each sweep is a simulation
+# unless its env is 'true' on the server (STORAGE_RETENTION_SCREENSHOTS_ENABLED,
+# STORAGE_RETENTION_CHAT_ENABLED). Manual trigger only: the hourly schedule (it
+# runs hourly until the backlog drains, then is cheap) is set up elsewhere
+# (skale-cron), as for the other cron routes. A run is capped at 60s server-side.
+
+on:
+  workflow_dispatch:          # manual trigger
+
+concurrency:
+  group: storage-retention
+  cancel-in-progress: false
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fire storage-retention endpoint
+        run: |
+          STATUS=$(curl -s -o /tmp/body -w "%{http_code}" \
+            --connect-timeout 15 --max-time 110 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/storage-retention")
+          echo "Status: $STATUS"
+          echo "Body: $(cat /tmp/body)"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 300 ]; then
+            echo "OK"
+          else
+            echo "storage-retention cron failed with status $STATUS" >&2
+            exit 1
+          fi

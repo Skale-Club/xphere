@@ -21,6 +21,7 @@
 
 import { getUser, createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import { partitionOrphanAssets, buildReferenceHaystack, type OrphanCandidate } from '@/lib/email/asset-references'
 
 export const runtime = 'nodejs'
@@ -76,9 +77,11 @@ export async function POST(request: Request): Promise<Response> {
     // ── List every Storage object under the org's prefix (paginated) ───────
     const candidates: OrphanCandidate[] = []
     for (let page = 0; page < MAX_LIST_PAGES; page++) {
-      const { data, error } = await admin.storage
-        .from('email-assets')
-        .list(orgId, { limit: LIST_PAGE_SIZE, offset: page * LIST_PAGE_SIZE })
+      const { data, error } = await storage.list('email-assets', orgId, {
+        client: admin,
+        limit: LIST_PAGE_SIZE,
+        offset: page * LIST_PAGE_SIZE,
+      })
 
       if (error) {
         console.error('[email-templates/assets/cleanup] Storage list error:', error.message)
@@ -87,8 +90,8 @@ export async function POST(request: Request): Promise<Response> {
       if (!data || data.length === 0) break
 
       for (const obj of data) {
-        if (!obj.id) continue // folder placeholder entries have a null id
-        candidates.push({ path: `${orgId}/${obj.name}`, createdAt: obj.created_at })
+        // storage.list already drops folder placeholders
+        candidates.push({ path: `${orgId}/${obj.name}`, createdAt: obj.createdAt })
       }
 
       if (data.length < LIST_PAGE_SIZE) break
@@ -100,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
     let deleted = 0
     for (let i = 0; i < toDelete.length; i += REMOVE_CHUNK_SIZE) {
       const chunkPaths = toDelete.slice(i, i + REMOVE_CHUNK_SIZE).map((c) => c.path)
-      const { error: removeError } = await admin.storage.from('email-assets').remove(chunkPaths)
+      const { error: removeError } = await storage.remove('email-assets', chunkPaths, { client: admin })
       if (removeError) {
         console.error('[email-templates/assets/cleanup] Remove error:', removeError.message)
         continue

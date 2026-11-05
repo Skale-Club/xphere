@@ -4,6 +4,7 @@
 import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { McpToolDef } from '../tool-types'
+import { resolveExternalUrl } from '@/lib/storage'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -74,6 +75,11 @@ export const callsTools: McpToolDef[] = [
         .eq('org_id', auth.orgId)
         .maybeSingle()
       if (!data) return { error: 'not_found', status: 404 }
+      // With recordings on R2 the column holds the session-gated /api/media path,
+      // which an external MCP caller cannot open. Old Twilio/Supabase URLs pass through.
+      if (typeof data.recording_url === 'string' && data.recording_url) {
+        return { ...data, recording_url: await resolveExternalUrl(data.recording_url) }
+      }
       return data
     },
   },

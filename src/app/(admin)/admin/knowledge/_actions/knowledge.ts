@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import { orgRedirect } from '@/lib/org/redirect'
 import { revalidatePath } from 'next/cache'
 import { after } from 'next/server'
+import * as storage from '@/lib/storage'
 import { resolveNotionAccessToken } from '@/lib/notion/connection'
 import { searchAccessibleNotionPages } from '@/lib/notion/client'
 import {
@@ -91,7 +92,7 @@ export async function insertGlobalKnowledgeSource(
 
   if (error) throw new Error(error.message)
 
-  void triggerGlobalKnowledgeJob(data.id, platform)
+  void triggerGlobalKnowledgeJob(data.id, platform, storagePath)
   return { id: data.id }
 }
 
@@ -110,12 +111,11 @@ export async function addGlobalKnowledgeText(
   const supabase = createServiceRoleClient()
 
   const storagePath = `${platform}/${crypto.randomUUID()}.txt`
-  const { error: uploadErr } = await supabase.storage
-    .from('global-knowledge')
-    .upload(storagePath, new Blob([content], { type: 'text/plain' }), {
-      contentType: 'text/plain',
-      upsert: false,
-    })
+  const { error: uploadErr } = await storage.put('global-knowledge', storagePath, new Blob([content], { type: 'text/plain' }), {
+    client: supabase,
+    contentType: 'text/plain',
+    upsert: false,
+  })
   if (uploadErr) throw new Error(`Storage upload failed: ${uploadErr.message}`)
 
   const { data, error } = await supabase
@@ -133,7 +133,7 @@ export async function addGlobalKnowledgeText(
     .single()
   if (error) throw new Error(error.message)
 
-  void triggerGlobalKnowledgeJob(data.id, platform)
+  void triggerGlobalKnowledgeJob(data.id, platform, storagePath)
   return { id: data.id }
 }
 
@@ -168,7 +168,13 @@ export async function deleteGlobalKnowledgeSource(sourceId: string): Promise<voi
   } | null
   const path = typedSource?.source_url
   if (path) {
-    await supabase.storage.from(typedSource?.storage_bucket ?? 'global-knowledge').remove([path])
+    // The row names its bucket; only the global one is a logical bucket the module knows.
+    const bucket = typedSource?.storage_bucket ?? 'global-knowledge'
+    if (bucket === 'global-knowledge') {
+      await storage.remove('global-knowledge', [path], { client: supabase })
+    } else {
+      await supabase.storage.from(bucket).remove([path])
+    }
   }
 }
 
@@ -385,9 +391,12 @@ export async function disconnectGlobalKnowledgeNotion(): Promise<void> {
 async function triggerGlobalKnowledgeJob(
   globalKnowledgeSourceId: string,
   platform: GlobalKnowledgePlatform,
+  storagePath?: string,
 ): Promise<void> {
   const functionUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/process-embeddings`
   try {
+    // With global-knowledge on R2 the Edge Function reads a presigned GET instead of the bucket.
+    const downloadUrl = storagePath ? await storage.signedUrlIfR2('global-knowledge', storagePath) : null
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
@@ -401,6 +410,7 @@ async function triggerGlobalKnowledgeJob(
         playbookSourceId: globalKnowledgeSourceId,
         globalKnowledgeSourceId,
         platform,
+        ...(downloadUrl ? { downloadUrl } : {}),
       }),
     })
     if (!response.ok) {

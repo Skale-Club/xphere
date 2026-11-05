@@ -2,8 +2,7 @@
 // Stores into the private `global-knowledge` bucket at {platform}/{uuid}.{ext}.
 
 import { getUser } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
+import * as storage from '@/lib/storage'
 import { randomUUID } from 'crypto'
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
@@ -43,22 +42,14 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: 'Unsupported file type. Use PDF, TXT, or CSV.' }, { status: 400 })
   }
 
-  const serviceClient = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  )
-
   const fileExt = file.name.split('.').pop() ?? 'bin'
   const storagePath = `${platform}/${randomUUID()}.${fileExt}`
   const arrayBuffer = await file.arrayBuffer()
 
-  const { error: storageError } = await serviceClient.storage
-    .from('global-knowledge')
-    .upload(storagePath, arrayBuffer, {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    })
+  const { error: storageError } = await storage.put('global-knowledge', storagePath, arrayBuffer, {
+    contentType: file.type || 'application/octet-stream',
+    upsert: false,
+  })
 
   if (storageError) {
     return Response.json({ error: `Storage upload failed: ${storageError.message}` }, { status: 500 })

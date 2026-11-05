@@ -8,9 +8,10 @@
 // failure (the caller treats avatars as best-effort / non-fatal).
 
 import sharp from 'sharp'
+import * as storage from '@/lib/storage'
 import type { createServiceRoleClient } from '@/lib/supabase/admin'
 
-const AVATAR_BUCKET = 'avatars'
+const AVATAR_BUCKET = 'avatars' as const
 const FETCH_TIMEOUT_MS = 8000
 
 export async function storeContactAvatarFromUrl(params: {
@@ -39,20 +40,18 @@ export async function storeContactAvatarFromUrl(params: {
     const nonce = Math.random().toString(36).slice(2, 10)
     const objectPath = `${orgId}/contacts/${contactId}-${nonce}.webp`
 
-    const { error: uploadErr } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .upload(objectPath, processed, {
-        contentType: 'image/webp',
-        upsert: false,
-        cacheControl: '3600',
-      })
+    const { error: uploadErr } = await storage.put(AVATAR_BUCKET, objectPath, processed, {
+      client: supabase,
+      contentType: 'image/webp',
+      upsert: false,
+      cacheControl: '3600',
+    })
     if (uploadErr) {
       console.warn('[contacts/avatar] upload failed:', uploadErr.message)
       return null
     }
 
-    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(objectPath)
-    return data?.publicUrl || null
+    return storage.publicUrl(AVATAR_BUCKET, objectPath, { client: supabase }) || null
   } catch (err) {
     console.warn('[contacts/avatar] store failed:', err instanceof Error ? err.message : String(err))
     return null

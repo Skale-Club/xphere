@@ -2,6 +2,7 @@
 
 import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import type { Database, ContactImportStatus, ContactImportDedupStrategy } from '@/types/database'
 
 type ImportRow = Database['public']['Tables']['contact_imports']['Row']
@@ -232,9 +233,11 @@ export async function retryImport(
   const storagePath = `${original.org_id}/${newImportId}/${filename}`
 
   // Upload reconstructed CSV to Storage via service role
-  const { error: uploadErr } = await admin.storage
-    .from('contact-imports')
-    .upload(storagePath, retryBytes, { contentType: 'text/csv', upsert: false })
+  const { error: uploadErr } = await storage.put('contact-imports', storagePath, retryBytes, {
+    client: admin,
+    contentType: 'text/csv',
+    upsert: false,
+  })
 
   if (uploadErr) {
     await admin.from('contact_imports').delete().eq('id', newImportId)
@@ -248,8 +251,9 @@ export async function retryImport(
     .eq('id', newImportId)
 
   // Trigger the worker
+  const downloadUrl = await storage.signedUrlIfR2('contact-imports', storagePath).catch(() => null)
   await admin.functions
-    .invoke('process-imports', { body: { importId: newImportId } })
+    .invoke('process-imports', { body: { importId: newImportId, ...(downloadUrl ? { downloadUrl } : {}) } })
     .catch(() => {})
 
   return { ok: true, newImportId }

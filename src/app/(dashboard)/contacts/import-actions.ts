@@ -7,8 +7,9 @@ import { normalisePhone, normaliseEmail } from '@/lib/contacts/zod-schemas'
 import { isBlockedEmail } from '@/lib/contacts/blocked-emails'
 import { getDefinitions } from '@/app/(dashboard)/settings/custom-fields/actions'
 import type { ContactImportDedupStrategy } from '@/types/database'
+import * as storage from '@/lib/storage'
 
-const BUCKET = 'contact-imports'
+const BUCKET = 'contact-imports' as const
 
 type Ok<T> = { ok: true } & T
 type Err = { ok: false; error: string }
@@ -48,13 +49,13 @@ export async function createImportRecord(
   const importId = importRow.id
   const path = `${orgId}/${importId}/${filename}`
 
-  const { data: signedData, error: signedError } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUploadUrl(path)
-
-  if (signedError || !signedData) {
+  // Signed PUT target: Supabase Storage, or R2 once contact-imports is enabled there.
+  let signedUrl: string
+  try {
+    signedUrl = (await storage.signedUploadUrl(BUCKET, path, { client: supabase })).url
+  } catch (err) {
     await supabase.from('contact_imports').delete().eq('id', importId)
-    return { ok: false, error: signedError?.message ?? 'Failed to create upload URL' }
+    return { ok: false, error: err instanceof Error ? err.message : 'Failed to create upload URL' }
   }
 
   await supabase
@@ -65,7 +66,7 @@ export async function createImportRecord(
   return {
     ok: true,
     importId,
-    signedUrl: signedData.signedUrl,
+    signedUrl,
     storagePath: path,
     currentUserId: user.id,
   }
@@ -95,9 +96,7 @@ export async function finalizeUpload(importId: string): Promise<
   if (rowError || !row) return { ok: false, error: 'Import not found' }
   if (row.status !== 'uploading') return { ok: false, error: `Unexpected status: ${row.status}` }
 
-  const { data: blob, error: dlError } = await supabase.storage
-    .from(BUCKET)
-    .download(row.storage_path)
+  const { data: blob, error: dlError } = await storage.get(BUCKET, row.storage_path, { client: supabase })
 
   if (dlError || !blob) {
     return { ok: false, error: dlError?.message ?? 'Failed to download upload' }
@@ -192,9 +191,7 @@ export async function dryRunImport(importId: string): Promise<
 
   if (rowError || !row) return { ok: false, error: 'Import not found' }
 
-  const { data: blob, error: dlError } = await supabase.storage
-    .from(BUCKET)
-    .download(row.storage_path)
+  const { data: blob, error: dlError } = await storage.get(BUCKET, row.storage_path, { client: supabase })
 
   if (dlError || !blob) {
     return { ok: false, error: dlError?.message ?? 'Failed to read file' }
@@ -324,10 +321,24 @@ export async function enqueueImport(importId: string): Promise<{ ok: true } | Er
 
   if (error) return { ok: false, error: error.message }
 
+  // With contact-imports on R2 the Edge Function cannot read the bucket, so it
+  // is handed a presigned GET (null, and omitted, while the bucket is Supabase).
+  let downloadUrl: string | null = null
+  if (storage.isR2Enabled(BUCKET)) {
+    const { data: queuedRow } = await supabase
+      .from('contact_imports')
+      .select('storage_path')
+      .eq('id', importId)
+      .single()
+    if (queuedRow?.storage_path) {
+      downloadUrl = await storage.signedUrlIfR2(BUCKET, queuedRow.storage_path).catch(() => null)
+    }
+  }
+
   // Trigger the processing worker (returns fast; actual processing is async)
   const admin = createServiceRoleClient()
   await admin.functions
-    .invoke('process-imports', { body: { importId } })
+    .invoke('process-imports', { body: { importId, ...(downloadUrl ? { downloadUrl } : {}) } })
     .catch(() => {
       // Worker invocation failed | job stays queued; DB webhook acts as backup trigger
     })

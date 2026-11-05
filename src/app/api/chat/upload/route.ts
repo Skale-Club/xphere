@@ -7,7 +7,7 @@
 // Returns { url: string } | the public URL of the uploaded file.
 
 import { getUser } from '@/lib/supabase/server'
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import { createClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -72,20 +72,17 @@ export async function POST(request: Request): Promise<Response> {
   const buffer = Buffer.from(arrayBuffer)
 
   try {
-    const adminClient = createServiceRoleClient()
-    const { error } = await adminClient.storage
-      .from('chat-media')
-      .upload(path, buffer, {
-        contentType: mimeType,
-        upsert: false,
-      })
+    const { error } = await storage.put('chat-media', path, buffer, {
+      contentType: mimeType,
+      upsert: false,
+    })
 
     if (error) {
       console.error('[chat/upload] Storage upload error:', error.message)
       return Response.json({ error: 'Upload failed' }, { status: 500 })
     }
 
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/chat-media/${path}`
+    const url = storage.storedMediaUrl('chat-media', path)
     return Response.json({ url }, { status: 200 })
   } catch (err) {
     console.error('[chat/upload] Unexpected error:', err)

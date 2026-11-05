@@ -15,7 +15,7 @@
 // MUST be reachable without auth headers.
 
 import { getUser } from '@/lib/supabase/server'
-import { createServiceRoleClient } from '@/lib/supabase/admin'
+import * as storage from '@/lib/storage'
 import { createClient } from '@/lib/supabase/server'
 import { checkUploadQuota } from '@/lib/email/upload-quota'
 
@@ -75,16 +75,13 @@ export async function POST(request: Request): Promise<Response> {
   const buffer = Buffer.from(arrayBuffer)
 
   try {
-    const adminClient = createServiceRoleClient()
-
     // Per-org quota (Finding #8): cap object count and cumulative bytes so a
     // single org can't unbounded-grow the shared public bucket.
     // Invariant: this single list({ limit: 1000 }) page is only correct while
     // MAX_UPLOAD_OBJECTS (500) < 1000 — raising the cap past the page size
     // requires paginating here.
-    const { data: existing, error: listError } = await adminClient.storage
-      .from('email-assets')
-      .list(orgId, { limit: 1000 })
+    // (Objects written before email-assets moved to R2 are not counted once it has.)
+    const { data: existing, error: listError } = await storage.list('email-assets', orgId, { limit: 1000 })
 
     if (listError) {
       console.error('[email-templates/upload] Quota list error:', listError.message)
@@ -92,25 +89,23 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const quota = checkUploadQuota(
-      (existing ?? []).map((obj) => ({ sizeBytes: obj.metadata?.size ?? 0 })),
+      (existing ?? []).map((obj) => ({ sizeBytes: obj.size })),
     )
     if (!quota.ok) {
       return Response.json({ error: quota.error }, { status: 400 })
     }
 
-    const { error } = await adminClient.storage
-      .from('email-assets')
-      .upload(path, buffer, {
-        contentType: mimeType,
-        upsert: false,
-      })
+    const { error } = await storage.put('email-assets', path, buffer, {
+      contentType: mimeType,
+      upsert: false,
+    })
 
     if (error) {
       console.error('[email-templates/upload] Storage upload error:', error.message)
       return Response.json({ error: 'Upload failed' }, { status: 500 })
     }
 
-    const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/email-assets/${path}`
+    const url = storage.publicUrl('email-assets', path)
     return Response.json({ url }, { status: 200 })
   } catch (err) {
     console.error('[email-templates/upload] Unexpected error:', err)

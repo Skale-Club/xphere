@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import type { McpToolDef } from '../tool-types'
 import { dispatchOutboundMessage } from '@/lib/messaging/dispatch-outbound'
+import { resolveMessageMediaUrls } from '@/lib/storage'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function db() { return createServiceRoleClient() as any }
@@ -80,7 +81,8 @@ export const conversationsTools: McpToolDef[] = [
         .eq('conversation_id', conversation_id)
         .order('created_at', { ascending: true })
         .limit(limit)
-      return { messages: data ?? [] }
+      // Private chat media is stored as an /api/media path; external callers get signed URLs.
+      return { messages: await resolveMessageMediaUrls(data ?? []) }
     },
   },
   {

@@ -10,6 +10,7 @@ import { CTAButton } from '@/components/design-system/cta-button'
 import { LoginDialog } from '@/components/auth/login-dialog'
 import { XphereOrb } from '@/components/xphere-orb'
 import { loadSequential } from '@/lib/preload/sequential'
+import { DEFAULT_CTA_IMAGE_URL } from '@/lib/landing/default-cta-image'
 import { trackEvent } from '@/lib/tracking/events'
 
 const fadeUp: Variants = {
@@ -50,8 +51,7 @@ const features = [
   },
 ]
 
-const FALLBACK_CTA_IMAGE_URL =
-  'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
+const FALLBACK_CTA_IMAGE_URL = DEFAULT_CTA_IMAGE_URL
 
 /**
  * Reads the `?auth=` query param and opens the sign-in dialog. `signup` and

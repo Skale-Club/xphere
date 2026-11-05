@@ -14,6 +14,7 @@
 import { sendGroupMentionAll } from '@/lib/evolution/client'
 import { resolveEvolutionInstance } from '@/lib/evolution/credentials'
 import type { ActionContext } from '@/lib/action-engine/execute-action'
+import { resolveExternalUrl } from '@/lib/storage'
 
 export async function sendWhatsappMentionAllAction(
   params: Record<string, unknown>,
@@ -22,7 +23,8 @@ export async function sendWhatsappMentionAllAction(
   const groupJid = String(params.group_jid ?? params.groupJid ?? '').trim()
   const text = String(params.text ?? params.message ?? params.body ?? '').trim()
   const instanceName = params.instance_name ? String(params.instance_name) : undefined
-  const mediaUrl = params.media_url ? String(params.media_url) : undefined
+  // Evolution fetches the file itself; an /api/media app path is signed before it leaves.
+  const mediaUrl = params.media_url ? await resolveExternalUrl(String(params.media_url)) : undefined
   const mediaType = params.media_type as 'image' | 'video' | 'document' | 'audio' | undefined
 
   if (!groupJid) throw new Error('send_whatsapp_mention_all requires "group_jid".')
