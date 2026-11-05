@@ -1,26 +1,29 @@
 import { NextResponse } from 'next/server'
 
-import { createClient } from '@/lib/supabase/server'
+import { getSessionToken } from '@/lib/supabase/server'
+import { destroySession, SESSION_COOKIE } from '@/lib/auth/session'
+import { resolveRequestOrigin } from '@/lib/site-url'
 
 export const runtime = 'nodejs'
 
 /**
- * Leaves the demo and opens the signup flow on the landing page.
+ * Leaves the demo and opens the sign-in dialog on the landing page.
  *
- * Signs out the shared demo session and clears the active-org cookie first, so
- * the new account creation never collides with the demo identity.
+ * Ends the shared demo session and clears the session and active-org cookies
+ * first, so signing in never collides with the demo identity.
  */
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url)
-  const supabase = await createClient()
+  const origin = resolveRequestOrigin(request)
 
   try {
-    await supabase.auth.signOut()
+    const token = await getSessionToken()
+    if (token) await destroySession(token)
   } catch {
-    // best-effort | continue to signup regardless
+    // best-effort | the cookie is cleared below either way
   }
 
-  const response = NextResponse.redirect(`${origin}/signup`)
+  const response = NextResponse.redirect(`${origin}/login`)
+  response.cookies.set(SESSION_COOKIE, '', { path: '/', maxAge: 0 })
   response.cookies.set('vo_active_org', '', { path: '/', maxAge: 0 })
   return response
 }

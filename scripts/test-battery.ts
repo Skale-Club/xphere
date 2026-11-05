@@ -32,7 +32,10 @@ export const BATTERY_GROUPS: BatteryGroup[] = [
     files: [
       'tests/test-battery.test.ts',
       'tests/release-gate.test.ts',
-      'tests/auth.test.ts',
+      'tests/auth/identity-route.test.ts',
+      'tests/auth/identity-claims.test.ts',
+      'tests/auth/session.test.ts',
+      'tests/auth/no-supabase-auth.test.ts',
       'tests/org-switcher.test.tsx',
       'tests/org-request-org.test.ts',
       'tests/org-redirect.test.ts',

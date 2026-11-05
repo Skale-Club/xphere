@@ -1,8 +1,8 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { getClientIp } from '@/lib/request-ip'
 import { banRemainingMs, checkTrap } from '@/lib/security/bot-defense'
 import { ORG_HEADER, orgPath, resolveRequestOrgId, splitOrgPath } from '@/lib/org/request-org'
+import { SESSION_COOKIE, sessionCookieOptions } from '@/lib/auth/session-cookie'
 
 /**
  * Bot defense, ahead of everything else (pages + the anonymous public APIs):
@@ -29,32 +29,21 @@ function botDefense(request: NextRequest): NextResponse | null {
 }
 
 /**
- * Session-refresh proxy (Next.js 16's successor to `middleware.ts`, required by
- * @supabase/ssr).
+ * Request proxy (Next.js 16's successor to `middleware.ts`).
  *
- * Server Components cannot write cookies — `src/lib/supabase/server.ts`
- * swallows the cookie write in a try/catch for exactly that reason. That means
- * when a short-lived access token expires, a Server Component can refresh it in
- * memory but cannot persist the rotated tokens. With refresh-token rotation on
- * (Supabase default) the old token is then invalid on the next request and the
- * user appears randomly logged out — and can trigger a redirect ping-pong
- * between "/" and "/dashboard".
+ * What it does, in order: bot defense, the per-tab org pin (`/o/<org-id>/...`
+ * rewritten with the org forwarded in a header), and keeping the session cookie
+ * alive. It does NOT do auth gating; that stays in layouts, pages, route
+ * handlers and server actions, which call the cached `getUser()`.
  *
- * This proxy runs on every page request, refreshes the session when its access
- * token is about to expire, and writes the refreshed cookies onto the outgoing
- * response. It does NOT do auth gating — that stays in layouts/pages/route
- * handlers/server actions, per the project's architecture, and every one of
- * those still calls the cached `getUser()` which validates the token against
- * the Auth server. Its only job is keeping the session cookies fresh.
- *
- * WHY getSession() AND NOT getUser() HERE: getUser() always makes a network
- * round-trip to the Auth server (us-west-2) — one per page request, plus one
- * per <Link> prefetch, which the dashboard sidebar fires ~20 of on every load.
- * That is pure latency on the critical path of the post-login render and
- * ~100 Auth calls/min under a single user. getSession() reads the cookie and
- * only hits the network to refresh when the token is inside the expiry margin,
- * which is exactly the one case this proxy exists for. The trusted check stays
- * in getUser() at the gate.
+ * Why it touches the session cookie: the session is a 30-day rolling cookie
+ * (see src/lib/auth/session.ts). The database row's expiry is pushed out by
+ * `resolveSession`, but Server Components cannot write cookies, so without this
+ * the browser would drop the cookie 30 days after sign-in no matter how active
+ * the user is. The proxy re-sends the same value with a fresh max-age on page
+ * requests. It is pure string work: no network and no database. The cookie is
+ * not validated here; an invalid value is rejected by `getUser()` and simply
+ * goes stale.
  */
 export async function proxy(request: NextRequest) {
   // Browsers never send an Authorization header to a page, so one here is an
@@ -95,8 +84,6 @@ export async function proxy(request: NextRequest) {
   const rewriteUrl = pinned ? request.nextUrl.clone() : null
   if (rewriteUrl && pinned) rewriteUrl.pathname = pinned.rest
 
-  // Built lazily: the session refresh below rewrites request cookies, and the
-  // forwarded headers must carry them.
   const forward = () => {
     const headers = new Headers(request.headers)
     if (orgId) headers.set(ORG_HEADER, orgId)
@@ -106,38 +93,16 @@ export async function proxy(request: NextRequest) {
       : NextResponse.next({ request: { headers } })
   }
 
-  // API routes only needed the bot check: webhooks and the public API carry no
-  // user session, and refreshing one would cost an Auth call per webhook hit.
+  // API routes only need the bot check: webhooks and the public API carry no
+  // user session, and the auth routes set the cookie themselves.
   if ((pinned?.rest ?? request.nextUrl.pathname).startsWith('/api/')) {
     return pinned ? forward() : NextResponse.next()
   }
 
-  let response = forward()
+  const response = forward()
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = forward()
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          )
-        },
-      },
-    },
-  )
-
-  // Do not run code between createServerClient and getSession — when the token
-  // is expiring this refreshes the session and the refreshed cookies must land
-  // on `response` untouched. The returned session is deliberately not read:
-  // nothing here trusts it.
-  await supabase.auth.getSession()
+  const session = request.cookies.get(SESSION_COOKIE)?.value
+  if (session) response.cookies.set(SESSION_COOKIE, session, sessionCookieOptions())
 
   return response
 }

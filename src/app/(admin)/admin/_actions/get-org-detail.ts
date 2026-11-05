@@ -1,6 +1,7 @@
 'use server'
 
 import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { listAppUsers } from '@/lib/auth/users'
 import { resolveEffectivePlan, ACTIVE_SUB_STATUSES } from '@/lib/billing/entitlements'
 import { getPlan } from '@/lib/billing/catalog'
 
@@ -73,8 +74,8 @@ export async function getOrgDetail(orgId: string): Promise<OrgDetail> {
 
   let emailMap = new Map<string, string>()
   if (rawMembers.length > 0) {
-    const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 })
-    emailMap = new Map((users as { id: string; email?: string }[]).map(u => [u.id, u.email ?? '']))
+    const users = await listAppUsers({ perPage: 1000 })
+    emailMap = new Map(users.map(u => [u.id, u.email ?? '']))
   }
 
   return {

@@ -25,6 +25,7 @@ import { cancelBooking as transitionCancelBooking } from '@/lib/calendar/transit
 import type { CalendarEventPayload } from '@/lib/calendar/events'
 import { getSiteOriginFromHeaders } from '@/lib/site-url'
 import { BOOKING_STATUSES } from '@/lib/calendar/booking-status'
+import { getAppUserById } from '@/lib/auth/users'
 
 // Resolve a friendly host display string from auth.users. We don't have a
 // dedicated profile-name table for scheduling, so fall back to the email.
@@ -97,8 +98,7 @@ function defaultForType(type: string): unknown {
 async function resolveHostName(userId: string): Promise<string> {
   try {
     const svc = createServiceRoleClient()
-    const { data } = await svc.auth.admin.getUserById(userId)
-    const user = data?.user
+    const user = await getAppUserById(userId)
     if (!user) return 'your host'
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>
     const fullName =

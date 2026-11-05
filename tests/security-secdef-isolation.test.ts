@@ -21,6 +21,7 @@
 
 import { beforeAll, afterAll, describe, it, expect } from 'vitest'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createTestUser, deleteTestUser, signedInClient } from './helpers/test-users'
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -33,7 +34,6 @@ suite('S13 SECDEF function isolation', () => {
   const suffix = Math.random().toString(36).slice(2, 10)
   const userAEmail = `secdef-a-${suffix}@example.test`
   const userBEmail = `secdef-b-${suffix}@example.test`
-  const password = `Secdef-Test-${suffix}!`
 
   let admin: SupabaseClient
   let clientA: SupabaseClient
@@ -63,10 +63,8 @@ suite('S13 SECDEF function isolation', () => {
     if (orgBErr) throw orgBErr
     orgBId = orgB.id
 
-    const { data: uA } = await admin.auth.admin.createUser({ email: userAEmail, password, email_confirm: true })
-    userAId = uA.user!.id
-    const { data: uB } = await admin.auth.admin.createUser({ email: userBEmail, password, email_confirm: true })
-    userBId = uB.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
+    userBId = (await createTestUser(admin, userBEmail)).id
 
     await admin.from('org_members').insert([
       { user_id: userAId, organization_id: orgAId, role: 'admin' },
@@ -78,18 +76,16 @@ suite('S13 SECDEF function isolation', () => {
       { user_id: userBId, organization_id: orgBId },
     ])
 
-    clientA = createClient(url!, anonKey!, { auth: { persistSession: false } })
-    clientB = createClient(url!, anonKey!, { auth: { persistSession: false } })
-    await clientA.auth.signInWithPassword({ email: userAEmail, password })
-    await clientB.auth.signInWithPassword({ email: userBEmail, password })
+    clientA = await signedInClient(userAEmail)
+    clientB = await signedInClient(userBEmail)
   }, 60000)
 
   afterAll(async () => {
     if (!admin) return
     await admin.from('user_active_org').delete().in('user_id', [userAId, userBId])
     await admin.from('org_members').delete().in('user_id', [userAId, userBId])
-    if (userAId) await admin.auth.admin.deleteUser(userAId)
-    if (userBId) await admin.auth.admin.deleteUser(userBId)
+    if (userAId) await deleteTestUser(admin, userAId)
+    if (userBId) await deleteTestUser(admin, userBId)
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)
     if (orgBId) await admin.from('organizations').delete().eq('id', orgBId)
   })

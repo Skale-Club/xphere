@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUser } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/admin'
 import { decrypt, encrypt } from '@/lib/crypto'
 import type { WhatsAppProvider, WhatsAppProviderStatus } from '@/lib/whatsapp/types'
@@ -433,7 +433,7 @@ export async function uploadOrgLogo(
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) return { ok: false, error: 'not_authenticated' }
 
   const expectedOrgId = formData.get('orgId')

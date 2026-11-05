@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import { orgRedirect } from '@/lib/org/redirect'
 import { LandingPage } from '@/components/landing/landing-page'
 import { getFaviconUrl, getSeoMetadataConfig } from '@/lib/seo'
@@ -70,27 +69,7 @@ const jsonLd = {
   ],
 }
 
-export default async function RootPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>
-}) {
-  const sp = (await searchParams) ?? {}
-  if (typeof sp.code === 'string' && sp.code) {
-    const callbackParams = new URLSearchParams()
-    for (const [key, value] of Object.entries(sp)) {
-      if (Array.isArray(value)) {
-        value.forEach((item) => callbackParams.append(key, item))
-      } else if (typeof value === 'string') {
-        callbackParams.set(key, value)
-      }
-    }
-    if (!callbackParams.has('next')) {
-      callbackParams.set('next', '/dashboard')
-    }
-    redirect(`/auth/callback?${callbackParams.toString()}`)
-  }
-
+export default async function RootPage() {
   const [faviconUrl, landing, user] = await Promise.all([
     getFaviconUrl(),
     getLandingPublicConfig(),

@@ -18,7 +18,7 @@
  *      so channel_only / merge_conflict / archived_duplicate / verified
  *      rows are never touched (D-01 invariant + Pitfall 2).
  *
- * Auth: cached getUser() per CLAUDE.md (never call supabase.auth.getUser()
+ * Auth: cached getUser() per CLAUDE.md (never read the session from the Supabase client
  * directly). RLS on contact_verifications enforces the admin gate; we do
  * not duplicate that check here.
  */

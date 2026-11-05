@@ -44,32 +44,25 @@ describe('RLS isolation (action-layer checks)', () => {
   })
 })
 
-describe('Email/password regression (static check)', () => {
-  it('signin server action still contains signInWithPassword call', async () => {
+describe('Sign-in dialog (static checks)', () => {
+  const read = async (path: string) => {
     const fs = await import('fs')
-    const authAction = fs.readFileSync(
-      new URL('../../src/actions/auth.ts', import.meta.url),
-      'utf-8'
-    )
-    expect(authAction).toContain('signInWithPassword')
+    return fs.readFileSync(new URL(path, import.meta.url), 'utf-8')
+  }
+
+  it('offers the texted code and Google, with no password or OAuth redirect', async () => {
+    const dialog = await read('../../src/components/auth/login-dialog.tsx')
+    expect(dialog).toContain('Continue with Google')
+    expect(dialog).toContain('sendGooglePhoneCode')
+    expect(dialog).not.toContain('signInWithOAuth')
+    expect(dialog).not.toMatch(/type=["']password["']/)
   })
 
-  it('login dialog still uses zodResolver for form validation', async () => {
-    const fs = await import('fs')
-    const dialog = fs.readFileSync(
-      new URL('../../src/components/auth/login-dialog.tsx', import.meta.url),
-      'utf-8'
-    )
-    expect(dialog).toContain('zodResolver')
-  })
-
-  it('login dialog contains Sign in with Google button', async () => {
-    const fs = await import('fs')
-    const dialog = fs.readFileSync(
-      new URL('../../src/components/auth/login-dialog.tsx', import.meta.url),
-      'utf-8'
-    )
-    expect(dialog).toContain('signInWithOAuth')
-    expect(dialog).toContain("provider: 'google'")
+  it('navigates behind a lock that is never released and never uses redirect()', async () => {
+    const dialog = await read('../../src/components/auth/login-dialog.tsx')
+    expect(dialog).toContain('window.location.assign')
+    expect(dialog).not.toMatch(/navigationLock\.current = false/)
+    expect(dialog).not.toMatch(/setNavigating\(false\)/)
+    expect(dialog).not.toMatch(/redirect\(/)
   })
 })

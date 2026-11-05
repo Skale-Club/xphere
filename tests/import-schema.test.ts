@@ -26,6 +26,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { Client } from 'pg'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { createTestUser, deleteTestUser, signedInClient } from './helpers/test-users'
 
 // ─── Environment detection ─────────────────────────────────────────────────────
 
@@ -184,7 +185,6 @@ fullSuite('Group 2: contact_imports RLS cross-org isolation', () => {
   const suffix = Math.random().toString(36).slice(2, 10)
   const userAEmail = `import-rls-a-${suffix}@example.test`
   const userBEmail = `import-rls-b-${suffix}@example.test`
-  const password = `Import-Rls-${suffix}!`
 
   let admin: SupabaseClient<Database>
   let clientA: SupabaseClient<Database>
@@ -228,22 +228,10 @@ fullSuite('Group 2: contact_imports RLS cross-org isolation', () => {
     orgBId = orgB.id
 
     // Create user A
-    const { data: uA, error: uAErr } = await admin.auth.admin.createUser({
-      email: userAEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uAErr) throw uAErr
-    userAId = uA.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
 
     // Create user B
-    const { data: uB, error: uBErr } = await admin.auth.admin.createUser({
-      email: userBEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uBErr) throw uBErr
-    userBId = uB.user!.id
+    userBId = (await createTestUser(admin, userBEmail)).id
 
     // Assign each user to their org
     const { error: memErr } = await admin.from('org_members').insert([
@@ -266,24 +254,16 @@ fullSuite('Group 2: contact_imports RLS cross-org isolation', () => {
     if (impErr) throw impErr
     importAId = imp.id
 
-    // Sign in the anon clients
-    const makeClient = () =>
-      createClient<Database>(supabaseUrl!, anonKey!, { auth: { persistSession: false } })
-    clientA = makeClient()
-    clientB = makeClient()
-
-    const signIns = await Promise.all([
-      clientA.auth.signInWithPassword({ email: userAEmail, password }),
-      clientB.auth.signInWithPassword({ email: userBEmail, password }),
-    ])
-    for (const { error } of signIns) if (error) throw error
+    // Authenticated clients
+    clientA = await signedInClient(userAEmail)
+    clientB = await signedInClient(userBEmail)
   }, 60000)
 
   afterAll(async () => {
     if (!admin) return
     const cleanups: Promise<unknown>[] = []
-    if (userAId) cleanups.push(admin.auth.admin.deleteUser(userAId))
-    if (userBId) cleanups.push(admin.auth.admin.deleteUser(userBId))
+    if (userAId) cleanups.push(deleteTestUser(admin, userAId))
+    if (userBId) cleanups.push(deleteTestUser(admin, userBId))
     await Promise.allSettled(cleanups)
     // Deleting the orgs cascades to contact_imports and org_members
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)
@@ -359,7 +339,6 @@ fullSuite('Group 3: contact_import_errors RLS cross-org isolation', () => {
   const suffix = Math.random().toString(36).slice(2, 10)
   const userAEmail = `import-err-a-${suffix}@example.test`
   const userBEmail = `import-err-b-${suffix}@example.test`
-  const password = `Import-Err-${suffix}!`
 
   let admin: SupabaseClient<Database>
   let clientA: SupabaseClient<Database>
@@ -401,21 +380,8 @@ fullSuite('Group 3: contact_import_errors RLS cross-org isolation', () => {
     if (eB) throw eB
     orgBId = orgB.id
 
-    const { data: uA, error: uAErr } = await admin.auth.admin.createUser({
-      email: userAEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uAErr) throw uAErr
-    userAId = uA.user!.id
-
-    const { data: uB, error: uBErr } = await admin.auth.admin.createUser({
-      email: userBEmail,
-      password,
-      email_confirm: true,
-    })
-    if (uBErr) throw uBErr
-    userBId = uB.user!.id
+    userAId = (await createTestUser(admin, userAEmail)).id
+    userBId = (await createTestUser(admin, userBEmail)).id
 
     await admin.from('org_members').insert([
       { user_id: userAId, organization_id: orgAId, role: 'admin' },
@@ -451,24 +417,16 @@ fullSuite('Group 3: contact_import_errors RLS cross-org isolation', () => {
     if (errErr) throw errErr
     errorAId = err.id
 
-    // Sign in anon clients
-    const makeClient = () =>
-      createClient<Database>(supabaseUrl!, anonKey!, { auth: { persistSession: false } })
-    clientA = makeClient()
-    clientB = makeClient()
-
-    const signIns = await Promise.all([
-      clientA.auth.signInWithPassword({ email: userAEmail, password }),
-      clientB.auth.signInWithPassword({ email: userBEmail, password }),
-    ])
-    for (const { error } of signIns) if (error) throw error
+    // Authenticated clients
+    clientA = await signedInClient(userAEmail)
+    clientB = await signedInClient(userBEmail)
   }, 60000)
 
   afterAll(async () => {
     if (!admin) return
     const cleanups: Promise<unknown>[] = []
-    if (userAId) cleanups.push(admin.auth.admin.deleteUser(userAId))
-    if (userBId) cleanups.push(admin.auth.admin.deleteUser(userBId))
+    if (userAId) cleanups.push(deleteTestUser(admin, userAId))
+    if (userBId) cleanups.push(deleteTestUser(admin, userBId))
     await Promise.allSettled(cleanups)
     if (orgAId) await admin.from('organizations').delete().eq('id', orgAId)
     if (orgBId) await admin.from('organizations').delete().eq('id', orgBId)

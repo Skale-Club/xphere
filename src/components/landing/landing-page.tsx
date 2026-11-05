@@ -7,8 +7,7 @@ import { motion, useScroll, useTransform, useMotionTemplate, type Variants } fro
 import { Zap, Users, Globe, Phone, MessageSquare, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { CTAButton } from '@/components/design-system/cta-button'
-import { LoginDialog, type AuthMode, type AuthView } from '@/components/auth/login-dialog'
-import { AUTH_ERROR_PARAM, oauthFailureToMessage } from '@/lib/auth/errors'
+import { LoginDialog } from '@/components/auth/login-dialog'
 import { XphereOrb } from '@/components/xphere-orb'
 import { loadSequential } from '@/lib/preload/sequential'
 import { trackEvent } from '@/lib/tracking/events'
@@ -55,7 +54,9 @@ const FALLBACK_CTA_IMAGE_URL =
   'https://mwklvkmggmsintqcqfvu.supabase.co/storage/v1/object/public/branding/landing/cta-bg.webp'
 
 /**
- * Reads the `?auth=` and `?auth_error=` query params and syncs the dialog state.
+ * Reads the `?auth=` query param and opens the sign-in dialog. `signup` and
+ * `reset` links from old emails and bookmarks still land here: there is one
+ * sign-in now, so they all open it.
  * Wrapped in its own component so we can put it inside a Suspense boundary
  * (required for useSearchParams in Next 16).
  */
@@ -63,62 +64,25 @@ function AuthQueryParamSync({
   initialAuth,
   isAuthenticated,
   setDialogOpen,
-  setInitialMode,
-  setInitialView,
-  setAuthError,
 }: {
   initialAuth?: 'login' | 'signup' | 'reset'
   isAuthenticated: boolean
   setDialogOpen: (open: boolean) => void
-  setInitialMode: (mode: AuthMode) => void
-  setInitialView: (view: AuthView) => void
-  setAuthError: (message: string | null) => void
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const authParam = initialAuth ?? searchParams.get('auth')
-  // /auth/callback sends the user back here with a reason when the OAuth
-  // round-trip failed, instead of dropping them on a bare landing page that
-  // reads as "my login didn't work" and invites a second sign-in.
-  const authErrorMessage = oauthFailureToMessage(searchParams.get(AUTH_ERROR_PARAM))
 
   useEffect(() => {
-    if (authErrorMessage) {
-      setAuthError(authErrorMessage)
-      setInitialMode('signin')
-      setInitialView('step1')
-      setDialogOpen(true)
-      return
-    }
-
     if (isAuthenticated && authParam) {
       router.replace('/dashboard')
       return
     }
 
-    if (authParam === 'login') {
-      setInitialMode('signin')
-      setInitialView('step1')
-      setDialogOpen(true)
-    } else if (authParam === 'signup') {
-      setInitialMode('signup')
-      setInitialView('step1')
-      setDialogOpen(true)
-    } else if (authParam === 'reset') {
-      setInitialMode('signin')
-      setInitialView('reset')
+    if (authParam === 'login' || authParam === 'signup' || authParam === 'reset') {
       setDialogOpen(true)
     }
-  }, [
-    authParam,
-    authErrorMessage,
-    isAuthenticated,
-    router,
-    setAuthError,
-    setDialogOpen,
-    setInitialMode,
-    setInitialView,
-  ])
+  }, [authParam, isAuthenticated, router, setDialogOpen])
 
   return null
 }
@@ -281,9 +245,6 @@ export function LandingPage({
   // ─────────────────────────────────────────────────────────────────────────
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [initialMode, setInitialMode] = useState<AuthMode>('signin')
-  const [initialView, setInitialView] = useState<AuthView>('step1')
-  const [authError, setAuthError] = useState<string | null>(null)
 
   return (
     <div className="dark min-h-screen bg-[#08090A] text-[#FAFAFA] overflow-x-hidden">
@@ -292,16 +253,9 @@ export function LandingPage({
         open={dialogOpen}
         onOpenChange={(open) => {
           setDialogOpen(open)
-          if (!open) {
-            // Drop ?auth= / ?auth_error= so a refresh doesn't replay a stale
-            // failure message.
-            if (initialAuth || authError) window.history.replaceState(null, '', '/')
-            setAuthError(null)
-          }
+          // Drop ?auth= so a refresh doesn't reopen a dialog the user closed.
+          if (!open && initialAuth) window.history.replaceState(null, '', '/')
         }}
-        initialMode={initialMode}
-        initialView={initialView}
-        initialError={authError}
       />
 
       <Suspense fallback={null}>
@@ -309,9 +263,6 @@ export function LandingPage({
           initialAuth={initialAuth}
           isAuthenticated={isAuthenticated}
           setDialogOpen={setDialogOpen}
-          setInitialMode={setInitialMode}
-          setInitialView={setInitialView}
-          setAuthError={setAuthError}
         />
       </Suspense>
 

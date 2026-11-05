@@ -15,7 +15,7 @@
 // resolve a runtime table name, so the item-table query builder (and only it) is
 // cast to `any`; folder queries stay fully typed.
 
-import type { createClient } from '@/lib/supabase/server'
+import { getUser, type createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 
 export type FolderEntityType =
@@ -87,9 +87,7 @@ export async function createFolder(
   const { data: orgId } = await ctx.supabase.rpc('get_current_org_id')
   if (!orgId) return { ok: false, error: 'no_active_org' }
 
-  const {
-    data: { user },
-  } = await ctx.supabase.auth.getUser()
+  const user = await getUser()
 
   // Pick next position within siblings (scoped by entity_type + parent).
   const { data: siblings } = await ctx.supabase

@@ -14,9 +14,9 @@ scoped to a dedicated demo organization. Code is in `src/lib/demo/`,
 
    The demo org id is fixed: `0000de00-0000-4000-8000-000000000001`.
 
-2. **Create the shared demo auth user** (Supabase dashboard → Authentication, or
-   admin API). Use a dedicated email/password, e.g. `demo@xphere.app`. Note the
-   created **user UUID**.
+2. **Create the shared demo user**: a row in `public.users` with a dedicated
+   email, e.g. `demo@xphere.app` (it has no password and never signs in through
+   the dialog). Note the created **user UUID**.
 
 3. **Link the user to the demo org and register it as the demo user** (SQL):
 
@@ -37,7 +37,6 @@ scoped to a dedicated demo organization. Code is in `src/lib/demo/`,
    ```bash
    DEMO_ORG_ID=0000de00-0000-4000-8000-000000000001
    DEMO_USER_EMAIL=demo@xphere.app
-   DEMO_USER_PASSWORD=<the password from step 2>
    ```
 
 5. **Seed demo data**:
@@ -53,8 +52,9 @@ scoped to a dedicated demo organization. Code is in `src/lib/demo/`,
 
 ## How it works
 
-- **Access:** `/demo` → programmatic `signInWithPassword` with the server-held
-  demo credentials + `vo_active_org` cookie pinned to the demo org → `/dashboard`.
+- **Access:** `/demo` → looks up the demo user by `DEMO_USER_EMAIL`, opens an
+  application session for it (any other session is destroyed first), sets the
+  session cookie + `vo_active_org` cookie pinned to the demo org → `/dashboard`.
 - **Read-only (app):** `assertWritable()` / `assertWritableOrThrow()` in core
   mutations; sensitive routes call `redirectIfDemo()`.
 - **Read-only (DB):** restrictive RLS policies block all writes when

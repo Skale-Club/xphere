@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { getAppUserById } from '@/lib/auth/users'
 import {
   resolveMeetingLocation,
   type LocationKind,
@@ -186,8 +187,7 @@ async function assembleMeetingScope(
   let organizer: MeetingScope['organizer'] = { user_id: null, name: null, email: null }
   if (eventType?.user_id) {
     try {
-      const { data: userRes } = await supabase.auth.admin.getUserById(eventType.user_id)
-      const user = userRes?.user
+      const user = await getAppUserById(eventType.user_id)
       if (user) {
         const meta = (user.user_metadata ?? {}) as Record<string, unknown>
         const fullName =

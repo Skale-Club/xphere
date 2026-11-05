@@ -13,6 +13,14 @@ vi.mock('@/lib/supabase/server', () => ({
   getUser: vi.fn(),
 }))
 
+vi.mock('@/lib/auth/users', () => ({
+  getAppUserById: vi.fn(async (id: string) => ({
+    id,
+    email: 'host@example.com',
+    user_metadata: { full_name: 'Jane Host' },
+  })),
+}))
+
 vi.mock('@/lib/supabase/admin', () => ({
   createServiceRoleClient: vi.fn(),
 }))

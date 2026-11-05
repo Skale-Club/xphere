@@ -497,6 +497,107 @@ export type OpportunityActivityType =
 export interface Database {
   public: {
     Tables: {
+      // Application-owned identity (migration 1336). Written only by the service role.
+      users: {
+        Row: {
+          id: string
+          email: string | null
+          phone: string | null
+          user_metadata: Json
+          last_sign_in_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email?: string | null
+          phone?: string | null
+          user_metadata?: Json
+          last_sign_in_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          phone?: string | null
+          user_metadata?: Json
+          last_sign_in_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      auth_google_identities: {
+        Row: {
+          project_id: string
+          subject: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          project_id: string
+          subject: string
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          project_id?: string
+          subject?: string
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'auth_google_identities_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      app_sessions: {
+        Row: {
+          id: string
+          token_hash: string
+          user_id: string
+          created_at: string
+          last_seen_at: string
+          expires_at: string
+          user_agent: string | null
+          ip: string | null
+        }
+        Insert: {
+          id?: string
+          token_hash: string
+          user_id: string
+          created_at?: string
+          last_seen_at?: string
+          expires_at: string
+          user_agent?: string | null
+          ip?: string | null
+        }
+        Update: {
+          id?: string
+          token_hash?: string
+          user_id?: string
+          created_at?: string
+          last_seen_at?: string
+          expires_at?: string
+          user_agent?: string | null
+          ip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'app_sessions_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          }
+        ]
+      }
       api_keys: {
         Row: {
           id: string
