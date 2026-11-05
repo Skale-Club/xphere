@@ -38,9 +38,9 @@ echo "contacts: $(rest "$ANON" HEAD '/contacts?select=id')"
 echo "organizations: $(rest "$ANON" HEAD '/organizations?select=id')"
 
 # A user who belongs to exactly one org that has contacts, and another org with contacts.
-read -r USER ORG <<<"$(q "select m.user_id, m.org_id from public.org_members m
+read -r USER ORG <<<"$(q "select m.user_id, m.organization_id from public.org_members m
   where m.user_id in (select user_id from public.org_members group by user_id having count(*) = 1)
-  and exists (select 1 from public.contacts c where c.org_id = m.org_id) limit 1" | tr '|' ' ')"
+  and exists (select 1 from public.contacts c where c.org_id = m.organization_id) limit 1" | tr '|' ' ')"
 OTHER=$(q "select org_id from public.contacts where org_id <> '$ORG' group by org_id order by count(*) desc limit 1")
 USERJWT=$(jwt authenticated "$USER")
 echo "== member of one org (user ${USER:0:8}, org ${ORG:0:8}; other org ${OTHER:0:8})"
