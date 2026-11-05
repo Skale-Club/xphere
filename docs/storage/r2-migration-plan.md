@@ -1,6 +1,9 @@
 # Plano: retenção de arquivos e migração para o Cloudflare R2
 
-Data: 2026-11-05. Status: plano, nada executado. Medido no banco real (leitura) e no código.
+Data: 2026-11-05. Status: execução parcial em produção; ver o
+[registro do cutover](r2-cutover-2026-11-05.md) para os buckets ativados,
+validações, resultados da cópia e pendências. Os números abaixo são o levantamento
+original, medido no banco real (leitura) e no código.
 Não depende de onde o banco está nem da autenticação, e pode vir antes das duas.
 Contexto maior: [estudo do banco](../database/self-hosted-postgres-study.md).
 
@@ -107,7 +110,7 @@ Cada fase é um release separado.
 | **1. Screenshots** | Job de retenção em simulação; conferir o relatório; ligar. A primeira execução limpa o acervo. Roda ainda no Supabase | Desligar a env. O que já foi apagado não volta |
 | **2. Mídia de conversa** | "Mídia expirada" na tela; conferir quem relê mídia antiga; ligar 30 dias | Desligar a env. O que já foi apagado não volta |
 | **3. Preparar o R2** | Buckets, domínio, credencial restrita a eles, CORS, env de produção no escopo certo (não Preview) e de dev | Sem impacto; nada usa ainda |
-| **4. Novos uploads no R2** | Módulo de storage, chamadas trocadas, rota privada. Bucket a bucket, começando por `avatars`, por env. O job passa a limpar os dois lados | Desliga a env; os novos arquivos continuam acessíveis |
+| **4. Novos uploads no R2** | Módulo de storage, chamadas trocadas, rota privada. Bucket a bucket, começando por `avatars`, por env. O job passa a limpar os dois lados | URLs públicas continuam acessíveis. Para privados, preservar a leitura/assinatura do R2 até copiar de volta os uploads novos e restaurar suas referências; desligar a env sozinho não basta |
 | **5. Copiar o que restou** | Cerca de 136 MB. Script no servidor (não neste PC), manifesto com SHA-256, troca das URLs em transação com compare-and-set e manifesto de rollback no bucket privado | Aplicar o manifesto; a origem está intacta |
 | **6. Observar e aposentar** | 14 dias. Depois, tirar o Supabase Storage do código e apagar o restante da origem, **só com sua autorização explícita** | Depois disso, não há volta |
 | **Depois** | Seletor pago de retenção por org (coluna, tela, cobrança) | Fora deste plano |
