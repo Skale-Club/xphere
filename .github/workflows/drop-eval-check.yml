@@ -1,0 +1,23 @@
+name: Drop Eval Route Check
+
+# Temporary: runs the tests touched by removing the eval route, on GitHub.
+# Removed before merge.
+
+on:
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --reporter=default tests/meta-jobs-in-app.test.ts tests/meta-audience-job.test.ts tests/openrouter-provider-policy.test.ts
+      - run: npx tsc --noEmit -p .
