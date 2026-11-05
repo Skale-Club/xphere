@@ -11034,6 +11034,14 @@ export interface Database {
           p_pinned?: boolean | null
           p_limit?: number
           p_offset?: number
+          p_statuses?: string[] | null
+          p_priorities?: string[] | null
+          p_bot_statuses?: string[] | null
+          p_phone_number_ids?: string[] | null
+          p_assigned_user_ids?: string[] | null
+          p_include_unassigned?: boolean
+          p_label_ids?: string[] | null
+          p_unread_only?: boolean
         }
         Returns: Array<{
           representative_conversation_id: string
@@ -11061,6 +11069,14 @@ export interface Database {
           p_bot_status?: string | null
           p_phone_number_id?: string | null
           p_pinned?: boolean | null
+          p_statuses?: string[] | null
+          p_priorities?: string[] | null
+          p_bot_statuses?: string[] | null
+          p_phone_number_ids?: string[] | null
+          p_assigned_user_ids?: string[] | null
+          p_include_unassigned?: boolean
+          p_label_ids?: string[] | null
+          p_unread_only?: boolean
         }
         Returns: number
       }

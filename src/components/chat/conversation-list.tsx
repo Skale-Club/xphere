@@ -123,6 +123,9 @@ export interface ConversationFilterChange {
   unread?: boolean | null
   verified?: boolean | null
   phoneNumberId?: string | null
+  /** User ids and/or 'unassigned', comma-separated. */
+  assignedUserIds?: string | null
+  pinned?: boolean | null
 }
 
 interface ConversationListProps {
@@ -294,9 +297,8 @@ export function ConversationList({
     let assigned: string | null = null
     let channel: string | null = null
 
-    // Status pill (single-select)
-    if (statusFilter === 'unread') status = 'open'
-    else if (statusFilter === 'mine') assigned = 'me'
+    // View: "Unread" is unread conversations in any status, not open ones.
+    if (statusFilter === 'mine') assigned = 'me'
 
     // Channel pills (multi-select) | comma-separated for the API
     if (selectedChannels.size > 0) {
@@ -306,10 +308,9 @@ export function ConversationList({
       if (dbValues.length > 0) channel = dbValues.join(',')
     }
 
-    // Advanced filter overrides pill status when active
-    if (advancedFilters.statuses.length === 1) status = advancedFilters.statuses[0]
-    else if (advancedFilters.statuses.length > 1) status = advancedFilters.statuses[0] // first wins for now
-    if (advancedFilters.unread) status = 'open'
+    // Every value picked in a section counts (any of them matches), sent comma-separated.
+    const join = (values: string[]) => (values.length ? values.join(',') : null)
+    status = join(advancedFilters.statuses)
 
     onFilterChange({
       status,
@@ -317,11 +318,13 @@ export function ConversationList({
       channel,
       starred: advancedFilters.starred || null,
       labelIds: advancedFilters.labelIds.length ? advancedFilters.labelIds : undefined,
-      priority: advancedFilters.priorities[0] ?? null,
-      botStatus: advancedFilters.botStatuses[0] ?? null,
-      unread: advancedFilters.unread || null,
+      priority: join(advancedFilters.priorities),
+      botStatus: join(advancedFilters.botStatuses),
+      unread: statusFilter === 'unread' || advancedFilters.unread || null,
       verified: advancedFilters.verified || null,
-      phoneNumberId: advancedFilters.phoneNumberIds[0] ?? null,
+      phoneNumberId: join(advancedFilters.phoneNumberIds),
+      assignedUserIds: join(advancedFilters.assignedUserIds),
+      pinned: advancedFilters.pinned || null,
     })
   }, [statusFilter, selectedChannels, advancedFilters, onFilterChange])
 

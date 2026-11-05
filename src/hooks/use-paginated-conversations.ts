@@ -47,8 +47,12 @@ export interface ConversationFilters {
   unread?: boolean | null
   /** Only conversations whose linked contact has a row in contact_verifications. */
   verified?: boolean | null
-  /** phone-numbers Phase 4 | restrict to a specific twilio_phone_numbers.id. */
+  /** Restrict to twilio_phone_numbers ids, comma-separated. */
   phoneNumberId?: string | null
+  /** User ids and/or 'unassigned', comma-separated. */
+  assignedUserIds?: string | null
+  /** Only the pinned section. */
+  pinned?: boolean | null
 }
 
 interface FetchPageResponse {
@@ -110,6 +114,8 @@ function buildUrl(filters: ConversationFilters, page: number, pageSize: number):
   if (filters.unread) sp.set('unread', '1')
   if (filters.verified) sp.set('verified', '1')
   if (filters.phoneNumberId) sp.set('phone_number_id', filters.phoneNumberId)
+  if (filters.assignedUserIds) sp.set('assignedUserIds', filters.assignedUserIds)
+  if (filters.pinned) sp.set('pinned', '1')
   return `/api/chat/conversations?${sp.toString()}`
 }
 
@@ -150,6 +156,8 @@ export function usePaginatedConversations(
         u: filters.unread ?? null,
         v: filters.verified ?? null,
         pn: filters.phoneNumberId ?? null,
+        au: filters.assignedUserIds ?? null,
+        pi: filters.pinned ?? null,
       }),
     [
       filters.status,
@@ -162,6 +170,8 @@ export function usePaginatedConversations(
       filters.unread,
       filters.verified,
       filters.phoneNumberId,
+      filters.assignedUserIds,
+      filters.pinned,
     ],
   )
 
