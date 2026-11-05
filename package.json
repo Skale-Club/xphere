@@ -23,6 +23,7 @@
     "eval": "cross-env RUN_AGENT_EVALS=true vitest run tests/evals/runner.test.ts --reporter=verbose",
     "seed": "tsx scripts/load-workflow-seeds.ts",
     "seed:demo": "tsx scripts/seed-demo-org.ts",
+    "db:seed-dev": "tsx scripts/seed-dev.ts",
     "seed:demo:dry": "tsx scripts/seed-demo-org.ts --dry-run",
     "workflows:validate": "tsx scripts/validate-workflows.ts",
     "workflows:validate-all": "tsx scripts/validate-workflows.ts",

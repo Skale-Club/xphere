@@ -109,6 +109,20 @@ export async function POST(request: Request) {
 - Forms use `react-hook-form` + `zod` + `zodResolver`
 - Toasts use `sonner`
 
+## Development database
+
+Production runs on a self-hosted Postgres. The Supabase project in `.env.local` is the **dev**
+database and holds sample data only.
+
+- **Never copy production data into it** (no dumps, no restores, no sync jobs).
+- `npm run db:seed-dev -- --reset` rebuilds it: wipes tenant data, keeps the owner login
+  (`DEV_KEEP_USER_EMAILS`), and seeds three obviously fake orgs. Run `-- --dry-run` first to
+  see the guard result and the wipe/keep table lists. Without `--reset` the seed is additive and
+  idempotent. The script refuses to run unless `DEV_SUPABASE_PROJECT_REF` matches
+  `NEXT_PUBLIC_SUPABASE_URL` and `DATABASE_URL`, or if `SUPABASE_REST_URL` / `DB_JWT_SECRET` is set.
+- The Supabase keepalive workflow (`.github/workflows/supabase-keepalive.yml`) keeps this project
+  from pausing.
+
 ## Database
 
 Migrations live in `supabase/migrations/` as numbered SQL files (`1281_short_name.sql`).
