@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { maskPhoneInput, normalizePhone, phonePlaceholderFor } from '@/lib/auth/phone'
+import {
+  dialCodeOf,
+  maskPhoneInput,
+  normalizePhone,
+  PHONE_COUNTRIES,
+  phonePlaceholderFor,
+  PRIORITY_COUNTRY_COUNT,
+} from '@/lib/auth/phone'
+
+describe('sign-in countries', () => {
+  it('leads with the US and Brazil', () => {
+    expect(PHONE_COUNTRIES.slice(0, PRIORITY_COUNTRY_COUNT).map((c) => c.iso)).toEqual(['US', 'BR'])
+  })
+
+  it('reads the dial code of every offered country from an international number', () => {
+    for (const country of PHONE_COUNTRIES) expect(dialCodeOf(`+${country.code}900000000`)).toBe(country.code)
+  })
+})
 
 describe('maskPhoneInput', () => {
   it('formats a US number as you type, without trailing separators', () => {
@@ -56,6 +73,6 @@ describe('maskPhoneInput', () => {
   })
 
   it('leaves a country the picker does not offer as plain digits', () => {
-    expect(maskPhoneInput('44 7911 123456', '44')).toBe('447911123456')
+    expect(maskPhoneInput('49 151 12345678', '49')).toBe('4915112345678')
   })
 })

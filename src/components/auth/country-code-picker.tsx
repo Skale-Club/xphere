@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronDown } from 'lucide-react'
 import { FlagImage, type CountryIso2 } from 'react-international-phone'
 
-import { PHONE_COUNTRIES } from '@/lib/auth/phone'
+import { PHONE_COUNTRIES, PRIORITY_COUNTRY_COUNT } from '@/lib/auth/phone'
 import { cn } from '@/lib/utils'
 
 // The country next to the phone number field. A native <select> cannot show a
@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils'
 
 const POPUP_GAP = 6
 const VIEWPORT_GAP = 8
-const POPUP_WIDTH = 224
+const POPUP_WIDTH = 256
 const POPUP_ID = 'country-code-picker-popup'
 
 /** Marker the dialog looks for so a tap in the list does not count as "outside". */
@@ -202,8 +202,11 @@ export function CountryCodePicker({
             className="pointer-events-auto fixed z-[100] overflow-y-auto rounded-xl border border-white/10 bg-[#0F1013] p-1 shadow-[0_12px_32px_rgba(0,0,0,0.6)] outline-none"
           >
             {PHONE_COUNTRIES.map((c, i) => (
+              <Fragment key={c.code}>
+              {i === PRIORITY_COUNTRY_COUNT ? (
+                <li role="presentation" aria-hidden="true" className="mx-2 my-1 h-px bg-white/10" />
+              ) : null}
               <li
-                key={c.code}
                 id={`country-${c.code}`}
                 role="option"
                 aria-selected={c.code === current.code}
@@ -225,6 +228,7 @@ export function CountryCodePicker({
                   <span className="h-4 w-4" />
                 )}
               </li>
+              </Fragment>
             ))}
           </ul>,
           document.body,

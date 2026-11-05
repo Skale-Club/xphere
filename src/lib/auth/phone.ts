@@ -5,15 +5,48 @@
 
 export const DEFAULT_COUNTRY_CODE = '1'
 
-/** Country codes offered in the sign-in screen (the rest can be typed with +). `iso` picks the flag. */
+/**
+ * Country codes offered in the sign-in screen (the rest can be pasted with +). `iso` picks the flag.
+ * Our customers are mainly in the US and Brazil, so those two lead (PRIORITY_COUNTRY_COUNT) and
+ * nearby and Portuguese- or Spanish-speaking countries follow.
+ */
 export const PHONE_COUNTRIES = [
-  { code: '1', label: 'US/CA', iso: 'US' },
-  { code: '55', label: 'BR', iso: 'BR' },
-  { code: '52', label: 'MX', iso: 'MX' },
-  { code: '57', label: 'CO', iso: 'CO' },
-  { code: '351', label: 'PT', iso: 'PT' },
-  { code: '34', label: 'ES', iso: 'ES' },
+  { code: '1', label: 'USA / Canada', iso: 'US' },
+  { code: '55', label: 'Brazil', iso: 'BR' },
+  { code: '351', label: 'Portugal', iso: 'PT' },
+  { code: '52', label: 'Mexico', iso: 'MX' },
+  { code: '54', label: 'Argentina', iso: 'AR' },
+  { code: '57', label: 'Colombia', iso: 'CO' },
+  { code: '56', label: 'Chile', iso: 'CL' },
+  { code: '51', label: 'Peru', iso: 'PE' },
+  { code: '595', label: 'Paraguay', iso: 'PY' },
+  { code: '598', label: 'Uruguay', iso: 'UY' },
+  { code: '34', label: 'Spain', iso: 'ES' },
+  { code: '44', label: 'United Kingdom', iso: 'GB' },
 ] as const
+
+export const PRIORITY_COUNTRY_COUNT = 2
+
+const REMEMBERED_COUNTRY_KEY = 'xphere_sign_in_country'
+
+/** The country of the last number a code was sent to in this browser, if it is still offered. */
+export function rememberedCountryCode(): string | null {
+  try {
+    const stored = window.localStorage.getItem(REMEMBERED_COUNTRY_KEY)
+    return PHONE_COUNTRIES.some((country) => country.code === stored) ? stored : null
+  } catch {
+    // No window on the server, and storage can be blocked: both mean nothing is remembered.
+    return null
+  }
+}
+
+export function rememberCountryCode(code: string): void {
+  try {
+    window.localStorage.setItem(REMEMBERED_COUNTRY_KEY, code)
+  } catch {
+    // Blocked storage only costs the person one tap on the next sign-in.
+  }
+}
 
 /**
  * E.164 from what a person types, or null when it can't be a phone number.
@@ -69,12 +102,19 @@ export function phonePlaceholderFor(countryCode: string = DEFAULT_COUNTRY_CODE):
     case '57': return '000 000 0000'
     case '351': return '000 000 000'
     case '34': return '000 00 00 00'
+    case '54': return '00 0000-0000'
+    case '56': return '0 0000 0000'
+    case '51': return '000 000 000'
+    case '595': return '000 000000'
+    case '598': return '00 000 000'
+    case '44': return '0000 000000'
     default: return '(000) 000-0000'
   }
 }
 
 const COUNTRY_DIAL_CODES: Record<string, string> = {
   US: '1', CA: '1', BR: '55', MX: '52', CO: '57', PT: '351', ES: '34',
+  AR: '54', CL: '56', PE: '51', PY: '595', UY: '598', GB: '44',
 }
 
 const LANGUAGE_DEFAULT_COUNTRIES: Record<string, string> = { en: 'US', pt: 'BR', es: 'ES' }
@@ -115,7 +155,7 @@ export function countryIsoFromHeaders(headers: { get(name: string): string | nul
 }
 
 /** The picker's dial codes, longest first so "351" is not read as "3". */
-const PICKER_DIAL_CODES = ['351', '55', '52', '57', '34', '1'] as const
+const PICKER_DIAL_CODES = ['351', '595', '598', '55', '54', '52', '57', '56', '51', '44', '34', '1'] as const
 
 /** The dial code of a number in international form ("+16175551182" is "1"), or null when the picker does not offer it. */
 export function dialCodeOf(phone: string | null | undefined): string | null {

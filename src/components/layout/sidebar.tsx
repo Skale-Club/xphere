@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { SidebarContext, useSidebarState } from './sidebar-context'
 import { useUnreadCount } from '@/hooks/use-unread-count'
+import { unreadLabel } from '@/lib/unread-label'
 
 function getInitials(user: User): string {
   const fullName = user.user_metadata?.full_name as string | undefined
@@ -249,11 +250,16 @@ function SidebarBody({
                     {!collapsed && <span className="truncate">{item.label}</span>}
                     {!collapsed && item.href === '/inbox' && chatUnreadCount > 0 && (
                       <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-white leading-none">
-                        {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                        {unreadLabel(chatUnreadCount)}
                       </span>
                     )}
                     {collapsed && item.href === '/inbox' && chatUnreadCount > 0 && (
-                      <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+                      <span
+                        data-testid="inbox-unread-collapsed"
+                        className="absolute right-0 top-0 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-accent px-[3px] text-[9px] font-bold leading-none text-white ring-2 ring-bg-secondary"
+                      >
+                        {unreadLabel(chatUnreadCount)}
+                      </span>
                     )}
                   </Link>
                 )

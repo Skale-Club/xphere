@@ -63,6 +63,7 @@ beforeEach(async () => {
     // A signed-in user with no workspace keeps the test from navigating.
     return Response.json({ status: 'no_access' })
   })
+  window.localStorage.clear()
   container = document.createElement('div')
   document.body.appendChild(container)
   root = createRoot(container)
@@ -132,6 +133,23 @@ describe('LoginDialog', () => {
     await type(codeField()!, '123 456')
     await settle()
     expect(mocks.confirm).toHaveBeenCalledWith('+15085550100', '123456')
+  })
+
+  it('remembers the country of the last code sent, over the geo guess', async () => {
+    const picker = () => document.querySelector('[data-testid="select-country-code"]')!.textContent
+    expect(picker()).toContain('+1')
+    window.localStorage.setItem('xphere_sign_in_country', '55')
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await act(async () => root.render(<LoginDialog open onOpenChange={() => {}} />))
+    await settle()
+    expect(picker()).toContain('+55')
+  })
+
+  it('stores the country only once a code went out', async () => {
+    expect(window.localStorage.getItem('xphere_sign_in_country')).toBeNull()
+    await reachCodeStep()
+    expect(window.localStorage.getItem('xphere_sign_in_country')).toBe('1')
   })
 
   it('clears a wrong code, keeps focus in the field and says what happened', async () => {
