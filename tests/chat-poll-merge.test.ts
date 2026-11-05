@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { mergePolledMessages } from '@/lib/chat/poll-merge'
+import { mergePolledMessages, resolveSentMessage } from '@/lib/chat/poll-merge'
 import type { ConversationMessage } from '@/types/chat'
 
 function msg(over: Partial<ConversationMessage> & { id: string }): ConversationMessage {
@@ -114,5 +114,27 @@ describe('mergePolledMessages', () => {
     expect(first.inserted).toHaveLength(2)
     expect(second.changed).toBe(false)
     expect(second.next).toBe(first.next)
+  })
+})
+
+describe('resolveSentMessage', () => {
+  const temp = msg({ id: 'temp-1', role: 'assistant', content: 'Hi' })
+  const real = msg({ id: 'real-1', role: 'assistant', content: 'Hi' })
+
+  it('swaps the temp bubble for the real message', () => {
+    const prev = [msg({ id: 'a' }), temp]
+    expect(resolveSentMessage(prev, 'temp-1', real).map((m) => m.id)).toEqual(['a', 'real-1'])
+  })
+
+  it('drops the temp bubble when a poll already inserted the real message', () => {
+    const prev = [msg({ id: 'a' }), temp, real]
+    const next = resolveSentMessage(prev, 'temp-1', real)
+    expect(next.map((m) => m.id)).toEqual(['a', 'real-1'])
+    expect(prev).toHaveLength(3)
+  })
+
+  it('leaves the list alone when the temp bubble is already gone', () => {
+    const prev = [msg({ id: 'a' }), real]
+    expect(resolveSentMessage(prev, 'temp-1', real)).toBe(prev)
   })
 })

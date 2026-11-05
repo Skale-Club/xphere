@@ -13,10 +13,16 @@ import {
 } from '@/components/ui/table'
 import type { Database, CampaignContactStatus, CampaignStatus } from '@/types/database'
 import { formatPhoneDisplay } from '@/lib/phone-numbers/format'
-import { fetchCampaignContactUpdates } from '@/app/(dashboard)/campaigns/poll-actions'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
 import { usePolling } from '@/hooks/use-polling'
 import { POLL_CAMPAIGN_ACTIVE_MS, POLL_IDLE_MS } from '@/lib/polling/intervals'
-import { mergeCampaignContacts, newestUpdatedAt } from '@/lib/campaigns/contact-merge'
+import { mergeCampaignContacts } from '@/lib/campaigns/contact-merge'
+import {
+  drainContactUpdates,
+  newestCursor,
+  type ContactCursor,
+  type ContactUpdatesPage,
+} from '@/lib/campaigns/contact-cursor'
 
 type CampaignContactRow = Database['public']['Tables']['campaign_contacts']['Row']
 
@@ -50,10 +56,11 @@ export function ContactStatusBoard({ campaignId, initialContacts, campaignStatus
   const [currentStatus, setCurrentStatus] = useState<CampaignStatus>(campaignStatus)
 
   // Poll for per-contact changes (replaces the Realtime UPDATE subscription).
-  // Only rows changed since the newest `updated_at` seen come back. Fast while
+  // Only rows after the keyset cursor (updated_at, id) come back, and a poll
+  // keeps following the cursor until the server says it is drained. Fast while
   // the campaign runs, slow otherwise (e.g. a paused campaign still being
   // edited elsewhere).
-  const cursorRef = useRef<string | null>(newestUpdatedAt(initialContacts))
+  const cursorRef = useRef<ContactCursor | null>(newestCursor(initialContacts))
   // A contact being dialled also counts: the status shown here can lag a
   // campaign that was started by its schedule.
   const isRunning =
@@ -62,10 +69,17 @@ export function ContactStatusBoard({ campaignId, initialContacts, campaignStatus
     contacts.some((c) => c.status === 'calling')
   usePolling(
     async () => {
-      const updates = await fetchCampaignContactUpdates(campaignId, cursorRef.current)
-      if (updates.length === 0) return
-      cursorRef.current = newestUpdatedAt(updates) ?? cursorRef.current
-      setContacts((prev) => mergeCampaignContacts(prev, updates))
+      const { rows, cursor } = await drainContactUpdates(
+        (c) =>
+          pollFetchJson<ContactUpdatesPage>(
+            `/api/poll/campaign-contacts?campaignId=${encodeURIComponent(campaignId)}` +
+              (c ? `&after=${encodeURIComponent(c.updatedAt)}&afterId=${encodeURIComponent(c.id)}` : ''),
+          ),
+        cursorRef.current,
+      )
+      cursorRef.current = cursor
+      if (rows.length === 0) return
+      setContacts((prev) => mergeCampaignContacts(prev, rows))
     },
     { intervalMs: isRunning ? POLL_CAMPAIGN_ACTIVE_MS : POLL_IDLE_MS, immediate: false },
   )

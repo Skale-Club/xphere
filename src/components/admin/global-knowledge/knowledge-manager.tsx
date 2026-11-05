@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { usePolling } from '@/hooks/use-polling'
 import { POLL_IDLE_MS, POLL_KNOWLEDGE_SYNC_ACTIVE_MS } from '@/lib/polling/intervals'
-import { getGlobalKnowledgeSyncStatus } from '@/app/(admin)/admin/knowledge/_actions/sync-status'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
 import { hasActiveSyncJob, syncJobsSignature } from './sync-signature'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -199,8 +199,10 @@ export function GlobalKnowledgeManager({
   usePolling(
     async () => {
       if (!connectionId) return
-      const status = await getGlobalKnowledgeSyncStatus(connectionId)
-      if (!status || status.signature === knownSyncSignature.current) return
+      const status = await pollFetchJson<{ signature: string; active: boolean }>(
+        `/api/poll/knowledge-sync?connectionId=${encodeURIComponent(connectionId)}`,
+      )
+      if (status.signature === knownSyncSignature.current) return
       knownSyncSignature.current = status.signature
       router.refresh()
     },

@@ -69,3 +69,26 @@ export function mergePolledMessages(
 
   return { next, inserted, changed: next !== prev }
 }
+
+/**
+ * Resolve an optimistic bubble once the POST response carries the real message.
+ * A poll may already have inserted that message (by id, or by taking over the
+ * temp bubble), in which case the temp bubble is dropped instead of being
+ * replaced, so the message never shows twice. Returns `prev` itself when
+ * there is no temp bubble left to resolve.
+ */
+export function resolveSentMessage(
+  prev: ConversationMessage[],
+  tempId: string,
+  real: ConversationMessage,
+): ConversationMessage[] {
+  const tempIdx = prev.findIndex((m) => m.id === tempId)
+  if (tempIdx < 0) return prev // a poll already swapped it for the real message
+  const next = [...prev]
+  if (prev.some((m) => m.id === real.id)) {
+    next.splice(tempIdx, 1)
+    return next
+  }
+  next[tempIdx] = real
+  return next
+}

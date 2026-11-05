@@ -44,24 +44,4 @@ export async function markAllNotificationsRead(): Promise<void> {
     .is('read_at', null)
 }
 
-/**
- * Notifications newer than `since` (an ISO string exactly as returned in a
- * previous row's `created_at`, so no precision is lost), oldest last. Used by
- * the bell's poll: one small indexed query instead of re-reading the list.
- * With `since = null` it behaves like `fetchNotifications`.
- */
-export async function fetchNotificationsSince(since: string | null): Promise<NotificationRow[]> {
-  if (!since) return fetchNotifications()
-  const user = await getUser()
-  if (!user) return []
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', user.id)
-    .gt('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(50)
-  if (error) return []
-  return data ?? []
-}
+// The bell's incremental poll lives in GET /api/poll/notifications.

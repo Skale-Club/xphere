@@ -8,7 +8,7 @@
  * physical phone and bridges to the contact, so the browser is NOT part of the
  * call and has no Twilio Voice SDK `Call` object to read. The only source of
  * truth is the call_logs row, updated by the /api/twilio/status webhook. We
- * poll it through a server action (every POLL_OUTBOUND_CALL_MS, only while a
+ * poll it through a route handler (every POLL_OUTBOUND_CALL_MS, only while a
  * call is tracked and the tab is visible) and surface a UI-friendly lifecycle:
  *
  *   Starting... -> Ringing... -> Connected -> Ended / Busy / No answer / ...
@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { fetchCallStatus } from '@/app/(dashboard)/calls/status-poll-actions'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
 import { usePolling } from '@/hooks/use-polling'
 import { POLL_OUTBOUND_CALL_MS } from '@/lib/polling/intervals'
 
@@ -166,9 +166,11 @@ export function useOutboundCallStatus(): UseOutboundCallStatusResult {
   usePolling(
     async () => {
       if (!sid) return
-      const row = await fetchCallStatus(sid)
+      const row = await pollFetchJson<{ status: string | null; durationSeconds: number | null }>(
+        `/api/poll/call-status?sid=${encodeURIComponent(sid)}`,
+      )
       // No row yet (webhook has not fired) or the call was dismissed/replaced.
-      if (!row || sidRef.current !== sid) return
+      if (row.status === null || sidRef.current !== sid) return
       const phase = toPhase(row.status)
       const isTerminal = TERMINAL_PHASES.has(phase)
       const durationSeconds = row.durationSeconds

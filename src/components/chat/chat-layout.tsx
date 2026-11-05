@@ -52,10 +52,11 @@ import {
   type StartChannel,
 } from '@/app/(dashboard)/inbox/actions'
 import { updateProfile } from '@/app/(dashboard)/settings/profile/actions'
-import { getInboxSignature, listInboxPhoneNumbers } from '@/app/(dashboard)/inbox/polling-actions'
+import { listInboxPhoneNumbers } from '@/app/(dashboard)/inbox/polling-actions'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
 import { usePolling } from '@/hooks/use-polling'
 import { POLL_CHAT_MS } from '@/lib/polling/intervals'
-import { mergePolledMessages } from '@/lib/chat/poll-merge'
+import { mergePolledMessages, resolveSentMessage } from '@/lib/chat/poll-merge'
 import { UNREAD_REFRESH_EVENT } from '@/hooks/use-unread-count'
 import {
   ConversationList,
@@ -548,15 +549,15 @@ export function ChatLayout({
   })
   const pollInbox = useCallback(async () => {
     const state = inboxPollRef.current
-    const signature = await getInboxSignature()
+    const { signature } = await pollFetchJson<{ signature: string }>('/api/poll/inbox-signature')
     state.ticksSinceRefresh += 1
-    const moved = signature !== null && signature !== state.signature
+    const moved = signature !== state.signature
     if (!moved && state.ticksSinceRefresh < INBOX_FULL_REFRESH_EVERY) return
 
     const page = await silentRefreshConversations()
     // A filter/page change took over: keep the old baseline so we poll again.
     if (!page) return
-    state.signature = signature ?? state.signature
+    state.signature = signature
     state.ticksSinceRefresh = 0
 
     // New message in a conversation we already knew about, and it is not the
@@ -782,13 +783,7 @@ export function ChatLayout({
       // and causes a visible flash/spinner). The next messages poll finds the same
       // message and dedupes it by id.
       if (isCurrentThread && data?.message) {
-        setMessages((prev) => {
-          const idx = prev.findIndex((m) => m.id === tempId)
-          if (idx < 0) return prev // a poll already resolved it, nothing to do
-          const next = [...prev]
-          next[idx] = data.message as ConversationMessage
-          return next
-        })
+        setMessages((prev) => resolveSentMessage(prev, tempId, data.message as ConversationMessage))
       }
       // Cross-thread: switching selectedId triggers the fetchMessages useEffect automatically.
       if (!isCurrentThread) setSelectedId(targetId)

@@ -248,4 +248,46 @@ describe('usePolling', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
     expect(resolvers).toHaveLength(2)
   })
+
+  it('arms one timer when woken inside the wake gap after a hidden run ended', async () => {
+    const resolvers: Array<() => void> = []
+    const fetcher = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvers.push(resolve)
+        }),
+    )
+    await mount(fetcher, { intervalMs: 3000 })
+    await act(async () => setHidden(true))
+    await act(async () => resolvers[0]()) // ends hidden: nothing scheduled
+    // Visible again 0ms after the run started (fake clock has not moved).
+    await act(async () => setHidden(false))
+    expect(fetcher).toHaveBeenCalledTimes(1) // inside the gap: no immediate run
+    await advance(3000)
+    expect(fetcher).toHaveBeenCalledTimes(2) // exactly one timer fired
+    await act(async () => resolvers[1]())
+    await advance(3000)
+    expect(fetcher).toHaveBeenCalledTimes(3) // and the loop continues
+  })
+
+  it('keeps polling at hiddenIntervalMs while the tab is hidden', async () => {
+    const fetcher = vi.fn().mockResolvedValue(undefined)
+    await mount(fetcher, { intervalMs: 3000, hiddenIntervalMs: 10_000 })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+
+    await act(async () => setHidden(true))
+    await advance(9_999)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    await advance(1)
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    await advance(10_000)
+    expect(fetcher).toHaveBeenCalledTimes(3)
+
+    // Back to the visible rate (and an immediate refetch) on return.
+    await advance(1_000)
+    await act(async () => setHidden(false))
+    expect(fetcher).toHaveBeenCalledTimes(4)
+    await advance(3000)
+    expect(fetcher).toHaveBeenCalledTimes(5)
+  })
 })

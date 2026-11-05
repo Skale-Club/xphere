@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Download, RotateCcw, XCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { cancelImport, retryImport, exportImportErrors, getImport } from '@/app/(dashboard)/contacts/import-history-actions'
+import { cancelImport, retryImport, exportImportErrors } from '@/app/(dashboard)/contacts/import-history-actions'
 import { usePolling } from '@/hooks/use-polling'
 import { POLL_IMPORT_PROGRESS_MS } from '@/lib/polling/intervals'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
 import { StatusPill } from '../status-pill'
 import { Button } from '@/components/ui/button'
 import type { Database, ContactImportStatus } from '@/types/database'
@@ -43,8 +44,9 @@ export function ImportDetailClient({
   // observed the terminal status has already merged it.
   usePolling(
     async () => {
-      const res = await getImport(imp.id)
-      if (!res.ok) throw new Error(res.error)
+      const res = await pollFetchJson<{ import: ImportRow }>(
+        `/api/poll/import?id=${encodeURIComponent(imp.id)}`,
+      )
       setImp((prev) => ({ ...prev, ...res.import }))
     },
     { intervalMs: POLL_IMPORT_PROGRESS_MS, enabled: isActive },

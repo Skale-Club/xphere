@@ -7,11 +7,17 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { NotificationList } from './notification-list'
 import { getTabOrgId } from '@/lib/org/tab-org'
 import { usePolling } from '@/hooks/use-polling'
-import { POLL_NOTIFICATIONS_MS } from '@/lib/polling/intervals'
+import { POLL_NOTIFICATIONS_HIDDEN_MS, POLL_NOTIFICATIONS_MS } from '@/lib/polling/intervals'
+import { pollFetchJson } from '@/lib/polling/fetch-json'
+import {
+  isFreshIncomingCall,
+  laterCreatedAt,
+  overlapSince,
+  takeUnseen,
+} from '@/lib/notifications/poll-window'
 import { toast } from 'sonner'
 import {
   fetchNotifications,
-  fetchNotificationsSince,
   markNotificationRead,
   markAllNotificationsRead,
   type NotificationRow,
@@ -64,19 +70,6 @@ export function getBadgeLabel(unreadCount: number): string | null {
   return null
 }
 
-/**
- * A ringing toast is only useful while the call is still ringing. Polling can
- * deliver an incoming_call row up to a poll interval late, so rows older than
- * this still appear in the list but no longer ring.
- */
-export const INCOMING_CALL_MAX_AGE_MS = 60_000
-
-export function isFreshIncomingCall(row: NotificationRow, now = Date.now()): boolean {
-  if (row.type !== 'incoming_call') return false
-  const age = now - new Date(row.created_at).getTime()
-  return Number.isFinite(age) && age < INCOMING_CALL_MAX_AGE_MS
-}
-
 export function NotificationBell({ userId }: NotificationBellProps) {
   const [notifications, setNotifications] = React.useState<NotificationRow[]>([])
   const [open, setOpen] = React.useState(false)
@@ -85,9 +78,11 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   const badgeLabel = getBadgeLabel(unreadCount)
 
   // `created_at` of the newest notification seen (exactly as the server sent
-  // it, so the next poll's `gt` filter loses no precision). Null until the
-  // initial fetch lands, which also gates polling.
+  // it). Each poll re-reads from a few seconds before it (a row can commit
+  // after a newer one was already visible) and drops rows by id, so nothing is
+  // skipped and nothing is handled twice. Null until the initial fetch lands.
   const newestCreatedAtRef = React.useRef<string | null>(null)
+  const knownIdsRef = React.useRef<Set<string>>(new Set())
   const initialLoadedRef = React.useRef(false)
   const stopRingtoneRef = React.useRef<(() => void) | null>(null)
 
@@ -98,6 +93,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     fetchNotifications().then((data) => {
       if (cancelled) return
       newestCreatedAtRef.current = data[0]?.created_at ?? null
+      knownIdsRef.current = new Set(data.map((n) => n.id))
       initialLoadedRef.current = true
       setNotifications(data)
     })
@@ -114,28 +110,39 @@ export function NotificationBell({ userId }: NotificationBellProps) {
   }, [])
 
   // Poll for new notifications (replaces the Realtime INSERT subscription):
-  // prepend them, and ring + toast for incoming calls.
+  // prepend them, and ring + toast for incoming calls. Keeps running in a
+  // hidden tab (slower) because the call alert cannot wait for a refocus.
   usePolling(
     async () => {
       if (!initialLoadedRef.current) return
-      const fresh = await fetchNotificationsSince(newestCreatedAtRef.current)
-      if (fresh.length === 0) return
-      // Rows arrive newest first. Advance the cursor over everything seen,
-      // including other orgs' rows that this tab does not show.
-      newestCreatedAtRef.current = fresh[0].created_at
+      const since = overlapSince(newestCreatedAtRef.current)
+      const url = since
+        ? `/api/poll/notifications?since=${encodeURIComponent(since)}`
+        : '/api/poll/notifications'
+      const { notifications: rows } = await pollFetchJson<{ notifications: NotificationRow[] }>(url)
+      if (rows.length === 0) return
+      // Advance the cursor over everything seen, including other orgs' rows
+      // that this tab does not show.
+      newestCreatedAtRef.current = rows.reduce<string | null>(
+        (acc, r) => laterCreatedAt(acc, r.created_at),
+        newestCreatedAtRef.current,
+      )
+      // Rows not seen before, oldest first. A row first seen here rings if it
+      // is a recent call, even when the tab was hidden when it arrived.
+      const unseen = takeUnseen(knownIdsRef.current, rows)
       // The server returns this user's notifications from every org they
       // belong to; this tab shows only its own org's.
       const tabOrgId = getTabOrgId()
-      const mine = tabOrgId ? fresh.filter((n) => n.org_id === tabOrgId) : fresh
+      const mine = tabOrgId ? unseen.filter((n) => n.org_id === tabOrgId) : unseen
       if (mine.length === 0) return
       setNotifications((prev) => {
         const known = new Set(prev.map((n) => n.id))
-        const added = mine.filter((n) => !known.has(n.id))
+        const added = mine.filter((n) => !known.has(n.id)).reverse() // newest first
         return added.length > 0 ? [...added, ...prev] : prev
       })
 
       // Oldest first, so the newest call is the one left ringing.
-      for (const row of [...mine].reverse()) {
+      for (const row of mine) {
         if (!isFreshIncomingCall(row)) continue
         const p = row.payload as Record<string, unknown>
         const caller = (p.caller_name as string | undefined)
@@ -155,7 +162,12 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         })
       }
     },
-    { intervalMs: POLL_NOTIFICATIONS_MS, enabled: Boolean(userId), immediate: false },
+    {
+      intervalMs: POLL_NOTIFICATIONS_MS,
+      hiddenIntervalMs: POLL_NOTIFICATIONS_HIDDEN_MS,
+      enabled: Boolean(userId),
+      immediate: false,
+    },
   )
 
   const handleMarkOne = async (id: string) => {

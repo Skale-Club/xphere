@@ -24,6 +24,9 @@ export const POLL_KNOWLEDGE_SYNC_ACTIVE_MS = 5_000
 /** Notification bell. Short because incoming-call alerts arrive through it. */
 export const POLL_NOTIFICATIONS_MS = 3_000
 
+/** Notification bell while the tab is hidden (it keeps polling so calls still ring). */
+export const POLL_NOTIFICATIONS_HIDDEN_MS = 10_000
+
 /** Sidebar unread chat badge. */
 export const POLL_UNREAD_COUNT_MS = 30_000
 

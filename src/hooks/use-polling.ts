@@ -5,8 +5,9 @@
  *
  * Behaviour:
  *   - Runs the fetcher every `intervalMs` (plus jitter so tabs do not sync up).
- *   - Pauses while `document.hidden`; refetches immediately when the tab
- *     becomes visible again and when the window regains focus.
+ *   - Pauses while `document.hidden` (unless `hiddenIntervalMs` is set, see
+ *     below); refetches immediately when the tab becomes visible again and when
+ *     the window regains focus.
  *   - Never overlaps requests: a run is skipped while the previous one is
  *     still in flight, and the next one is scheduled after it settles.
  *   - A fetcher that throws / rejects backs off exponentially
@@ -35,6 +36,12 @@ export interface UsePollingOptions {
   maxBackoffMs?: number
   /** Jitter as a fraction of the delay, applied as +/-. Default 0.15. */
   jitter?: number
+  /**
+   * Keep polling while the tab is hidden, at this (slower) interval. Unset
+   * means "pause while hidden". Only for polls whose result cannot wait for a
+   * refocus (the notification bell's incoming-call alert).
+   */
+  hiddenIntervalMs?: number
 }
 
 export interface UsePollingResult {
@@ -98,14 +105,17 @@ export function usePolling(
       timer = null
     }
 
+    // Always replaces any pending timer, so at most one is ever armed.
     const schedule = () => {
       clearTimer()
-      if (stopped || document.hidden) return
-      const { intervalMs, maxBackoffMs, jitter } = optionsRef.current
+      if (stopped) return
+      const { intervalMs, maxBackoffMs, jitter, hiddenIntervalMs } = optionsRef.current
+      if (document.hidden && !hiddenIntervalMs) return
+      const base = document.hidden && hiddenIntervalMs ? hiddenIntervalMs : intervalMs
       timer = setTimeout(() => {
         timer = null
         void run()
-      }, computePollDelay(intervalMs, failures, { maxBackoffMs, jitter }))
+      }, computePollDelay(base, failures, { maxBackoffMs, jitter }))
     }
 
     // `force` is set by explicit refetch() calls: if a run is already in flight
@@ -135,20 +145,33 @@ export function usePolling(
           return
         }
       }
-      // Hidden tabs resume from the visibility handler instead.
+      // A plain hidden tab arms no timer here; the visibility handler resumes it.
       schedule()
     }
 
+    // Whatever path it takes, a wake-up leaves exactly one thing pending: a
+    // run in flight (which schedules the next one when it settles), a run
+    // started now, or one timer. Returning early without that would strand the
+    // loop, e.g. a run that ended while the tab was hidden (no timer armed)
+    // followed by a refocus inside MIN_WAKE_GAP_MS.
     const wake = () => {
       if (stopped || document.hidden || inFlight) return
-      if (Date.now() - lastStartedAt < MIN_WAKE_GAP_MS) return
+      if (Date.now() - lastStartedAt < MIN_WAKE_GAP_MS) {
+        schedule()
+        return
+      }
       clearTimer()
       void run()
     }
 
     const onVisibility = () => {
-      if (document.hidden) clearTimer()
-      else wake()
+      if (document.hidden) {
+        // Swap the visible-rate timer for the hidden-rate one (or none).
+        if (!inFlight) schedule()
+        else clearTimer()
+      } else {
+        wake()
+      }
     }
 
     runRef.current = () => run(true)
