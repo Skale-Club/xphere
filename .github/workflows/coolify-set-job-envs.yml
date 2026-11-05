@@ -1,0 +1,46 @@
+name: Coolify — Set Job Env Vars
+
+# Copies the runtime secrets of the jobs that moved from GitHub Actions into the
+# app (meta-capi-worker, meta-audience-sync, eval-harness) from GitHub Secrets
+# into the Coolify app. Values never appear in logs. A secret that is empty here
+# is SKIPPED, never written, so a missing GitHub secret cannot blank production.
+# Does not redeploy: the next deploy or restart picks the values up.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  APP_UUID: fwjo7xriuqibl01v96vah7fz
+  COOLIFY_BASE: https://coolify.skale.club
+
+jobs:
+  set-envs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upsert job env vars
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+          META_SYSTEM_USER_TOKEN: ${{ secrets.META_SYSTEM_USER_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EVAL_ORG_ID: ${{ secrets.EVAL_ORG_ID }}
+          EVAL_AGENT_ID: ${{ secrets.EVAL_AGENT_ID }}
+        run: |
+          set -euo pipefail
+          [ -n "${COOLIFY_TOKEN}" ] || { echo "::error::COOLIFY_TOKEN secret not set"; exit 1; }
+          API="${COOLIFY_BASE}/api/v1/applications/${APP_UUID}/envs"
+          upsert() {
+            local key="$1" value="${!1:-}"
+            if [ -z "$value" ]; then echo "skip $key (empty in GitHub Secrets)"; return 0; fi
+            local body; body=$(jq -nc --arg k "$key" --arg v "$value" '{key:$k, value:$v, is_preview:false, is_literal:true}')
+            local code; code=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH "$API" \
+              -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H "Content-Type: application/json" -d "$body")
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+              code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API" \
+                -H "Authorization: Bearer ${COOLIFY_TOKEN}" -H "Content-Type: application/json" -d "$body")
+            fi
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then echo "set $key ($code)"; else echo "::error::failed $key ($code)"; return 1; fi
+          }
+          for key in META_SYSTEM_USER_TOKEN ANTHROPIC_API_KEY EVAL_ORG_ID EVAL_AGENT_ID; do upsert "$key"; done

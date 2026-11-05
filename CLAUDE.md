@@ -34,7 +34,7 @@ Always run `npm run build` after changes to catch type errors before finishing.
 
 **Runtime split:**
 - Node.js - dashboard pages, server actions, all webhook receivers (`/api/vapi/*`, `/api/meta/`, `/api/manychat/`, etc.), and the former Edge Functions (`EDGE_FUNCTIONS_IN_APP`)
-- GitHub Actions - auxiliary scheduled automation. Workflows that talk to Supabase directly (`meta-capi-worker`, `meta-audience-sync`, `eval-harness`) are disabled since the cutover: they would hit the dev database
+- GitHub Actions - auxiliary scheduled automation. `meta-capi-worker`, `meta-audience-sync` and `eval-harness` now run in the app (`/api/cron/meta-capi-worker`, `/api/cron/meta-audience-sync`, `/api/cron/eval-harness`, scheduled by skale-cron); their workflows are manual `workflow_dispatch` triggers that only curl the route
 
 **Product framing:** Xphere is a tenant-aware integration and orchestration platform. Client workflows can differ significantly, so prefer reusable platform capabilities over hardcoding one client's playbook as product-wide behavior.
 
