@@ -17,19 +17,24 @@ xmail repo made alongside this one.
 npm run dev      # dev server (Turbopack on port 4267)
 npm run build    # production build + type check
 npm run lint     # ESLint
-npx supabase db push   # apply pending migrations to remote DB
+npx supabase db push            # apply pending migrations to the DEV database (Supabase)
+scripts/migrate-prod.sh --apply # apply them to PRODUCTION (Coolify Postgres); dry run without --apply
 ```
 
 Always run `npm run build` after changes to catch type errors before finishing.
 
 ## Architecture
 
-**Stack:** Next.js 16 (App Router) · TypeScript 5 (strict) · Supabase (PostgreSQL + pgvector + Auth) · Tailwind 4 · shadcn/ui
+**Stack:** Next.js 16 (App Router) · TypeScript 5 (strict) · PostgreSQL 17 + pgvector behind PostgREST (supabase-js client) · Cloudflare R2 for files · Tailwind 4 · shadcn/ui
+
+**Where the data lives (since 2026-11-05):**
+- **Production:** Coolify Postgres `xphere-db` (container `mpvfrbenkwtvziunmelx7ars`, image `xphere-postgres:17` from `infra/postgres/Dockerfile`) and PostgREST container `xphere-postgrest` on the internal `coolify` network of the Hetzner host. No public port. The app reaches it through `SUPABASE_REST_URL` and signs its own tokens with `DB_JWT_SECRET` (`src/lib/supabase/db-exit.ts`). Daily backup to the private R2 bucket at 03:17 UTC, 14 days (`infra/postgres/backup.sh`, root crontab on the host).
+- **Development:** the Supabase project (`.env.local`). It holds a copy of production as of the cutover, with a dev-only `ENCRYPTION_SECRET`, so real integrations cannot be decrypted locally.
+- Plan and record: `docs/database/execution-plan.md`.
 
 **Runtime split:**
-- Node.js - dashboard pages, server actions, and all webhook receivers (`/api/vapi/*`, `/api/meta/`, `/api/manychat/`, etc.)
-- Deno - `supabase/functions/process-embeddings/` (Supabase Edge Function)
-- GitHub Actions - auxiliary scheduled automation such as Supabase keepalive
+- Node.js - dashboard pages, server actions, all webhook receivers (`/api/vapi/*`, `/api/meta/`, `/api/manychat/`, etc.), and the former Edge Functions (`EDGE_FUNCTIONS_IN_APP`)
+- GitHub Actions - auxiliary scheduled automation. Workflows that talk to Supabase directly (`meta-capi-worker`, `meta-audience-sync`, `eval-harness`) are disabled since the cutover: they would hit the dev database
 
 **Product framing:** Xphere is a tenant-aware integration and orchestration platform. Client workflows can differ significantly, so prefer reusable platform capabilities over hardcoding one client's playbook as product-wide behavior.
 
@@ -119,14 +124,21 @@ that version has no counterpart in `supabase/migrations/`, the next
 migrations directory"* — the whole team is then blocked from shipping schema
 until someone reconciles the history table by hand.
 
+**Since 2026-11-05 `db push` reaches only the DEVELOPMENT database** (the
+Supabase project). Production is the Coolify Postgres; `scripts/migrate-prod.sh`
+is its `db push`: it applies the files above production's newest recorded
+version, one transaction each, and records them in the same history table.
+
 To add a migration:
 
 1. Write `supabase/migrations/<next-number>_<short_name>.sql`. Make it
    idempotent (`IF NOT EXISTS`, `DROP … IF EXISTS` before `CREATE`) so a re-run
-   is a no-op.
-2. `npx supabase db push`
-3. Update `src/types/database.ts` manually or regenerate it
-4. Commit the migration file in the same PR as the code that depends on it
+   is a no-op. It must not depend on Supabase-only schemas (`storage`, `vault`,
+   `realtime`, `auth.users`): production has none of them.
+2. `npx supabase db push` (development)
+3. `scripts/migrate-prod.sh` to list, then `scripts/migrate-prod.sh --apply` (production)
+4. Update `src/types/database.ts` manually or regenerate it
+5. Commit the migration file in the same PR as the code that depends on it
 
 `supabase db push` is the only path that keeps three things in agreement: the
 files in this repo, the remote history table, and what a fresh
