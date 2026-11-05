@@ -18,6 +18,8 @@ import {
 } from '@/lib/knowledge/notion-sync'
 import { createGlobalKnowledgeNotionPage } from '@/lib/knowledge/notion-write'
 import { getGlobalKnowledgeSourceMode } from '@/lib/knowledge/global-knowledge'
+import { runsInApp, runAfterResponse } from '@/lib/edge-functions/switch'
+import { processEmbeddingJob } from '@/lib/knowledge/process-embeddings'
 
 export type GlobalKnowledgePlatform = 'meta' | 'google' | 'global'
 
@@ -397,6 +399,24 @@ async function triggerGlobalKnowledgeJob(
   try {
     // With global-knowledge on R2 the Edge Function reads a presigned GET instead of the bucket.
     const downloadUrl = storagePath ? await storage.signedUrlIfR2('global-knowledge', storagePath) : null
+
+    // EDGE_FUNCTIONS_IN_APP=process-embeddings: run the job in the app, after the
+    // response. Default (unset) keeps calling the Edge Function below.
+    if (runsInApp('process-embeddings')) {
+      runAfterResponse(
+        async () => {
+          const result = await processEmbeddingJob(createServiceRoleClient(), {
+            scope: 'global_knowledge',
+            globalKnowledgeSourceId,
+            platform,
+            ...(downloadUrl ? { downloadUrl } : {}),
+          })
+          if (result.status >= 400) console.error(`[global-knowledge] in-app embedding job returned ${result.status}`)
+        },
+        'global-knowledge',
+      )
+      return
+    }
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {

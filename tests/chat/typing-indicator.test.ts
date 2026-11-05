@@ -3,6 +3,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 /**
  * Typing indicator broadcast pattern (v2.2 / SEED-011).
  *
+ * RETIRED in the UI (db-exit A1): the inbox no longer subscribes to Supabase
+ * Realtime, and a broadcast cannot be reproduced by polling, so chat-layout does
+ * not show or send typing events any more. These tests only pin the old logic.
+ *
  * The chat-layout uses Supabase Realtime *broadcast* (not presence, not
  * postgres_changes) to surface "is the other side typing?":
  *

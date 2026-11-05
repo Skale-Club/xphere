@@ -4,7 +4,9 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Sparkles } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { createClient } from '@/lib/supabase/client'
+import { fetchCopilotBalance } from '@/app/(dashboard)/billing-poll-actions'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_CREDITS_MS } from '@/lib/polling/intervals'
 import { cn } from '@/lib/utils'
 import { getCreditsVisualState } from '@/lib/billing/credits-visibility'
 import { toCredits } from '@/components/billing/credits-card'
@@ -22,49 +24,24 @@ interface CreditsIndicatorProps {
 export function CreditsIndicator({ orgId, initialBalance }: CreditsIndicatorProps) {
   const [balance, setBalance] = React.useState(initialBalance)
   const [open, setOpen] = React.useState(false)
-  const instanceId = React.useId().replace(/:/g, '')
-
-  // Realtime subscription: live-update the balance on UPDATE without a page
-  // reload (CRB-02). Mirrors NotificationBell's channel-subscribe/cleanup effect.
-  React.useEffect(() => {
-    if (!orgId) return
-
-    const supabase = createClient()
-    const channel = supabase.channel(`copilot-credits:${orgId}:${instanceId}`)
-
-    channel.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'copilot_credit_balances',
-        filter: `org_id=eq.${orgId}`,
-      },
-      (payload) => {
-        // CRITICAL: payload.new carries raw snake_case DB column names, NOT
-        // the camelCase CopilotBalance shape — see RESEARCH.md Pitfall 3.
-        const row = payload.new as {
-          included_balance_usd: string | number
-          topup_balance_usd: string | number
-          included_allowance_usd: string | number
-        }
-        const includedUsd = Number(row.included_balance_usd)
-        const topupUsd = Number(row.topup_balance_usd)
-        setBalance({
-          includedUsd,
-          topupUsd,
-          totalUsd: includedUsd + topupUsd,
-          includedAllowanceUsd: Number(row.included_allowance_usd),
-        })
-      },
-    )
-
-    channel.subscribe()
-
-    return () => {
-      void supabase.removeChannel(channel)
-    }
-  }, [instanceId, orgId])
+  // Poll the balance so it updates without a page reload (replaces the
+  // Realtime UPDATE subscription). Skips the state write when nothing changed.
+  usePolling(
+    async () => {
+      if (!orgId) return
+      const next = await fetchCopilotBalance(orgId)
+      if (!next) return
+      setBalance((prev) =>
+        prev &&
+        prev.includedUsd === next.includedUsd &&
+        prev.topupUsd === next.topupUsd &&
+        prev.includedAllowanceUsd === next.includedAllowanceUsd
+          ? prev
+          : next,
+      )
+    },
+    { intervalMs: POLL_CREDITS_MS, enabled: Boolean(orgId), immediate: false },
+  )
 
   // Defensive second guard — the real CRB-03 gate lives in the parent's
   // conditional render (hasCreditsPlan), this just avoids rendering with no data.

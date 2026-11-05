@@ -10,19 +10,18 @@
  *
  * Responsibilities owned here:
  *   - Page-based conversation fetch via `usePaginatedConversations` (30/page)
- *   - Messages (REST + realtime)
- *   - Realtime subscriptions for INSERT/UPDATE on conversations + messages,
- *     dispatched into the hook's prepend/upsert/remove helpers so the list
- *     stays coherent without a full refetch.
- *   - Typing indicator via Supabase Realtime broadcast (no DB writes)
+ *   - Messages (REST + polling)
+ *   - Polling (POLL_CHAT_MS) for the open conversation's messages and for the
+ *     inbox list: a cheap change probe, then a silent refetch of the current
+ *     page when something changed. Paused while the tab is hidden.
  *   - Pin / priority / assign / bot-toggle mutations (optimistic)
  *   - Mobile drawer behaviour (list / chat / info, one column visible at a time)
  *   - Top-level filter state (status / assigned / channel) is owned here so the
  *     hook can refetch + reset to page 1 when the user changes a pill.
  *
  * The left/middle/right column components are presentational and receive
- * pre-computed state. Realtime UPDATE events from Supabase reconcile any
- * optimistic state with the canonical DB.
+ * pre-computed state. Each poll reconciles any optimistic state with the
+ * canonical DB.
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
@@ -53,7 +52,11 @@ import {
   type StartChannel,
 } from '@/app/(dashboard)/inbox/actions'
 import { updateProfile } from '@/app/(dashboard)/settings/profile/actions'
-import { createClient } from '@/lib/supabase/client'
+import { getInboxSignature, listInboxPhoneNumbers } from '@/app/(dashboard)/inbox/polling-actions'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_CHAT_MS } from '@/lib/polling/intervals'
+import { mergePolledMessages } from '@/lib/chat/poll-merge'
+import { UNREAD_REFRESH_EVENT } from '@/hooks/use-unread-count'
 import {
   ConversationList,
   type ConversationFilterChange,
@@ -73,6 +76,14 @@ const INBOX_DEFAULT_WIDTH = 300
 const INBOX_MAX_WIDTH = 420
 const CHAT_MIN_WIDTH = 420
 const MESSAGE_PAGE_SIZE = 30
+/** Newest messages re-read on every poll of the open conversation. */
+const MESSAGE_POLL_LIMIT = MESSAGE_PAGE_SIZE
+/**
+ * The inbox list is refetched when the change probe moves, and at least once
+ * per this many polls even when it does not (an update that touches neither
+ * `updated_at` nor `last_message_at`, or a delete).
+ */
+const INBOX_FULL_REFRESH_EVERY = 10
 
 function agentSettingsHref(channel: string | null | undefined) {
   const agentChannel = conversationChannelToAgentChannel(channel)
@@ -82,50 +93,6 @@ function agentSettingsHref(channel: string | null | undefined) {
 
 function clampInboxWidth(width: number, maxWidth: number) {
   return Math.min(Math.max(width, INBOX_MIN_WIDTH), maxWidth)
-}
-
-function mapConversationRow(row: Record<string, unknown>): ConversationSummary {
-  const meta = (row.channel_metadata as Record<string, string>) ?? {}
-  const pageId = meta?.page_id ?? null
-  return {
-    id: row.id as string,
-    status: ((row.status as string) ?? 'open') as ConversationStatus,
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-    lastMessageAt: (row.last_message_at as string | null) ?? null,
-    visitorName: (row.visitor_name as string | null) ?? null,
-    visitorEmail: (row.visitor_email as string | null) ?? null,
-    visitorPhone: (row.visitor_phone as string | null) ?? null,
-    lastMessage: (row.last_message as string | null) ?? null,
-    channel: (row.channel as string) ?? 'widget',
-    channelMetadata: meta,
-    botStatus: (row.bot_status as string) ?? 'active',
-    channelAccountName: pageId,
-    pinned: Boolean(row.pinned),
-    starred: Boolean(row.starred),
-    priority: ((row.priority as string) ?? 'normal') as ConversationPriority,
-    contactId: (row.contact_id as string | null) ?? null,
-    contactName: null, // realtime raw row has no joined contact — preserved from API state via upsert
-    contactAvatarUrl: null, // same as contactName — joined later via the next paged fetch
-    contactVerified: false, // unknown until the paged refetch resolves it
-    assignedUserId: (row.assigned_user_id as string | null) ?? null,
-    lastInboundAt: (row.last_inbound_at as string | null) ?? null,
-    // Carry the name-prefix flag so a realtime UPDATE echo doesn't wipe the
-    // optimistic toggle (the upsert replaces the row, preserving only a few fields).
-    operatorNamePrefix: Boolean(row.show_operator_name_prefix),
-  }
-}
-
-function mapMessageRow(row: Record<string, unknown>): ConversationMessage {
-  return {
-    id: row.id as string,
-    conversationId: row.conversation_id as string,
-    role: row.role as string,
-    content: row.content as string,
-    createdAt: row.created_at as string,
-    metadata: (row.metadata as Record<string, unknown> | null) ?? null,
-    channel: (row.channel as string | null) ?? null,
-  }
 }
 
 function messagePreview(message: ConversationMessage): string {
@@ -218,11 +185,6 @@ export function ChatLayout({
     assigned: null,
     channel: null,
   })
-  const statusFilterRef = useRef<string | null>(filters.status)
-
-  useEffect(() => {
-    statusFilterRef.current = filters.status
-  }, [filters.status])
 
   // Stable filter setter | the list calls this from an effect, so we want to
   // ignore identical updates to prevent refetch loops.
@@ -249,7 +211,7 @@ export function ChatLayout({
     nextPage,
     prevPage,
     refresh: refreshConversations,
-    prepend: prependConversation,
+    silentRefresh: silentRefreshConversations,
     upsert: upsertConversation,
     remove: removeConversation,
   } = usePaginatedConversations(filters)
@@ -277,10 +239,14 @@ export function ChatLayout({
   const [phoneNumbers, setPhoneNumbers] = useState<Array<{ id: string; label: string; e164: string }>>([])
   const [infoOpen, setInfoOpen] = useState(true)
   const [mobileView, setMobileView] = useState<MobileView>('list')
-  const [isTyping, setIsTyping] = useState(false)
   const [inboxWidth, setInboxWidth] = useState(INBOX_DEFAULT_WIDTH)
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const selectedIdRef = useRef<string | null>(null)
+  // Latest messages (for poll side effects) and the conversation whose first
+  // page has loaded (polling waits for it so the initial load is not mistaken
+  // for a burst of new messages).
+  const messagesRef = useRef<ConversationMessage[]>([])
+  const messagesLoadedForRef = useRef<string | null>(null)
+  const fetchedConversationRef = useRef<ConversationSummary | null>(null)
 
   const findVisibleConversation = useCallback(
     (id: string): ConversationSummary | undefined => {
@@ -354,6 +320,7 @@ export function ChatLayout({
       if (selectedIdRef.current === id) {
         setMessages(data.messages ?? [])
         setHasMoreMessages(data.hasMore ?? false)
+        messagesLoadedForRef.current = id
       }
     } catch {
       // ignore
@@ -395,8 +362,17 @@ export function ChatLayout({
     // (scroll restoration). Without this, switching from a longer to a
     // shorter conversation could leave the view stuck mid-thread.
     setMessages([])
+    messagesLoadedForRef.current = null
     fetchMessages(selectedId)
   }, [selectedId, fetchMessages])
+
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  useEffect(() => {
+    fetchedConversationRef.current = fetchedConversation
+  }, [fetchedConversation])
 
   // When the selected conversation isn't on the currently-loaded page of the
   // list, fetch its summary directly so the chat area can render it instead of
@@ -541,29 +517,12 @@ export function ChatLayout({
 
   // Fetch active Twilio numbers for the phone filter
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('twilio_phone_numbers')
-      .select('id, inbox_label, friendly_name, e164')
-      .eq('is_active', true)
-      .is('archived_at', null)
-      .order('inbox_label')
-      .then(
-        (res) => {
-          if (!res.data) return
-          setPhoneNumbers(
-            res.data.map((r) => ({
-              id: r.id,
-              label: r.inbox_label ?? r.friendly_name ?? '',
-              e164: r.e164,
-            })),
-          )
-        },
-        () => {},
-      )
+    listInboxPhoneNumbers()
+      .then((numbers) => setPhoneNumbers(numbers))
+      .catch(() => {})
   }, [])
 
-  // ───────────────────────── Realtime: conversations ─────────────────────────
+  // ───────────────────────── Polling: conversations ─────────────────────────
 
   // Tracks last known lastMessageAt per conversation to detect new inbounds.
   const lastMessageAtMapRef = useRef<Map<string, string | null>>(new Map())
@@ -578,94 +537,97 @@ export function ChatLayout({
     }
   }, [conversations, pinned])
 
-  useEffect(() => {
-    if (!currentOrgId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`chat-inbox-conversations-${currentOrgId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
-        (payload) => {
-          const newConv = mapConversationRow(payload.new)
-          if (!matchesInboxStatusFilter(newConv.status, statusFilterRef.current)) return
-          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
-          lastMessageAtMapRef.current.set(newConv.id, newLastMessageAt)
-          prependConversation(newConv)
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
-        (payload) => {
-          const updated = mapConversationRow(payload.new)
-          const newLastMessageAt = (payload.new as Record<string, unknown>).last_message_at as string | null
-          const prevLastMessageAt = lastMessageAtMapRef.current.get(updated.id) ?? null
-          lastMessageAtMapRef.current.set(updated.id, newLastMessageAt)
+  // Poll the inbox (replaces the Realtime INSERT/UPDATE/DELETE subscriptions on
+  // conversations). A cheap probe runs every POLL_CHAT_MS; the full, joined
+  // page is refetched silently when the probe moves (and every
+  // INBOX_FULL_REFRESH_EVERY polls regardless). The server applies the status
+  // filter, so archived/closed rows drop out and new rows appear by themselves.
+  const inboxPollRef = useRef<{ signature: string | null; ticksSinceRefresh: number }>({
+    signature: null,
+    ticksSinceRefresh: 0,
+  })
+  const pollInbox = useCallback(async () => {
+    const state = inboxPollRef.current
+    const signature = await getInboxSignature()
+    state.ticksSinceRefresh += 1
+    const moved = signature !== null && signature !== state.signature
+    if (!moved && state.ticksSinceRefresh < INBOX_FULL_REFRESH_EVERY) return
 
-          // Realtime rows bypass the filtered inbox_entries RPC. Reapply its
-          // default status contract here so archiving from this tab (or another
-          // operator's tab) removes the row immediately instead of leaving a
-          // stale "Archived" card in the default Inbox.
-          if (!matchesInboxStatusFilter(updated.status, statusFilterRef.current)) {
-            removeConversation(updated.id)
-            return
-          }
+    const page = await silentRefreshConversations()
+    // A filter/page change took over: keep the old baseline so we poll again.
+    if (!page) return
+    state.signature = signature ?? state.signature
+    state.ticksSinceRefresh = 0
 
-          // New inbound in a non-selected conversation → mark unread + browser notification
-          const isOtherConversation = updated.id !== selectedIdRef.current
-          const hasNewMessage = newLastMessageAt && newLastMessageAt !== prevLastMessageAt
-          if (isOtherConversation && hasNewMessage) {
-            upsertConversation({ ...updated, isUnread: true })
-            if (
-              typeof window !== 'undefined' &&
-              'Notification' in window &&
-              Notification.permission === 'granted' &&
-              !document.hasFocus()
-            ) {
-              const name =
-                updated.contactName ?? updated.visitorName ?? updated.visitorPhone ?? 'New message'
-              const notif = new Notification(name, {
-                body: updated.lastMessage ?? '',
-                icon: '/api/pwa/icons/192',
-                tag: `msg-${updated.id}`,
-              })
-              notif.addEventListener('click', () => {
-                window.focus()
-                setSelectedId(updated.id)
-                notif.close()
-              })
-            }
-          } else {
-            upsertConversation(updated)
-          }
+    // New message in a conversation we already knew about, and it is not the
+    // open one -> mark unread + browser notification (same as the old UPDATE
+    // handler). Brand-new rows only seed the map, as the INSERT handler did.
+    let sawNewMessage = false
+    for (const conversation of [...page.pinned, ...page.conversations]) {
+      const known = lastMessageAtMapRef.current.has(conversation.id)
+      const previous = lastMessageAtMapRef.current.get(conversation.id) ?? null
+      const latest = conversation.lastMessageAt ?? null
+      lastMessageAtMapRef.current.set(conversation.id, latest)
+      if (!known || !latest || latest === previous) continue
+      sawNewMessage = true
+      if (conversation.id === selectedIdRef.current) continue
 
-          setFetchedConversation((prev) => {
-            if (!prev || prev.id !== updated.id) return prev
-            return {
-              ...prev,
-              ...updated,
-              channelAccountName: updated.channelAccountName ?? prev.channelAccountName,
-              contactName: updated.contactName ?? prev.contactName,
-              contactAvatarUrl: updated.contactAvatarUrl ?? prev.contactAvatarUrl,
-              contactVerified: updated.contactVerified || prev.contactVerified,
-            }
-          })
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'conversations', filter: `org_id=eq.${currentOrgId}` },
-        (payload) => {
-          const oldId = (payload.old as { id?: string })?.id
-          if (oldId) removeConversation(oldId)
-        },
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
+      upsertConversation({ ...conversation, isUnread: true })
+      if (
+        typeof window !== 'undefined' &&
+        'Notification' in window &&
+        Notification.permission === 'granted' &&
+        !document.hasFocus()
+      ) {
+        const name =
+          conversation.contactName ?? conversation.visitorName ?? conversation.visitorPhone ?? 'New message'
+        const notif = new Notification(name, {
+          body: conversation.lastMessage ?? '',
+          icon: '/api/pwa/icons/192',
+          tag: `msg-${conversation.id}`,
+        })
+        notif.addEventListener('click', () => {
+          window.focus()
+          setSelectedId(conversation.id)
+          notif.close()
+        })
+      }
     }
-  }, [currentOrgId, prependConversation, upsertConversation, removeConversation])
+    // Let the sidebar badge catch up without waiting for its own poll.
+    if (sawNewMessage) window.dispatchEvent(new Event(UNREAD_REFRESH_EVENT))
+
+    // The open conversation may live outside the loaded page (opened by link):
+    // keep its header/summary fresh too.
+    const openId = selectedIdRef.current
+    const detached = fetchedConversationRef.current
+    if (openId && detached && detached.id === openId) {
+      const res = await fetch(`/api/chat/conversations/${openId}`)
+      if (res.ok) {
+        const data = await res.json()
+        const fresh = data?.conversation as ConversationSummary | undefined
+        if (fresh && selectedIdRef.current === openId) {
+          setFetchedConversation((prev) =>
+            prev && prev.id === openId
+              ? {
+                  ...prev,
+                  ...fresh,
+                  channelAccountName: fresh.channelAccountName ?? prev.channelAccountName,
+                  contactName: fresh.contactName ?? prev.contactName,
+                  contactAvatarUrl: fresh.contactAvatarUrl ?? prev.contactAvatarUrl,
+                  contactVerified: fresh.contactVerified || prev.contactVerified,
+                }
+              : prev,
+          )
+        }
+      }
+    }
+  }, [silentRefreshConversations, upsertConversation])
+
+  usePolling(pollInbox, {
+    intervalMs: POLL_CHAT_MS,
+    enabled: Boolean(currentOrgId),
+    immediate: false,
+  })
 
   const handleConversationStatusChanged = useCallback(
     (id: string, nextStatus: ConversationStatus) => {
@@ -678,127 +640,46 @@ export function ChatLayout({
     [filters.status, refreshConversations, removeConversation],
   )
 
-  // ───────────────────────── Realtime: messages ─────────────────────────
+  // ───────────────────────── Polling: messages ─────────────────────────
 
-  useEffect(() => {
-    if (!selectedId || !currentOrgId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`chat-inbox-messages-${selectedId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'conversation_messages',
-          filter: `conversation_id=eq.${selectedId}`,
-        },
-        (payload) => {
-          const newMsg = mapMessageRow(payload.new)
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev
-            const newTime = new Date(newMsg.createdAt).getTime()
-            const dupIdx = prev.findIndex(
-              (m) =>
-                m.id.startsWith('temp-') &&
-                m.role === newMsg.role &&
-                m.content === newMsg.content &&
-                Math.abs(new Date(m.createdAt).getTime() - newTime) < 30000,
-            )
-            if (dupIdx >= 0) {
-              const next = [...prev]
-              next[dupIdx] = newMsg
-              return next
-            }
-            return [...prev, newMsg]
-          })
-          updateConversationPreview(newMsg)
-          // Keep the actively-open thread marked read as inbound messages
-          // stream in, so the sidebar Chat badge doesn't tick up for a
-          // conversation the operator is already watching. (The invalidate
-          // trigger clears the read row on each inbound message.)
-          if (newMsg.role === 'user' && selectedId) {
-            void fetch(`/api/chat/conversations/${selectedId}/read`, { method: 'POST' })
-              .then(() => window.dispatchEvent(new Event('xphere:unread-refresh')))
-              .catch(() => {})
-          }
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'conversation_messages',
-          filter: `conversation_id=eq.${selectedId}`,
-        },
-        (payload) => {
-          // Reflect in-place changes (e.g. delivery_status sent→delivered→read)
-          // on an already-rendered message without a refetch.
-          const updated = mapMessageRow(payload.new)
-          setMessages((prev) => {
-            const idx = prev.findIndex((m) => m.id === updated.id)
-            if (idx < 0) return prev
-            const next = [...prev]
-            next[idx] = { ...prev[idx], ...updated }
-            return next
-          })
-        },
-      )
-      .subscribe()
-    return () => {
-      supabase.removeChannel(channel)
+  // Poll the newest page of the open thread (replaces the Realtime INSERT and
+  // UPDATE subscriptions on conversation_messages). New messages are appended
+  // or swapped in for the optimistic bubble, in-place changes (delivery status)
+  // are applied; see mergePolledMessages.
+  const pollMessages = useCallback(async () => {
+    const id = selectedIdRef.current
+    // Wait for the first page so the initial load is not read as new traffic.
+    if (!id || messagesLoadedForRef.current !== id) return
+    const res = await fetch(
+      `/api/chat/conversations/${id}/messages?includeInternal=true&limit=${MESSAGE_POLL_LIMIT}`,
+    )
+    if (!res.ok) throw new Error(`messages poll failed (${res.status})`)
+    const data = await res.json() as { messages?: ConversationMessage[] }
+    if (selectedIdRef.current !== id) return
+    const polled = data.messages ?? []
+
+    // Side effects are derived from the last rendered thread; the state update
+    // itself merges into the live state, so optimistic sends are never lost.
+    const { inserted } = mergePolledMessages(messagesRef.current, polled)
+    setMessages((prev) => mergePolledMessages(prev, polled).next)
+    if (inserted.length === 0) return
+    for (const message of inserted) updateConversationPreview(message)
+    // Keep the actively-open thread marked read as inbound messages arrive, so
+    // the sidebar Chat badge doesn't tick up for a conversation the operator is
+    // already watching. (The invalidate trigger clears the read row on each
+    // inbound message.)
+    if (inserted.some((m) => m.role === 'user')) {
+      void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' })
+        .then(() => window.dispatchEvent(new Event(UNREAD_REFRESH_EVENT)))
+        .catch(() => {})
     }
-  }, [selectedId, currentOrgId])
+  }, [updateConversationPreview])
 
-  // ───────────────────────── Realtime: typing broadcast ─────────────────────────
-  // Broadcast channel per-conversation. Both sides (operator + customer-side
-  // adapter) publish a "typing" event on keystroke; we surface it as a dot
-  // indicator and auto-clear after 3 seconds of silence.
-
-  useEffect(() => {
-    if (!selectedId) {
-      setIsTyping(false)
-      return
-    }
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`typing:${selectedId}`, {
-        config: { broadcast: { self: false } },
-      })
-      .on('broadcast', { event: 'typing' }, (payload) => {
-        const fromUser = (payload.payload as { user_id?: string })?.user_id
-        if (fromUser && fromUser === currentUserId) return // own echo
-        setIsTyping(true)
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-        typingTimeoutRef.current = setTimeout(() => setIsTyping(false), 3000)
-      })
-      .subscribe()
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      supabase.removeChannel(channel)
-    }
-  }, [selectedId, currentUserId])
-
-  // Outbound typing broadcast (debounced inside MessageComposer ~500ms)
-  const broadcastTyping = useCallback(() => {
-    if (!selectedId) return
-    const supabase = createClient()
-    const channel = supabase.channel(`typing:${selectedId}`)
-    channel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        channel.send({
-          type: 'broadcast',
-          event: 'typing',
-          payload: { user_id: currentUserId, conversation_id: selectedId, ts: Date.now() },
-        })
-        // Best-effort cleanup | the receiver auto-times out after 3s.
-        setTimeout(() => {
-          supabase.removeChannel(channel)
-        }, 500)
-      }
-    })
-  }, [selectedId, currentUserId])
+  usePolling(pollMessages, {
+    intervalMs: POLL_CHAT_MS,
+    enabled: Boolean(selectedId && currentOrgId),
+    immediate: false,
+  })
 
   // ───────────────────────── Mutations ─────────────────────────
 
@@ -898,12 +779,12 @@ export function ChatLayout({
       if (data?.message) updateConversationPreview(data.message as ConversationMessage)
       // Swap the optimistic temp bubble for the real message from the response.
       // This avoids calling fetchMessages (which blanks + replaces the entire array
-      // and causes a visible flash/spinner). The Realtime subscription also fires and
-      // dedupes silently via the `prev.some((m) => m.id === newMsg.id)` guard.
+      // and causes a visible flash/spinner). The next messages poll finds the same
+      // message and dedupes it by id.
       if (isCurrentThread && data?.message) {
         setMessages((prev) => {
           const idx = prev.findIndex((m) => m.id === tempId)
-          if (idx < 0) return prev // Realtime already resolved it, nothing to do
+          if (idx < 0) return prev // a poll already resolved it, nothing to do
           const next = [...prev]
           next[idx] = data.message as ConversationMessage
           return next
@@ -929,7 +810,8 @@ export function ChatLayout({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      // Realtime UPDATE will reconcile the list | no manual refetch needed.
+      // Reconcile the list now instead of waiting for the next poll.
+      void silentRefreshConversations().catch(() => {})
     } catch {
       // ignore
     }
@@ -1186,7 +1068,7 @@ export function ChatLayout({
               if (conv?.isUnread) {
                 upsertConversation({ ...conv, isUnread: false })
                 // Drop the sidebar Chat badge on the same tick; the
-                // conversation_reads realtime echo reconciles the true count.
+                // the next unread-count poll reconciles the true count.
                 window.dispatchEvent(new Event('xphere:unread-decrement'))
               }
               void fetch(`/api/chat/conversations/${id}/read`, { method: 'POST' }).catch(() => {})
@@ -1224,9 +1106,7 @@ export function ChatLayout({
             conversation={selected}
             messages={messages}
             isLoading={isMessagesLoading}
-            isTyping={isTyping}
             onSendMessage={handleSendMessage}
-            onTyping={broadcastTyping}
             onStatusChange={handleStatusChange}
             onDelete={() => selectedId && handleDelete(selectedId)}
             onBack={() => {}}
@@ -1373,10 +1253,8 @@ export function ChatLayout({
               conversation={selected}
               messages={messages}
               isLoading={isMessagesLoading}
-              isTyping={isTyping}
-              onSendMessage={handleSendMessage}
-              onTyping={broadcastTyping}
-              onStatusChange={handleStatusChange}
+                onSendMessage={handleSendMessage}
+                onStatusChange={handleStatusChange}
               onDelete={() => selectedId && handleDelete(selectedId)}
               onBack={() => setMobileView('list')}
               onBotStatusToggle={handleBotToggle}

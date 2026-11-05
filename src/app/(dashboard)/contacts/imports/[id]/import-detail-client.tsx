@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Download, RotateCcw, XCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { createClient } from '@/lib/supabase/client'
-import { cancelImport, retryImport, exportImportErrors } from '@/app/(dashboard)/contacts/import-history-actions'
+import { cancelImport, retryImport, exportImportErrors, getImport } from '@/app/(dashboard)/contacts/import-history-actions'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_IMPORT_PROGRESS_MS } from '@/lib/polling/intervals'
 import { StatusPill } from '../status-pill'
 import { Button } from '@/components/ui/button'
 import type { Database, ContactImportStatus } from '@/types/database'
@@ -31,32 +32,23 @@ export function ImportDetailClient({
   const [exporting, setExporting] = React.useState(false)
   const router = useRouter()
 
-  // IMP-11: Subscribe to Realtime updates for this import
-  React.useEffect(() => {
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`import-progress-${imp.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'contact_imports',
-          filter: `id=eq.${imp.id}`,
-        },
-        (payload) => {
-          setImp((prev) => ({ ...prev, ...(payload.new as Partial<ImportRow>) }))
-        },
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [imp.id])
-
   const progressPct = imp.total_rows > 0
     ? Math.round((imp.processed_rows / imp.total_rows) * 100)
     : imp.progress_percent
 
   const isActive = imp.status === 'queued' || imp.status === 'processing'
+
+  // IMP-11: poll progress while the import runs (replaces the Realtime
+  // subscription). Stops by itself once the status is terminal; the poll that
+  // observed the terminal status has already merged it.
+  usePolling(
+    async () => {
+      const res = await getImport(imp.id)
+      if (!res.ok) throw new Error(res.error)
+      setImp((prev) => ({ ...prev, ...res.import }))
+    },
+    { intervalMs: POLL_IMPORT_PROGRESS_MS, enabled: isActive },
+  )
   const isDone = ['completed', 'partial', 'failed', 'cancelled'].includes(imp.status)
   const canCancel = isActive
   const canRetry = imp.status === 'failed' || imp.status === 'partial' || imp.status === 'cancelled'

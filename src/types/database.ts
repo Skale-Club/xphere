@@ -4474,6 +4474,30 @@ export interface Database {
           }
         ]
       }
+      push_vapid_config: {
+        Row: {
+          id: boolean
+          public_key: string
+          private_key_encrypted: string
+          contact: string
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          public_key: string
+          private_key_encrypted: string
+          contact: string
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          public_key?: string
+          private_key_encrypted?: string
+          contact?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           id: string

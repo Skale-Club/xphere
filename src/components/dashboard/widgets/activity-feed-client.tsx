@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { Loader2, MessageSquare, Phone, Bot, Zap, Star, AlertTriangle, type LucideIcon } from 'lucide-react'
 import { formatDistanceToNowStrict } from 'date-fns'
 
-import { createClient } from '@/lib/supabase/client'
+import { usePolling } from '@/hooks/use-polling'
+import { POLL_ACTIVITY_FEED_MS } from '@/lib/polling/intervals'
+import { mergeActivityEvents } from '@/lib/dashboard/activity-merge'
 import { cn } from '@/lib/utils'
 import { getActivityFeed } from '@/app/(dashboard)/actions'
 import type { ActivityFeedEvent, ActivityFeedFilter } from '@/app/(dashboard)/activity-feed-types'
@@ -32,37 +34,31 @@ const typeMeta: Record<
 
 interface Props {
   initial: ActivityFeedEvent[]
-  orgId: string | null
 }
 
-export function ActivityFeedClient({ initial, orgId }: Props) {
+export function ActivityFeedClient({ initial }: Props) {
   const [events, setEvents] = useState<ActivityFeedEvent[]>(initial)
   const [filter, setFilter] = useState<ActivityFeedFilter>('all')
   const [offset, setOffset] = useState(initial.length)
   const [hasMore, setHasMore] = useState(initial.length >= 15)
   const [pending, startTransition] = useTransition()
 
-  // Realtime broadcast subscription | best-effort. Failures are silent;
-  // the server-rendered list still works.
+  // Poll the first page and prepend events that are not on screen yet. This
+  // replaces a Realtime broadcast subscription that nothing ever published to.
+  const filterRef = useRef(filter)
   useEffect(() => {
-    if (!orgId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`dashboard:${orgId}`, { config: { broadcast: { self: false } } })
-      .on('broadcast', { event: 'activity' }, (payload) => {
-        const evt = payload.payload as ActivityFeedEvent | null
-        if (!evt || !evt.id) return
-        setEvents((prev) => {
-          if (prev.some((e) => e.id === evt.id)) return prev
-          return [evt, ...prev].slice(0, 200)
-        })
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [orgId])
+    filterRef.current = filter
+  }, [filter])
+  usePolling(
+    async () => {
+      const polledFilter = filterRef.current
+      const next = await getActivityFeed(0, polledFilter, 15)
+      // The user switched filters while this was in flight: drop the result.
+      if (polledFilter !== filterRef.current) return
+      setEvents((prev) => mergeActivityEvents(prev, next))
+    },
+    { intervalMs: POLL_ACTIVITY_FEED_MS, immediate: false },
+  )
 
   // Filter changes refetch from offset 0.
   useEffect(() => {

@@ -7,6 +7,9 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import type { Database } from '@/types/database'
 import * as storage from '@/lib/storage'
+import { createServiceRoleClient } from '@/lib/supabase/admin'
+import { runsInApp, runAfterResponse } from '@/lib/edge-functions/switch'
+import { processEmbeddingJob } from '@/lib/knowledge/process-embeddings'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getAuthedOrgId(): Promise<{ supabase: any; orgId: string }> {
@@ -221,6 +224,23 @@ async function triggerEmbeddingJob(
       storagePath && storagePath.startsWith(`${organizationId}/`)
         ? await storage.signedUrlIfR2('knowledge-docs', storagePath)
         : null
+
+    // EDGE_FUNCTIONS_IN_APP=process-embeddings: run the job in the app, after the
+    // response. Default (unset) keeps calling the Edge Function below.
+    if (runsInApp('process-embeddings')) {
+      runAfterResponse(
+        async () => {
+          const result = await processEmbeddingJob(createServiceRoleClient(), {
+            documentId: sourceId,
+            organizationId,
+            ...(downloadUrl ? { downloadUrl } : {}),
+          })
+          if (result.status >= 400) console.error(`[knowledge] in-app embedding job returned ${result.status}`)
+        },
+        'knowledge',
+      )
+      return
+    }
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
