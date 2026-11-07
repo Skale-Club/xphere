@@ -78,6 +78,29 @@ afterEach(async () => {
 })
 
 describe('LoginDialog', () => {
+  it('tracks keyboard resize/pan only while open and removes its listeners on close', async () => {
+    await act(async () => root.render(<LoginDialog open={false} />))
+    const viewport = Object.assign(new EventTarget(), { width: 390, height: 844, offsetTop: 0, offsetLeft: 0 })
+    const add = vi.spyOn(viewport, 'addEventListener')
+    const remove = vi.spyOn(viewport, 'removeEventListener')
+    vi.stubGlobal('visualViewport', viewport)
+    await act(async () => root.render(<LoginDialog open />))
+    const overlay = () => document.querySelector<HTMLElement>('.login-viewport')!
+    expect(overlay().style.height).toBe('844px')
+    await act(async () => {
+      Object.assign(viewport, { height: 300, offsetTop: 120, width: 380, offsetLeft: 5 })
+      viewport.dispatchEvent(new Event('resize'))
+      viewport.dispatchEvent(new Event('scroll'))
+    })
+    expect(overlay().style.height).toBe('300px')
+    expect(overlay().style.top).toBe('120px')
+    expect(overlay().style.width).toBe('380px')
+    expect(overlay().style.left).toBe('5px')
+    await act(async () => root.render(<LoginDialog open={false} />))
+    for (const [event, listener] of add.mock.calls) expect(remove).toHaveBeenCalledWith(event, listener)
+    expect(add.mock.calls.map(([event]) => event)).toEqual(['resize', 'scroll'])
+  })
+
   it('shows the Xphere logo and a neutral line, never "Welcome back"', () => {
     const text = dialog()!.textContent ?? ''
     expect(dialog()!.querySelector('[data-testid="login-logo"]')).not.toBeNull()

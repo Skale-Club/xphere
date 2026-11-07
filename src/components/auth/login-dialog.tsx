@@ -93,11 +93,37 @@ function browserCountryCode(): string {
   return phoneCountryCodeFromLocales(navigator.languages ?? [navigator.language])
 }
 
+/** iOS/Android keyboards resize/pan the visual viewport, not necessarily the layout viewport. */
+function useLoginViewport(open: boolean) {
+  const [style, setStyle] = useState<React.CSSProperties>()
+  useEffect(() => {
+    if (!open) return
+    const viewport = window.visualViewport
+    const update = () => setStyle({
+      inset: 'auto',
+      top: viewport?.offsetTop ?? 0,
+      left: viewport?.offsetLeft ?? 0,
+      width: viewport?.width ?? window.innerWidth,
+      height: viewport?.height ?? window.innerHeight,
+    })
+    update()
+    viewport?.addEventListener('resize', update)
+    viewport?.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
+    return () => {
+      viewport?.removeEventListener('resize', update)
+      viewport?.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [open])
+  return style
+}
+
 // 16px minimum on touch screens: below that iOS Safari zooms the page on focus.
 const fieldClass =
   'h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-base text-[#FAFAFA] placeholder:text-[#52525B] transition-colors ' +
   'focus-visible:outline-none focus-visible:border-indigo-500/60 focus-visible:ring-2 focus-visible:ring-indigo-500/40 ' +
-  'aria-[invalid=true]:border-red-500/50 sm:text-sm'
+  'aria-[invalid=true]:border-red-500/50'
 
 const primaryButtonClass =
   'w-full h-12 text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-medium disabled:opacity-50'
@@ -219,6 +245,7 @@ export function LoginDialog(props: LoginDialogProps) {
   const isControlled = props.open !== undefined
   const [internalOpen, setInternalOpen] = useState(false)
   const open = isControlled ? (props.open as boolean) : internalOpen
+  const viewportStyle = useLoginViewport(open)
 
   const [config, setConfig] = useState<GoogleLoginConfig | null>(null)
   const [configFailed, setConfigFailed] = useState(false)
@@ -243,6 +270,7 @@ export function LoginDialog(props: LoginDialogProps) {
   const pending = useRef(false)
   const navigationLock = useRef(false)
   const codeRef = useRef<HTMLInputElement>(null)
+  const contextRef = useRef<HTMLDivElement>(null)
   // A country the person picked is never overwritten by a guess.
   const countryChosen = useRef(rememberedCountryCode() !== null)
 
@@ -303,6 +331,12 @@ export function LoginDialog(props: LoginDialogProps) {
   }, [open])
 
   useEffect(() => cancelGooglePhoneChallenge, [])
+
+  // Reveal a failure inside its own scroll area without moving the focused
+  // field or its submit button out from above the keyboard.
+  useEffect(() => {
+    if (error && contextRef.current) contextRef.current.scrollTop = contextRef.current.scrollHeight
+  }, [error])
 
   useEffect(() => {
     if (step !== 'code') return
@@ -483,22 +517,24 @@ export function LoginDialog(props: LoginDialogProps) {
             e.preventDefault()
           }
         }}
-        className="max-w-[calc(100%-2rem)] sm:max-w-[400px] p-0 gap-0 border border-white/10 rounded-2xl overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
+        overlayProps={{ className: 'login-viewport', style: viewportStyle }}
+        className="login-panel flex min-h-0 min-w-0 max-h-full max-w-[400px] flex-col p-0 gap-0 border border-white/10 rounded-2xl overflow-hidden shadow-[0_16px_40px_rgba(0,0,0,0.7)] !bg-[#08090A]"
       >
         <DialogTitle className="sr-only">Sign in to Xphere</DialogTitle>
         <GradientTopLine />
         {navigating && <NavigatingOverlay label="Signing you in" />}
-        <div className="relative px-6 pb-6 pt-9 sm:px-8">
-          <Brand />
+        <div className="login-body relative flex min-h-0 min-w-0 flex-col px-6 pb-6 pt-9 sm:px-8">
+          <div className="login-brand shrink-0"><Brand /></div>
 
           {/* Only the step content is keyed: the dialog itself is never remounted between steps. */}
           <div
             key={step}
-            className="mt-5 min-h-[21.25rem] animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+            className="login-step mt-5 flex min-h-0 min-w-0 flex-col animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
           >
             {step === 'phone' ? (
               <>
                 <form
+                  className="login-form flex min-h-0 flex-col"
                   noValidate
                   onSubmit={(e) => {
                     e.preventDefault()
@@ -506,17 +542,19 @@ export function LoginDialog(props: LoginDialogProps) {
                     else failure('invalid_phone')
                   }}
                 >
-                  <DialogDescription className="text-center text-sm text-[#A1A1AA]">
-                    Sign in with your phone number.
-                  </DialogDescription>
+                  <div ref={contextRef} className="login-context min-h-0 overflow-y-auto">
+                    <DialogDescription className="text-center text-sm text-[#A1A1AA]">
+                      Sign in with your phone number.
+                    </DialogDescription>
 
-                  <div className="mt-6 space-y-4">
-                    <div className="space-y-3 empty:hidden">
+                    <div className="mt-3 space-y-3 empty:hidden">
                       {configFailed ? <AuthError message={signInErrorMessage('auth_unavailable')} /> : null}
                       {note ? <Notice message={note} /> : null}
                       {error ? <AuthError id="login-error" message={error} /> : null}
                     </div>
+                  </div>
 
+                  <div className="login-controls mt-6 shrink-0 space-y-4">
                     <div className="space-y-2">
                       <label htmlFor="login-phone" className="block text-sm font-medium text-[#D4D4D8]">
                         Phone number
@@ -565,61 +603,66 @@ export function LoginDialog(props: LoginDialogProps) {
                       )}
                     </Button>
                   </div>
+                  <div className="login-secondary min-h-0 overflow-y-auto">
+                    <Divider />
+                    <GoogleButton
+                      disabled={locked || !config}
+                      loading={action === 'google'}
+                      onClick={() => void continueWithGoogle()}
+                    />
+                    <p className="mt-5 text-center text-xs leading-relaxed text-[#A1A1AA]">
+                      By continuing you agree to the{' '}
+                      <a
+                        href="/terms"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#D4D4D8] underline-offset-2 hover:underline"
+                      >
+                        Terms of Service
+                      </a>{' '}
+                      and the{' '}
+                      <a
+                        href="/privacy"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#D4D4D8] underline-offset-2 hover:underline"
+                      >
+                        Privacy Policy
+                      </a>
+                      .
+                    </p>
+                  </div>
                 </form>
-                <Divider />
-                <GoogleButton
-                  disabled={locked || !config}
-                  loading={action === 'google'}
-                  onClick={() => void continueWithGoogle()}
-                />
-                <p className="mt-5 text-center text-xs leading-relaxed text-[#A1A1AA]">
-                  By continuing you agree to the{' '}
-                  <a
-                    href="/terms"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#D4D4D8] underline-offset-2 hover:underline"
-                  >
-                    Terms of Service
-                  </a>{' '}
-                  and the{' '}
-                  <a
-                    href="/privacy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#D4D4D8] underline-offset-2 hover:underline"
-                  >
-                    Privacy Policy
-                  </a>
-                  .
-                </p>
               </>
             ) : null}
 
             {step === 'code' ? (
               <form
+                className="login-form flex min-h-0 flex-col"
                 noValidate
                 onSubmit={(e) => {
                   e.preventDefault()
                   if (code.length === 6) void verify(code)
                 }}
               >
-                <button
-                  type="button"
-                  onClick={backToStart}
-                  disabled={locked}
-                  className="-ml-2 flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-[#A1A1AA] transition-colors hover:text-[#FAFAFA] disabled:opacity-50"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Use another number
-                </button>
-                <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#FAFAFA]">Enter the code</h2>
-                <DialogDescription className="mt-1 text-sm text-[#A1A1AA]">
-                  We texted a 6-digit code to {formatPhone(phone)}.
-                </DialogDescription>
+                <div ref={contextRef} className="login-context min-h-0 overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={backToStart}
+                    disabled={locked}
+                    className="-ml-2 flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm text-[#A1A1AA] transition-colors hover:text-[#FAFAFA] disabled:opacity-50"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Use another number
+                  </button>
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-[#FAFAFA]">Enter the code</h2>
+                  <DialogDescription className="mt-1 text-sm text-[#A1A1AA]">
+                    We texted a 6-digit code to {formatPhone(phone)}.
+                  </DialogDescription>
 
-                <div className="mt-5 space-y-4">
-                  {error ? <AuthError id="login-error" message={error} /> : null}
+                  <div className="mt-3 empty:hidden">{error ? <AuthError id="login-error" message={error} /> : null}</div>
+                </div>
+                <div className="login-controls mt-5 shrink-0 space-y-4">
                   <CodeSlots
                     ref={codeRef}
                     value={code}
@@ -659,7 +702,7 @@ export function LoginDialog(props: LoginDialogProps) {
             ) : null}
 
             {step === 'no_workspace' ? (
-              <div className="space-y-4">
+              <div className="min-h-0 overflow-y-auto space-y-4">
                 <div>
                   <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">No workspace yet</h2>
                   <DialogDescription className="mt-1 text-sm text-[#A1A1AA]">

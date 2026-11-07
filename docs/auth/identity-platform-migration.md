@@ -67,6 +67,12 @@ Additive, idempotent, applied with `npx supabase db push`.
 | Browser SDK | `src/lib/auth/google-identity-client.ts` | Copied from Xpot; in-memory Firebase persistence |
 | Sign-in UI | `src/components/auth/login-dialog.tsx` | Phone, code, Google; no password, sign-up or reset forms |
 
+The sign-in dialog follows the visual viewport's size and offset so phone/code
+fields and their submit buttons stay visible together above a mobile keyboard.
+When space is constrained, contextual copy and alternate sign-in content scroll
+independently of those controls. The logo and form share a dark, width-constrained
+surface in both themes. Browser regression: `tests/e2e/login-dialog-layout.test.ts`.
+
 Removed: `src/actions/auth.ts`, `/auth/callback`, `/auth/update-password`, the password section in Settings,
 `updatePassword`, `@supabase/ssr`. `src/proxy.ts` no longer refreshes a token: it only re-issues the session cookie.
 Clients are created with supabase-js's `accessToken` option, which makes any leftover `supabase.auth.*` throw. Only `supabase-jwt.ts` may call `auth.admin` and `verifyOtp`.

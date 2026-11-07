@@ -2,6 +2,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Login owns a visual-viewport-sized overlay. Keep the editable field and its
+   submit action together; contextual copy/alternate sign-in can scroll when a
+   keyboard leaves little room. The surface never inherits the light theme. */
+.login-viewport {
+  container-type: size;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+.login-panel { background: #08090a; color-scheme: dark; }
+.login-body, .login-step, .login-form { flex-shrink: 1; }
+.login-context, .login-secondary { overscroll-behavior: contain; }
+@container (max-height: 540px) {
+  .login-body { padding: 12px 20px; }
+  .login-brand { min-height: 32px; }
+  .login-step { margin-top: 8px; }
+  .login-controls { margin-top: 8px; }
+  .login-controls > :not(:last-child) { margin-bottom: 8px; }
+  .login-secondary { margin-top: 4px; }
+}
+
 /* ============================================================================
  * Operator Design System — v2.1
  * Linear / Vercel / Stripe / Notion quality bar.

@@ -74,6 +74,19 @@ toolbar actions (including Pin) in panels from 240 to 900 pixels:
 npx vitest run --config vitest.e2e.config.ts tests/e2e/chat-header-layout.test.ts
 ```
 
+The login regression mounts the interactive dialog with production CSS and an
+offline identity provider. It models keyboard resize/pan through VisualViewport
+events while keeping the layout viewport unchanged, including both login steps,
+verification errors, landscape, light/dark themes, and the window-resize fallback:
+
+```bash
+npx vitest run --config vitest.e2e.config.ts tests/e2e/login-dialog-layout.test.ts
+```
+
+The field and submit button must remain visible together, the logo must stay
+centered, and the dark panel must fit horizontally without overflow. These are
+browser simulations; native keyboard behavior still benefits from a device check.
+
 Audio message layout tests render the full conversation list with incoming and
 outgoing audio in both themes. They verify usable waveform width, visible bars,
 and controls contained within the panel:

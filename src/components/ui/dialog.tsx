@@ -40,13 +40,16 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideCloseButton?: boolean }
->(({ className, children, hideCloseButton = false, onPointerDownOutside, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    hideCloseButton?: boolean
+    overlayProps?: React.ComponentPropsWithoutRef<typeof DialogOverlay>
+  }
+>(({ className, children, hideCloseButton = false, overlayProps, onPointerDownOutside, ...props }, ref) => (
   <DialogPortal>
     {/* The overlay is the scroll container: a dialog taller than the window scrolls with the
         backdrop instead of being cut off, and dropdowns drawn inside the dialog (PhoneInput,
         AccountCombobox) can still spill past its edge. p-4 is the gutter on small screens. */}
-    <DialogOverlay className="grid overflow-y-auto overflow-x-hidden p-4">
+    <DialogOverlay {...overlayProps} className={cn("grid overflow-y-auto overflow-x-hidden p-4", overlayProps?.className)}>
       <DialogPrimitive.Content
         ref={ref}
         onPointerDownOutside={(event) => {
