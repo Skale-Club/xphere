@@ -1,5 +1,27 @@
 # AGENTS.md
 
+<!-- journal-protocol:v1 -->
+## Journal (mandatory)
+
+This app's history (what it does, how each part was built, decisions and releases) lives in its Notion Journal. It replaces the old GSD/PAUL planning flow; `.planning/` and `.paul/`, if present, are a read-only legacy archive.
+
+- Journal hub: https://app.notion.com/p/411b7a6861218106afe4d8d52ae2ac2e
+- Journal Entries data source: collection://bcf52840-9e24-4df0-92cc-09135e0d8456
+- Latest view: view://411b7a68-6121-815b-a65c-000cf926a348
+- Entry prefix: XPH
+- Rules (they win on any conflict): https://app.notion.com/p/411b7a68612181b3ac36f4ce2b2c3850 (skill: `app-journal`)
+
+**Start of session:** fetch the hub and read Identity and Current State; list the latest 20 entries (Notion query-data-sources, `rows` mode, sort `Date` descending, `limit` 20) and read only titles and summaries; open only the entries you need; never read the whole database. Cross-check with the code: the code is the fact.
+
+**End of every task that changed code, behavior, infrastructure or a decision:**
+1. Create ONE entry in the data source above (one per logical unit of work, not per commit): `Title` = `YYYY-MM-DD — <imperative summary>`, `Date`, `Type`, `Area`, `Status`, `Summary` (max 280 characters), `Agent`, `Model`, `Repo / Branch`, `Commits / PR`, `Tests` (what ran, or "Not run"), and `Decision ID` / `Decision Status` when a choice was made.
+2. Body headings: Context · What changed · How it was built · Decisions and why · Tests and evidence · Not done / risks · Next.
+3. If the app changed, rewrite the affected part of the hub's Current State. Read back what you wrote; never report a write you did not see.
+4. Notion unavailable: append the full entry to `docs/journal/PENDING-NOTION.md` and tell the owner.
+
+Journal records are in English. No secrets.
+<!-- /journal-protocol -->
+
 This file is for AI coding agents and automation working inside the Xphere repository. Read this before making changes.
 
 ## Mission
@@ -26,10 +48,8 @@ Before making non-trivial changes, ground yourself in these files:
 1. [`README.md`](/README.md)
 2. [`CLAUDE.md`](/CLAUDE.md)
 3. [`WORKFLOWS.md`](/WORKFLOWS.md) — required before authoring any workflow
-4. [`PROJECT.md`](/.planning/PROJECT.md)
-5. [`STATE.md`](/.planning/STATE.md)
-6. Relevant phase or milestone artifacts in [`.planning/milestones`](/.planning/milestones)
-7. For workflow authoring specifically: [`.planning/agents/workflow-authoring.md`](/.planning/agents/workflow-authoring.md)
+4. The Notion Journal (see the Journal section above) for current state and history
+5. For workflow authoring specifically: [`.planning/agents/workflow-authoring.md`](/.planning/agents/workflow-authoring.md)
 
 ## Repo Facts
 
@@ -113,21 +133,12 @@ See [`src/lib/crypto.ts`](/c:/Users/Vanildo/Dev/xphere/src/lib/crypto.ts).
 
 ## Planning Folder Expectations
 
-The `.planning` directory is part of the project source of truth, not background clutter.
-
-Use it to answer:
-
-- what the product is trying to do: [`PROJECT.md`](/c:/Users/Vanildo/Dev/xphere/.planning/PROJECT.md)
-- what has already shipped: [`MILESTONES.md`](/c:/Users/Vanildo/Dev/xphere/.planning/MILESTONES.md)
-- what the current state and next priorities are: [`STATE.md`](/c:/Users/Vanildo/Dev/xphere/.planning/STATE.md)
-- how a feature was originally implemented: phase archives in [`.planning/milestones`](/c:/Users/Vanildo/Dev/xphere/.planning/milestones)
-
-When a code change materially alters product behavior, architecture, or milestone status, update the relevant planning docs as part of the same task when appropriate.
+Current state and history live in the Notion Journal (see the Journal section above). `.planning/` is a legacy archive: read it for historical design detail only (for example how a feature was originally implemented, in the phase archives under [`.planning/milestones`](/c:/Users/Vanildo/Dev/xphere/.planning/milestones)), and do not create new GSD/PAUL artifacts.
 
 ## Recommended Workflow
 
 1. Inspect the relevant feature area and tests.
-2. Check `.planning` for intent, constraints, or known gaps.
+2. Check the Notion Journal (and, for historical design detail only, `.planning`) for intent, constraints, or known gaps.
 3. Make the smallest change that solves the problem cleanly.
 4. Run verification proportional to the change.
 5. Call out any residual risk, especially around Edge latency, RLS, or secrets.
