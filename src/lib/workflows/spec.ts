@@ -532,6 +532,15 @@ export const NODES: NodeSpec[] = [
     examples: [{}],
   },
   {
+    type: 'websites_site_info',
+    kind: 'action',
+    description:
+      "Read the business's contact details, opening hours, published services and service areas straight from its Skale Club Websites site. Use it to answer what the business does and where it works instead of guessing — a service not listed there is one the site does not offer.",
+    integration_required: ['websites'],
+    params_schema: { type: 'object', properties: {} },
+    examples: [{}],
+  },
+  {
     type: 'xkedule_lookup_customer',
     kind: 'action',
     description: 'Resolve a phone number to the matching Xkedule customer and their upcoming bookings, so the agent can recognize a returning caller.',

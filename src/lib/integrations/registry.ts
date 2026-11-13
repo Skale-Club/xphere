@@ -406,6 +406,37 @@ export const INTEGRATION_REGISTRY: IntegrationDefinition[] = [
   },
 
   {
+    id: 'websites',
+    name: 'Websites',
+    description: 'Skale Club Websites tenant. Lets AI agents read the business’s contact details, hours, services and service areas straight from its site.',
+    category: 'crm',
+    logo: { letter: 'W', color: 'bg-emerald-600' },
+    panelType: 'api_key',
+    canActivate: true,
+    testable: false,
+    fields: [
+      {
+        key: 'location_id',
+        label: 'Site URL',
+        type: 'url',
+        required: true,
+        placeholder: 'https://yourbusiness.com',
+        hint: 'The public https URL of the tenant’s site (no trailing slash).',
+      },
+      {
+        key: 'api_key',
+        label: 'Connection Token',
+        type: 'password',
+        required: true,
+        placeholder: 'xph_...',
+        hint: 'A Xphere API key (Settings → API Keys). Paste the SAME token into the tenant’s admin (Integrations → Xphere) and enable it there. It authenticates both directions of this connection — no env vars.',
+        pattern: /^xph_.{8,}/,
+        patternError: 'Must be a Xphere API key starting with "xph_" (Settings → API Keys).',
+      },
+    ],
+  },
+
+  {
     id: 'xpot',
     name: 'Xpot',
     description: 'Field sales. Send prospects for an in-person visit and keep tasks in sync with the field team.',

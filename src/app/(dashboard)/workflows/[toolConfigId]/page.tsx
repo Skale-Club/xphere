@@ -73,6 +73,7 @@ const ACTION_TYPE_LABELS: Record<ToolConfigRow['action_type'], string> = {
   xkedule_quote: 'Xkedule: Get Quote',
   xkedule_lookup_customer: 'Xkedule: Look Up Customer',
   xkedule_business_info: 'Xkedule: Business Info & Policies',
+  websites_site_info: 'Websites: Site Info (services & areas)',
   send_zernio_dm: 'Instagram/Facebook: Send DM',
   medusa_search_products: 'Medusa: Search Products',
   medusa_get_product: 'Medusa: Get Product',

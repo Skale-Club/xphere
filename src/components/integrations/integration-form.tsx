@@ -41,6 +41,7 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   resend: 'Resend',
   zernio: 'Zernio',
   xkedule: 'Xkedule',
+  websites: 'Websites',
   medusa: 'Medusa',
   google_search_console: 'Google Search Console',
   dataforseo: 'DataForSEO',

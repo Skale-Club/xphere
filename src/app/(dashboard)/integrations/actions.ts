@@ -10,7 +10,7 @@ import { assertSafeBaseUrl, MedusaUnsafeBaseUrlError } from '@/lib/medusa/client
 export type IntegrationForDisplay = {
   id: string
   organization_id: string
-  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'medusa' | 'google_search_console' | 'dataforseo' | 'xpot'
+  provider: 'gohighlevel' | 'twilio' | 'calcom' | 'custom_webhook' | 'openai' | 'anthropic' | 'openrouter' | 'vapi' | 'manychat' | 'google_contacts' | 'google_calendar' | 'telegram' | 'resend' | 'zernio' | 'xkedule' | 'websites' | 'medusa' | 'google_search_console' | 'dataforseo' | 'xpot'
   name: string
   masked_api_key: string // ••••••••last4 | never full key
   location_id: string | null
@@ -365,8 +365,18 @@ export async function saveIntegrationCredentials(
   // (paste-the-same-token-both-ways design, src/lib/integrations/registry.ts)
   // -- reject an obviously-wrong value server-side too, not just in the
   // client panel (ApiKeyPanel), so a direct/programmatic call can't bypass it.
-  if (provider === 'xkedule' && apiKey && !/^xph_.{8,}/.test(apiKey)) {
+  if ((provider === 'xkedule' || provider === 'websites') && apiKey && !/^xph_.{8,}/.test(apiKey)) {
     return { ok: false, error: 'Connection Token must be a Xphere API key starting with "xph_".' }
+  }
+
+  // The Websites "Site URL" is fetched server-side with the org's Xphere key attached
+  // (src/lib/websites/site-info.ts), so apply the same SSRF guard Medusa gets, at save time.
+  if (provider === 'websites' && locationId) {
+    try {
+      assertSafeBaseUrl(locationId)
+    } catch {
+      return { ok: false, error: 'Site URL must be a public https URL.' }
+    }
   }
 
   // X10 (SSRF hardening): the Medusa "Server URL" field becomes

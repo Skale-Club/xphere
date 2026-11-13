@@ -85,6 +85,7 @@ const DELIBERATE_READS = new Set([
   'xkedule_quote',
   'xkedule_lookup_customer',
   'xkedule_business_info',
+  'websites_site_info',
   'medusa_search_products',
   'medusa_get_product',
   'medusa_get_cart',

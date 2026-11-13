@@ -62,6 +62,7 @@ import { rescheduleXkeduleBooking } from '@/lib/xkedule/actions/reschedule-booki
 import { getXkeduleQuote } from '@/lib/xkedule/actions/quote'
 import { lookupXkeduleCustomer } from '@/lib/xkedule/actions/lookup-customer'
 import { getXkeduleBusinessInfo } from '@/lib/xkedule/actions/business-info'
+import { getWebsitesCredentialsForOrg, getWebsitesSiteInfo } from '@/lib/websites/site-info'
 import { getMedusaCredentialsForOrg } from '@/lib/medusa/credentials'
 import { searchMedusaProducts } from '@/lib/medusa/actions/search-products'
 import { getMedusaProduct } from '@/lib/medusa/actions/get-product'
@@ -774,6 +775,14 @@ async function _executeActionInner(
       const xkCreds = await getXkeduleCredentialsForOrgCached(ctx.organizationId, ctx.supabase)
       if (!xkCreds) throw new Error('Xkedule integration not configured for this organization')
       return getXkeduleBusinessInfo(params, xkCreds)
+    }
+    case 'websites_site_info': {
+      if (!ctx?.organizationId || !ctx?.supabase) {
+        throw new Error('websites_site_info requires ctx.organizationId and ctx.supabase')
+      }
+      const webCreds = await getWebsitesCredentialsForOrg(ctx.organizationId, ctx.supabase)
+      if (!webCreds) throw new Error('Websites integration not configured for this organization')
+      return getWebsitesSiteInfo(params, webCreds)
     }
     // Medusa read tools (MED-03/MED-04): unlike xkedule above, these never
     // throw on missing ctx/creds -- they return friendly strings so a

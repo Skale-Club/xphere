@@ -1,6 +1,6 @@
 // src/lib/integrations/url-credentials.ts
 // The shape shared by integrations that pair a base URL with a secret token
-// (Xkedule, Xpot): location_id holds the URL, encrypted_api_key the token.
+// (Xkedule, Xpot, Websites): location_id holds the URL, encrypted_api_key the token.
 // A provider with a single fixed host (Xpot) passes `fixedBaseUrl` and its
 // location_id is ignored. Returns null unless the org's integration is active
 // and has both a URL and a token.
@@ -10,7 +10,7 @@ import { decrypt } from '@/lib/crypto'
 
 export async function getUrlCredentials(
   orgId: string,
-  provider: 'xkedule' | 'xpot',
+  provider: 'xkedule' | 'xpot' | 'websites',
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any, any, any>,
   fixedBaseUrl?: string,
